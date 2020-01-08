@@ -1,0 +1,31 @@
+%% -*- erlang -*-
+{application, blockchain_http,
+ [
+   {description, "A Helium blockchain HTTP API"},
+   {vsn, "0.1.0"},
+   {registered, []},
+   {mod, {blockchain_http_app, []}},
+   {
+    applications,
+    [
+     kernel,
+     stdlib,
+     syntax_tools,
+     compiler,
+     lager,
+     epgsql,
+     poolboy,
+     jsone,
+     observer_cli,
+     telemetry,
+     envloader,
+     psql_migration,
+     elli
+    ]
+   },
+   {env, []},
+   {modules, []},
+   {licenses, ["Apache 2.0"]},
+   {links, []}
+ ]
+}.
