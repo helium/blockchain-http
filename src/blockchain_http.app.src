@@ -16,6 +16,7 @@
      epgsql,
      poolboy,
      jsone,
+     h3,
      observer_cli,
      telemetry,
      envloader,

@@ -9,10 +9,8 @@ handle(Req, _Args) ->
     %% Delegate to our handler function
     handle(Req#req.method, elli_request:path(Req), Req).
 
-handle('GET',[<<"hello">>, <<"world">>], _Req) ->
-    %% Reply with a normal response. `ok' can be used instead of `200'
-    %% to signal success.
-    {ok, [], <<"Hello World!">>};
+handle(Method, [<<"api">>, <<"blocks">> | Tail], Req) ->
+    bh_route_blocks:handle(Method, Tail, Req);
 
 handle(_, _, _Req) ->
     {404, [], <<"Not Found">>}.

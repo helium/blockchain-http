@@ -1,6 +1,7 @@
 -module(bh_sup).
 
 -behaviour(supervisor).
+-include("bh_db_worker.hrl").
 
 %% API
 -export([start_link/0]).
@@ -9,7 +10,6 @@
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
--define(DB_POOL, db_pool).
 
 -define(WORKER(I, Args), #{
     id => I,
@@ -30,19 +30,22 @@ init([]) ->
                  intensity => 10,
                  period => 10},
     {ok, DBOpts} = psql_migration:connection_opts([]),
+    {ok, RouteHandlers} = application:get_env(blockchain_http, route_handlers),
+    {ok, PoolArgs} = application:get_env(blockchain_http, db_pool),
     ChildSpecs =
         [
          ?WORKER(elli, [
                         [{callback, bh_routes}, {port, 8080}]
                        ]),
          poolboy:child_spec(?DB_POOL,
-                            [{name, {local, ?DB_POOL}},
-                             {worker_module, bh_db_worker},
-                             {size, 10},
-                             {max_overflow, 20}
-                            ],
-                            maps:to_list(DBOpts)
-                            )
+                            [
+                             {name, {local, ?DB_POOL}},
+                             {worker_module, bh_db_worker}
+                             ] ++ PoolArgs,
+                            [
+                             {db_opts, DBOpts},
+                             {route_handlers, RouteHandlers}
+                            ])
         ],
 
     {ok, {SupFlags, ChildSpecs}}.
