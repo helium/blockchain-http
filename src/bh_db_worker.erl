@@ -61,7 +61,10 @@ handle_call({squery, Sql}, _From, #state{db_conn=Conn}=State) ->
     {reply, epgsql:squery(Conn, Sql), State};
 handle_call({equery, Stmt, Params}, _From, #state{db_conn=Conn}=State) ->
     {reply, epgsql:equery(Conn, Stmt, Params), State};
-handle_call(_Request, _From, State) ->
+handle_call({prepared_query, Name, Params}, _From, #state{db_conn=Conn}=State) ->
+    {reply, epgsql:prepared_query(Conn, Name, Params), State};
+handle_call(Request, _From, State) ->
+    lager:notice("Unhandled call ~p", [Request]),
     {reply, ok, State}.
 
 handle_cast(_Msg, State) ->
