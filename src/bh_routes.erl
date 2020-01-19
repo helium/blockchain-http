@@ -11,6 +11,8 @@ handle(Req, _Args) ->
 
 handle(Method, [<<"api">>, <<"blocks">> | Tail], Req) ->
     bh_route_blocks:handle(Method, Tail, Req);
+handle(Method, [<<"api">>, <<"accounts">> | Tail], Req) ->
+    bh_route_accounts:handle(Method, Tail, Req);
 
 handle(_, _, _Req) ->
     {404, [], <<"Not Found">>}.
