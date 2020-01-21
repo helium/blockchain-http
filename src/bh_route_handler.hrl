@@ -9,3 +9,5 @@
 -define(GET_ARG_BEFORE(R), elli_request:get_arg(<<"before">>, (R), <<"-1">>)).
 
 -define(MK_RESPONSE(R), bh_route_handler:mk_response((R))).
+-define(INSERT_LAT_LON(L, N, F), bh_route_handler:lat_lon((L), (N), (F))).
+-define(INSERT_LAT_LON(L, F), bh_route_handler:lat_lon((L), (F))).

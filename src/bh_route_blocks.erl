@@ -92,16 +92,16 @@ txn_to_json({<<"poc_request_v1">>,
                <<"challenger">> := Challenger,
                <<"location">> := Location,
                <<"owner">> := Owner}}) ->
-    lat_lon(Location,
-            #{
-              <<"type">> => <<"poc_request">>,
-              <<"fee">> => Fee,
-              <<"onion">> => Onion,
-              <<"signature">> => Signature,
-              <<"challenger">> => Challenger,
-              <<"owner">> => Owner,
-              <<"location">> => Owner
-             });
+    ?INSERT_LAT_LON(Location,
+                    #{
+                      <<"type">> => <<"poc_request">>,
+                      <<"fee">> => Fee,
+                      <<"onion">> => Onion,
+                      <<"signature">> => Signature,
+                      <<"challenger">> => Challenger,
+                      <<"owner">> => Owner,
+                      <<"location">> => Owner
+                     });
 txn_to_json({<<"poc_receipts_v1">>,
              #{<<"fee">> := Fee,
                <<"onion_key_hash">> := Onion,
@@ -109,16 +109,16 @@ txn_to_json({<<"poc_receipts_v1">>,
                <<"challenger">> := Challenger,
                <<"challenger_loc">> := ChallengerLoc,
                <<"challenger_owner">> := ChallengerOwner}}) ->
-    lat_lon(ChallengerLoc, {<<"challenger_lat">>, <<"challenger_lon">>},
-            #{
-              <<"type">> => <<"poc_receipts">>,
-              <<"fee">> => Fee,
-              <<"onion">> => Onion,
-              <<"signature">> => Signature,
-              <<"challenger">> => Challenger,
-              <<"challenger_owner">> => ChallengerOwner,
-              <<"location">> => ChallengerLoc
-             });
+    ?INSERT_LAT_LON(ChallengerLoc, {<<"challenger_lat">>, <<"challenger_lon">>},
+                    #{
+                      <<"type">> => <<"poc_receipts">>,
+                      <<"fee">> => Fee,
+                      <<"onion">> => Onion,
+                      <<"signature">> => Signature,
+                      <<"challenger">> => Challenger,
+                      <<"challenger_owner">> => ChallengerOwner,
+                      <<"location">> => ChallengerLoc
+                     });
 txn_to_json({<<"gen_gateway_v1">>, Fields}) ->
     txn_to_json({<<"add_gateway_v1">>, Fields});
 txn_to_json({<<"add_gateway_v1">>,
@@ -138,10 +138,10 @@ txn_to_json({<<"assert_location_v1">>,
              #{
                <<"location">> := Location
               } = Fields}) ->
-    lat_lon(Location,
-            Fields#{
-                    <<"type">> => <<"location">>
-                   });
+    ?INSERT_LAT_LON(Location,
+                    Fields#{
+                            <<"type">> => <<"location">>
+                           });
 txn_to_json({<<"security_coinbase_v1">>, Fields}) ->
     Fields#{
              <<"type">> => <<"security">>
@@ -184,16 +184,3 @@ txn_to_json({<<"payment_v1">>, Fields}) ->
 %% txn_to_json({Type, _Fields}) ->
 %%     lager:error("Unhandled transaction type ~p", [Type]),
 %%     error({unhandled_txn_type, Type}).
-
-
-lat_lon(Location, Fields) ->
-    lat_lon(Location, {<<"lat">>, <<"lng">>}, Fields).
-
-lat_lon(undefined, _, Fields) ->
-    Fields;
-lat_lon(Location, {LatName, LonName}, Fields) when is_binary(Location) ->
-    {Lat, Lon} = h3:to_geo(h3:from_string(binary_to_list(Location))),
-    Fields#{
-            LatName => Lat,
-            LonName => Lon
-           }.
