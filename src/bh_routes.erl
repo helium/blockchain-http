@@ -9,10 +9,12 @@ handle(Req, _Args) ->
     %% Delegate to our handler function
     handle(Req#req.method, elli_request:path(Req), Req).
 
-handle(Method, [<<"api">>, <<"blocks">> | Tail], Req) ->
+handle(Method, [<<"v1">>, <<"blocks">> | Tail], Req) ->
     bh_route_blocks:handle(Method, Tail, Req);
-handle(Method, [<<"api">>, <<"accounts">> | Tail], Req) ->
+handle(Method, [<<"v1">>, <<"accounts">> | Tail], Req) ->
     bh_route_accounts:handle(Method, Tail, Req);
+handle(Method, [<<"v1">>, <<"hotspots">> | Tail], Req) ->
+    bh_route_hotspots:handle(Method, Tail, Req);
 
 handle(_, _, _Req) ->
     {404, [], <<"Not Found">>}.

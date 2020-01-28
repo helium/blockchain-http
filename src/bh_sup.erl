@@ -32,11 +32,10 @@ init([]) ->
     {ok, DBOpts} = psql_migration:connection_opts([]),
     {ok, RouteHandlers} = application:get_env(blockchain_http, route_handlers),
     {ok, PoolArgs} = application:get_env(blockchain_http, db_pool),
+    {ok, ElliArgs} = application:get_env(blockchain_http, elli),
     ChildSpecs =
         [
-         ?WORKER(elli, [
-                        [{callback, bh_routes}, {port, 8080}]
-                       ]),
+         ?WORKER(elli, [ ElliArgs ]),
          poolboy:child_spec(?DB_POOL,
                             [
                              {name, {local, ?DB_POOL}},
