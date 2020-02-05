@@ -10,6 +10,6 @@ buildkite-agent artifact download $DEB_PKG .
 
 $(aws ecr get-login --no-include-email --region us-west-2)
 
-docker build -t dev-deploy:$DOCKER_NAME .
+docker build -t dev-deploy:$DOCKER_NAME -f .buildkite/scripts/Dockerfile .
 docker tag dev-deploy:$DOCKER_NAME "$ECS_REGISTRY_NAME:$DOCKER_NAME"
 docker push "$ECS_REGISTRY_NAME:$DOCKER_NAME"
