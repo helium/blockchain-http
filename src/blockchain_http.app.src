@@ -21,7 +21,8 @@
      telemetry,
      envloader,
      psql_migration,
-     elli
+     elli,
+     recon
     ]
    },
    {env, []},

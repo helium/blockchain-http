@@ -43,7 +43,7 @@ init(Args) ->
     process_flag(trap_exit, true),
     GetOpt = fun(K) ->
                      case lists:keyfind(K, 1, Args) of
-                         false -> error({missing_otp, K});
+                         false -> error({missing_opt, K});
                          {_, V} -> V
                      end
              end,
