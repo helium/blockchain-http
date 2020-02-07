@@ -17,6 +17,7 @@
      poolboy,
      jsone,
      h3,
+     iso8601,
      observer_cli,
      telemetry,
      envloader,

@@ -3,6 +3,8 @@
 -export([handle/2, handle_event/3]).
 
 -include_lib("elli/include/elli.hrl").
+-include("bh_route_handler.hrl").
+
 -behaviour(elli_handler).
 
 handle(Req, _Args) ->
@@ -19,7 +21,7 @@ handle(Method, [<<"v1">>, <<"pending_txns">> | Tail], Req) ->
     bh_route_pending_txns:handle(Method, Tail, Req);
 
 handle(_, _, _Req) ->
-    {404, [], <<"Not Found">>}.
+    ?RESPONSE_404.
 
 %% @doc Handle request events, like request completed, exception
 %% thrown, client timeout, etc. Must return `ok'.

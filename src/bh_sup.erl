@@ -33,6 +33,7 @@ init([]) ->
     {ok, DBHandlers} = application:get_env(blockchain_http, db_handlers),
     {ok, PoolArgs} = application:get_env(blockchain_http, db_pool),
     {ok, ListenPort} = application:get_env(blockchain_http, port),
+    lager:info("Starting http listener on ~p", [ListenPort]),
     ChildSpecs =
         [
          ?WORKER(elli, [

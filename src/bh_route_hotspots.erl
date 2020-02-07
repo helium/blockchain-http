@@ -33,7 +33,7 @@ handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address));
 
 handle(_, _, _Req) ->
-    {404, [], <<"Not Found">>}.
+    ?RESPONSE_404.
 
 get_hotspot_list(undefined, Limit)  ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_HOTSPOT_LIST, [Limit]),

@@ -21,7 +21,7 @@ handle('GET', [TxnHash], _Req) ->
     ?MK_RESPONSE(get_pending_txn(TxnHash));
 
 handle(_, _, _Req) ->
-    {404, [], <<"Not Found">>}.
+    ?RESPONSE_404.
 
 -spec get_pending_txn(Key::binary()) -> {ok, jsone:json_object()}.
 get_pending_txn(Key) ->
@@ -29,9 +29,8 @@ get_pending_txn(Key) ->
         {ok, _, [Result]} ->
             {ok, pending_txn_to_json(Result)};
         _ ->
-            {ok, []}
+            ?RESPONSE_404
     end.
-
 
 %%
 %% to_jaon

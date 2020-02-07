@@ -33,7 +33,7 @@ handle('GET', [Account], _Req) ->
     ?MK_RESPONSE(get_account(Account));
 
 handle(_, _, _Req) ->
-    {404, [], <<"Not Found">>}.
+    ?RESPONSE_404.
 
 get_account_list(undefined, Limit)  ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_ACCOUNT_LIST, [Limit]),

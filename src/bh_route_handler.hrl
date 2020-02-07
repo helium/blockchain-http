@@ -1,5 +1,7 @@
 -include("bh_db_worker.hrl").
 
+-define(RESPONSE_404, {404, [], <<"Not Found">>}).
+
 -define(MAX_LIMIT, 1000).
 -define(DEFAULT_ARG_LIMIT, <<"100">>).
 -define(GET_ARG_LIMIT(R), ?GET_ARG_LIMIT(R, ?DEFAULT_ARG_LIMIT)).

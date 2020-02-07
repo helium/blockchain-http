@@ -37,7 +37,7 @@ handle('GET', [BlockId, <<"transactions">>], _Req) ->
     ?MK_RESPONSE(get_block_txn_list(binary_to_integer(BlockId)));
 
 handle(_, _, _Req) ->
-    {404, [], <<"Not Found">>}.
+    ?RESPONSE_404.
 
 
 get_block_list(Before, Limit) when Before =< 0 ->
