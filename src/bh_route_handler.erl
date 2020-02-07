@@ -1,5 +1,7 @@
 -module(bh_route_handler).
 
+-include("bh_route_handler.hrl").
+
 -export([mk_response/1,
          lat_lon/2, lat_lon/3]).
 
@@ -10,7 +12,9 @@
 mk_response({ok, Json}) ->
     {ok,
      [{<<"Content-Type">>, <<"application/json; charset=utf-8">>}],
-     jsone:encode(#{<<"data">> => Json}, [undefined_as_null])}.
+     jsone:encode(#{<<"data">> => Json}, [undefined_as_null])};
+mk_response({error, not_found}) ->
+    ?RESPONSE_404.
 
 lat_lon(Location, Fields) ->
     lat_lon(Location, {<<"lat">>, <<"lng">>}, Fields).

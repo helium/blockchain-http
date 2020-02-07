@@ -23,13 +23,13 @@ handle('GET', [TxnHash], _Req) ->
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
--spec get_pending_txn(Key::binary()) -> {ok, jsone:json_object()}.
+-spec get_pending_txn(Key::binary()) -> {ok, jsone:json_object()} | {error, term()}.
 get_pending_txn(Key) ->
     case ?PREPARED_QUERY(?S_PENDING_TXN, [Key]) of
         {ok, _, [Result]} ->
             {ok, pending_txn_to_json(Result)};
         _ ->
-            ?RESPONSE_404
+            {error, not_found}
     end.
 
 %%

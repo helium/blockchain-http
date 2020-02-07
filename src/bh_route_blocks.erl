@@ -52,7 +52,7 @@ get_block(Height) ->
         {ok, _, [Result]} ->
             {ok, block_to_json(Result)};
         _ ->
-            {ok, undefined}
+            {error, not_found}
     end.
 
 get_block_txn_list(Height) ->

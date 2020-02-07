@@ -43,8 +43,12 @@ get_account_list(Before, Limit) ->
     {ok, account_list_to_json(Results)}.
 
 get_account(Account) ->
-    {ok, _, [Result]} = ?PREPARED_QUERY(?S_ACCOUNT, [Account]),
-    {ok, account_to_json(Result)}.
+    case ?PREPARED_QUERY(?S_ACCOUNT, [Account]) of
+        {ok, _, [Result]} ->
+            {ok, account_to_json(Result)};
+        _ ->
+            {error, not_found}
+    end.
 
 
 %%

@@ -47,7 +47,7 @@ get_hotspot(Address) ->
         {ok, _, [Result]} ->
             {ok, hotspot_to_json(Result)};
         _ ->
-            {ok, undefined}
+            {error, not_found}
     end.
 
 
