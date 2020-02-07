@@ -15,6 +15,8 @@ handle(Method, [<<"v1">>, <<"accounts">> | Tail], Req) ->
     bh_route_accounts:handle(Method, Tail, Req);
 handle(Method, [<<"v1">>, <<"hotspots">> | Tail], Req) ->
     bh_route_hotspots:handle(Method, Tail, Req);
+handle(Method, [<<"v1">>, <<"pending_txns">> | Tail], Req) ->
+    bh_route_pending_txns:handle(Method, Tail, Req);
 
 handle(_, _, _Req) ->
     {404, [], <<"Not Found">>}.
