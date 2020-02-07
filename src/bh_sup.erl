@@ -30,7 +30,7 @@ init([]) ->
                  intensity => 10,
                  period => 10},
     {ok, DBOpts} = psql_migration:connection_opts([]),
-    {ok, RouteHandlers} = application:get_env(blockchain_http, route_handlers),
+    {ok, DBHandlers} = application:get_env(blockchain_http, db_handlers),
     {ok, PoolArgs} = application:get_env(blockchain_http, db_pool),
     {ok, ListenPort} = application:get_env(blockchain_http, port),
     ChildSpecs =
@@ -48,7 +48,7 @@ init([]) ->
                              ] ++ PoolArgs,
                             [
                              {db_opts, DBOpts},
-                             {route_handlers, RouteHandlers}
+                             {db_handlers, DBHandlers}
                             ])
         ],
 

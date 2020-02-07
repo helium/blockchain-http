@@ -54,7 +54,7 @@ init(Args) ->
     {ok, Conn} = epgsql:connect(DBOpts#{codecs => Codecs}),
     lists:foreach(fun(Mod) ->
                           Mod:prepare_conn(Conn)
-                  end, GetOpt(route_handlers)),
+                  end, GetOpt(db_handlers)),
     {ok, #state{db_conn=Conn}}.
 
 handle_call({squery, Sql}, _From, #state{db_conn=Conn}=State) ->
