@@ -30,7 +30,7 @@ test:
 ci:
 	$(REBAR) as test do eunit,ct,cover && $(REBAR) do xref, dialyzer
 	$(REBAR) covertool generate
-	##codecov --required -f _build/test/covertool/blockchain_http.covertool.xml
+	#codecov --required -f _build/test/covertool/blockchain_http.covertool.xml
 
 typecheck:
 	$(REBAR) dialyzer
@@ -39,7 +39,7 @@ doc:
 	$(REBAR) edoc
 
 release:
-	$(REBAR) release
+	$(REBAR) as prod do release
 
 
 start:
