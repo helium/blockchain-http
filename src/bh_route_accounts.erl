@@ -13,15 +13,17 @@
 -define(S_ACCOUNT_LIST, "account_list").
 -define(S_ACCOUNT, "account").
 
+-define(SELECT_ACCOUNT_BASE, "select l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce from account_ledger l ").
+
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT_LIST_BEFORE,
-                           "select address, dc_balance, dc_nonce, security_balance, security_nonce, balance, nonce from account_ledger  where address < $1 order by block desc, address limit $2", []),
+                           ?SELECT_ACCOUNT_BASE "where l.address < $1 order by block desc, address limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT_LIST,
-                           "select address, dc_balance, dc_nonce, security_balance, security_nonce, balance, nonce from account_ledger order by block desc, address limit $1", []),
+                           ?SELECT_ACCOUNT_BASE "order by block desc, address limit $1", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT,
-                           "select address, dc_balance, dc_nonce, security_balance, security_nonce, balance, nonce from account_ledger where address = $1", []),
+                           ?SELECT_ACCOUNT_BASE "where l.address = $1", []),
 
     ok.
 

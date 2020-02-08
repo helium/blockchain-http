@@ -11,14 +11,16 @@
 
 -define(S_PENDING_TXN, "pending_txn").
 
+-define(SELECT_PENDING_TXN_BASE, "select t.created_at, t.updated_at, t.created_block, t.hash, t.status, t.failed_reason from pending_transactions t ").
+
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_PENDING_TXN,
-                           "select created_at, updated_at, created_block, hash, status, failed_reason from pending_transactions where hash = $1", []),
+                           ?SELECT_PENDING_TXN_BASE "where hash = $1", []),
 
     ok.
 
 handle('GET', [TxnHash], _Req) ->
-    ?MK_RESPONSE(get_pending_txn(TxnHash));
+    ?MK_RESPONSE(get_pending_txn(elli_request:uri_decode(TxnHash)));
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.

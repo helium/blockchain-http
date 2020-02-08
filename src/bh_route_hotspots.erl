@@ -13,15 +13,17 @@
 -define(S_HOTSPOT_LIST, "hotspot_list").
 -define(S_HOTSPOT, "hotspot").
 
+-define(SELECT_HOTSPOT_BASE, "select l.block, l.address, l.owner, l.location, l.score from gateway_ledger l ").
+
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT_LIST_BEFORE,
-                           "select block, address, owner, location, score from gateway_ledger  where address < $1 order by block desc, address limit $2", []),
+                           ?SELECT_HOTSPOT_BASE "where l.address < $1 order by block desc, address limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT_LIST,
-                           "select block, address, owner, location, score from gateway_ledger order by block desc, address limit $1", []),
+                           ?SELECT_HOTSPOT_BASE "order by block desc, address limit $1", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT,
-                           "select block, address, owner, location, score from gateway_ledger where address = $1", []),
+                           ?SELECT_HOTSPOT_BASE "where l.address = $1", []),
 
     ok.
 
