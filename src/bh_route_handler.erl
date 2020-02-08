@@ -5,9 +5,7 @@
 -export([mk_response/1,
          lat_lon/2, lat_lon/3]).
 
--callback prepare_conn(epgsql:connection()) -> ok.
 -callback handle(elli:http_method(), Path::[binary()], Req::elli:req()) -> elli:result().
-
 
 mk_response({ok, Json}) ->
     {ok,

@@ -36,12 +36,6 @@ init([]) ->
     lager:info("Starting http listener on ~p", [ListenPort]),
     ChildSpecs =
         [
-         ?WORKER(elli, [
-                        [
-                         {callback, bh_routes},
-                         {port, ListenPort}
-                        ]
-                       ]),
          poolboy:child_spec(?DB_POOL,
                             [
                              {name, {local, ?DB_POOL}},
@@ -50,7 +44,13 @@ init([]) ->
                             [
                              {db_opts, DBOpts},
                              {db_handlers, DBHandlers}
-                            ])
+                            ]),
+         ?WORKER(elli, [
+                        [
+                         {callback, bh_routes},
+                         {port, ListenPort}
+                        ]
+                       ])
         ],
 
     {ok, {SupFlags, ChildSpecs}}.

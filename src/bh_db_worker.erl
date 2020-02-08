@@ -2,6 +2,8 @@
 
 -include("bh_db_worker.hrl").
 
+-callback prepare_conn(epgsql:connection()) -> ok.
+
 -behaviour(gen_server).
 -behaviour(poolboy_worker).
 

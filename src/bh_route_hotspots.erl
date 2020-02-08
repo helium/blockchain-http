@@ -1,6 +1,7 @@
 -module(bh_route_hotspots).
 
 -behavior(bh_route_handler).
+-behavior(bh_db_worker).
 
 -include("bh_route_handler.hrl").
 
