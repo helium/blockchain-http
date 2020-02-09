@@ -1,5 +1,10 @@
--define(DB_POOL, db_pool).
+-define(DB_RO_POOL, db_ro_pool).
+-define(DB_RW_POOL, db_rw_pool).
 
--define(SQUERY(S), bh_db_worker:squery((S))).
--define(EQUERY(S, P), bh_db_worker:equery((S), (P))).
--define(PREPARED_QUERY(S, P), bh_db_worker:prepared_query((S), (P))).
+-define(SQUERY(S), ?SQUERY(?DB_RO_POOL, (S))).
+-define(EQUERY(S, A), ?EQUERY(?DB_RO_POOL, (S), (A))).
+-define(PREPARED_QUERY(S, A), ?PREPARED_QUERY(?DB_RO_POOL, (S), (A))).
+
+-define(SQUERY(P, S), bh_db_worker:squery((P),(S))).
+-define(EQUERY(P, S, A), bh_db_worker:equery((P), (S), (A))).
+-define(PREPARED_QUERY(P, S, A), bh_db_worker:prepared_query((P), (S), (A))).

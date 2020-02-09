@@ -22,6 +22,8 @@
      telemetry,
      envloader,
      psql_migration,
+     helium_proto,
+     libp2p_crypto,
      elli,
      recon
     ]

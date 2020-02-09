@@ -13,10 +13,7 @@ work
 
 * Clone this repository
 * Create `.env` file by copying `.env.template` and editing it to
-  reflect your postgres and other keys and credentials
-
-  **Note:** In order for resets to work the postgres user specified in
-  the `.env` file needs to exist and have `CREATEDB` permissions.
+  reflect your postgres read-only and read-write access URLs
 
 * Run `make release` in the top level folder
 
@@ -33,7 +30,3 @@ This application does NOT serve up over TLS, and does NOT rate
 controll, or access control clients. Please run this service behind a
 load balancer that terminates SSL and does some rate and access
 control.
-
-## IN PROGRESS
-
-* Ingest of new transactions (aka pending transactions)

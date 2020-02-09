@@ -14,7 +14,9 @@
 -define(S_ACCOUNT_LIST, "account_list").
 -define(S_ACCOUNT, "account").
 
--define(SELECT_ACCOUNT_BASE, "select l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce from account_ledger l ").
+-define(SELECT_ACCOUNT_BASE(A), "select l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce" A " from account_ledger l ").
+-define(SELECT_ACCOUNT_BASE, ?SELECT_ACCOUNT_BASE("")).
+
 
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT_LIST_BEFORE,
@@ -24,7 +26,10 @@ prepare_conn(Conn) ->
                            ?SELECT_ACCOUNT_BASE "order by block desc, address limit $1", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT,
-                           ?SELECT_ACCOUNT_BASE "where l.address = $1", []),
+                           ?SELECT_ACCOUNT_BASE(
+                              ", (select coalesce(max(nonce), l.nonce) from pending_transactions p where p.address = l.address and nonce_type='balance' and status != 'failed') as speculative_nonce"
+                             )
+                           "where l.address = $1", []),
 
     ok.
 
@@ -70,4 +75,9 @@ account_to_json({Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Non
       <<"data_credit_nonce">> => DCNonce,
       <<"security_balance">> => SecBalance,
       <<"security_nonce">> => SecNonce
-     }.
+     };
+account_to_json({Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce, SpecNonce}) ->
+    Base = account_to_json({Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce}),
+    Base#{
+          <<"speculative_nonce">> => SpecNonce
+         }.

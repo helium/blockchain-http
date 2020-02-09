@@ -11,7 +11,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
 
--export([squery/1, equery/2, prepared_query/2]).
+-export([squery/2, equery/3, prepared_query/3]).
 
 -record(state,
         {
@@ -19,24 +19,27 @@
         }).
 
 
-squery(Sql) ->
-    poolboy:transaction(?DB_POOL,
+-spec squery(Pool::atom(), Stmt::string()) -> epgsql_cmd_squery:response().
+squery(Pool, Sql) ->
+    poolboy:transaction(Pool,
                         fun(Worker) ->
-                                gen_server:call(Worker, {squery, Sql})
+                                gen_server:call(Worker, {squery, Sql}, infinity)
                         end).
 
--spec equery(Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
-equery(Stmt, Params) ->
-    poolboy:transaction(?DB_POOL,
+-spec equery(Pool::atom(), Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
+equery(Pool, Stmt, Params) ->
+    poolboy:transaction(Pool,
                         fun(Worker) ->
-                                gen_server:call(Worker, {equery, Stmt, Params})
+                                gen_server:call(Worker, {equery, Stmt, Params}, infinity)
                         end).
 
--spec prepared_query(Name::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_prepared_query:response().
-prepared_query(Name, Params) ->
-    poolboy:transaction(?DB_POOL, fun(Worker) ->
-        gen_server:call(Worker, {prepared_query, Name, Params})
-    end).
+-spec prepared_query(Pool::atom(), Name::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_prepared_query:response().
+prepared_query(Pool, Name, Params) ->
+    poolboy:transaction(Pool,
+                        fun(Worker) ->
+                                gen_server:call(Worker, {prepared_query, Name, Params}, infinity)
+                        end).
+
 
 start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
