@@ -7,7 +7,5 @@ RUN dpkg -i /tmp/blockchain-http*.deb
 RUN rm -f /tmp/blockchain-http*.deb
 
 RUN apt update
-RUN apt install -y libssl1.1
+RUN apt install -y libssl1.1 libsodium23
 RUN apt clean
-
-CMD /var/helium/blockchain_http/bin/blockchain_http foreground
