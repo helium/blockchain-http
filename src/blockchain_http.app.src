@@ -24,6 +24,7 @@
      psql_migration,
      helium_proto,
      libp2p_crypto,
+     erl_angry_purple_tiger,
      elli,
      recon
     ]

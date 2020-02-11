@@ -17,7 +17,6 @@
 -define(SELECT_ACCOUNT_BASE(A), "select l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce" A " from account_ledger l ").
 -define(SELECT_ACCOUNT_BASE, ?SELECT_ACCOUNT_BASE("")).
 
-
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT_LIST_BEFORE,
                            ?SELECT_ACCOUNT_BASE "where l.address < $1 order by block desc, address limit $2", []),
@@ -39,6 +38,10 @@ handle('GET', [], Req) ->
     ?MK_RESPONSE(get_account_list(Before, Limit));
 handle('GET', [Account], _Req) ->
     ?MK_RESPONSE(get_account(Account));
+handle('GET', [Account, <<"hotspots">>], Req) ->
+    Before = ?GET_ARG_BEFORE(Req, undefined),
+    Limit = ?GET_ARG_LIMIT(Req),
+    ?MK_RESPONSE(bh_route_hotspots:get_owner_hotspot_list(Account, Before, Limit));
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
@@ -55,7 +58,7 @@ get_account(Account) ->
         {ok, _, [Result]} ->
             {ok, account_to_json(Result)};
         _ ->
-            {error, not_found}
+            {ok, account_to_json({Account, 0, 0, 0, 0, 0, 0, 0})}
     end.
 
 
@@ -71,10 +74,10 @@ account_to_json({Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Non
       <<"address">> => Address,
       <<"balance">> => Balance,
       <<"nonce">> => Nonce,
-      <<"data_credit_balance">> => DCBalance,
-      <<"data_credit_nonce">> => DCNonce,
-      <<"security_balance">> => SecBalance,
-      <<"security_nonce">> => SecNonce
+      <<"dc_balance">> => DCBalance,
+      <<"dc_nonce">> => DCNonce,
+      <<"sec_balance">> => SecBalance,
+      <<"sec_nonce">> => SecNonce
      };
 account_to_json({Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce, SpecNonce}) ->
     Base = account_to_json({Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce}),
