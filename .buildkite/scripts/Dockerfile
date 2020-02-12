@@ -2,9 +2,9 @@ FROM ubuntu:18.04
 
 EXPOSE 8080
 
-COPY blockchain-http*.deb /tmp
-RUN dpkg -i /tmp/blockchain-http*.deb
-RUN rm -f /tmp/blockchain-http*.deb
+COPY blockchain-http*.deb /
+RUN dpkg -i blockchain-http*.deb
+RUN rm -f blockchain-http*.deb
 RUN touch /var/helium/blockchain_http/.env
 
 RUN apt update
