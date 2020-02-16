@@ -19,6 +19,8 @@ lat_lon(Location, Fields) ->
 
 lat_lon(undefined, _, Fields) ->
     Fields;
+lat_lon(null, _, Fields) ->
+    Fields;
 lat_lon(Location, {LatName, LonName}, Fields) when is_binary(Location) ->
     {Lat, Lon} = h3:to_geo(h3:from_string(binary_to_list(Location))),
     Fields#{
