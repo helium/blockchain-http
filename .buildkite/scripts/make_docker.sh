@@ -5,7 +5,7 @@ set -euo pipefail
 ECS_REGISTRY_NAME="217417705465.dkr.ecr.us-west-2.amazonaws.com/dev-deploy"
 DEB_PKG="$(basename $(pwd))_$(git describe --long --always)_amd64.deb"
 DOCKER_NAME="$(basename $(pwd))_${BUILDKITE_TAG}"
-TMPDIR_NAME="./scratch"
+TMPDIR_NAME="_build/scratch"
 
 mkdir -p "$TMPDIR_NAME"
 export TMPDIR="$TMPDIR_NAME"
