@@ -2,7 +2,12 @@
 
 set -euo pipefail
 
-fpm -n $(basename $(pwd)) \
+TMPDIR_NAME="./scratch"
+
+mkdir -p "$TMPDIR_NAME"
+
+fpm --workdir "$TMPDIR_NAME" \
+    -n $(basename $(pwd)) \
     -v $(git describe --long --always) \
     -s dir \
     -t deb \
