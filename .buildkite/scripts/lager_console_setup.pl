@@ -10,7 +10,7 @@ while (<>) {
 	elsif (/lager_file_backend/ and $done) {
 	}
 	elsif (/colored/) {
-		print "   {colored, false}\n";
+		print "   {colored, false},\n";
 	}
 	else {
 		print "$_";
