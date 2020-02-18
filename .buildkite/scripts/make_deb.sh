@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-TMPDIR_NAME="_build/scratch"
+TMPDIR_NAME="scratch"
 
 mkdir -p "$TMPDIR_NAME"
 
