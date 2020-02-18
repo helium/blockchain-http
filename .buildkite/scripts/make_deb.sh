@@ -2,9 +2,7 @@
 
 set -euo pipefail
 
-TMPDIR_NAME="scratch"
-
-mkdir -p "$TMPDIR_NAME"
+TMPDIR_NAME="/var/lib/tmp"
 
 fpm --workdir "$TMPDIR_NAME" \
     -n $(basename $(pwd)) \
