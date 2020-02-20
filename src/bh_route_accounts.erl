@@ -7,7 +7,7 @@
 
 -export([prepare_conn/1, handle/3]).
 %% Utilities
--export([get_account_list/2, get_account/1]).
+-export([get_account_list/1, get_account/1]).
 
 
 -define(S_ACCOUNT_LIST_BEFORE, "account_list_before").
@@ -19,7 +19,7 @@
 
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT_LIST_BEFORE,
-                           ?SELECT_ACCOUNT_BASE "where l.address < $1 order by block desc, address limit $2", []),
+                           ?SELECT_ACCOUNT_BASE "where l.address > $1 order by block desc, address limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT_LIST,
                            ?SELECT_ACCOUNT_BASE "order by block desc, address limit $1", []),
@@ -33,23 +33,21 @@ prepare_conn(Conn) ->
     ok.
 
 handle('GET', [], Req) ->
-    Before = ?GET_ARG_BEFORE(Req, undefined),
-    Limit = ?GET_ARG_LIMIT(Req),
-    ?MK_RESPONSE(get_account_list(Before, Limit));
+    Args = ?GET_ARGS([before, limit], Req),
+    ?MK_RESPONSE(get_account_list(Args));
 handle('GET', [Account], _Req) ->
     ?MK_RESPONSE(get_account(Account));
 handle('GET', [Account, <<"hotspots">>], Req) ->
-    Before = ?GET_ARG_BEFORE(Req, undefined),
-    Limit = ?GET_ARG_LIMIT(Req),
-    ?MK_RESPONSE(bh_route_hotspots:get_owner_hotspot_list(Account, Before, Limit));
+    Args = ?GET_ARGS([before, limit], Req),
+    ?MK_RESPONSE(bh_route_hotspots:get_hotspot_list([{owner, Account} | Args]));
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
-get_account_list(undefined, Limit)  ->
+get_account_list([{before, undefined}, {limit, Limit}])  ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_ACCOUNT_LIST, [Limit]),
     {ok, account_list_to_json(Results)};
-get_account_list(Before, Limit) ->
+get_account_list([{before, Before}, {limit, Limit}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_ACCOUNT_LIST_BEFORE, [Before, Limit]),
     {ok, account_list_to_json(Results)}.
 
