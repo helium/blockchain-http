@@ -1,6 +1,7 @@
--sname blockchain_http
+-name {{release_name}}@127.0.0.1
+-setcookie {{release_name}}
 
--setcookie blockchain_http_cookie
-
++c true
++C multi_time_warp
 +K true
 +A30

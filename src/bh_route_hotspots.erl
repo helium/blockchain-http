@@ -7,8 +7,7 @@
 
 -export([prepare_conn/1, handle/3]).
 %% Utilities
--export([get_hotspot_list/2,
-         get_owner_hotspot_list/3,
+-export([get_hotspot_list/1,
          get_hotspot/1]).
 
 
@@ -22,13 +21,13 @@
 
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT_LIST_BEFORE,
-                           ?SELECT_HOTSPOT_BASE "where l.address < $1 order by block desc, address limit $2", []),
+                           ?SELECT_HOTSPOT_BASE "where l.address > $1 order by block desc, address limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT_LIST,
                            ?SELECT_HOTSPOT_BASE "order by block desc, address limit $1", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST_BEFORE,
-                           ?SELECT_HOTSPOT_BASE "where l.owner = $1 and l.address < $2 order by block desc, address limit $3", []),
+                           ?SELECT_HOTSPOT_BASE "where l.owner = $1 and l.address > $2 order by block desc, address limit $3", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST,
                            ?SELECT_HOTSPOT_BASE "where l.owner = $1 order by block desc, address limit $2", []),
@@ -38,22 +37,30 @@ prepare_conn(Conn) ->
 
     ok.
 
+
 handle('GET', [], Req) ->
-    Before = ?GET_ARG_BEFORE(Req, undefined),
-    Limit = ?GET_ARG_LIMIT(Req),
-    ?MK_RESPONSE(get_hotspot_list(Before, Limit));
+    Args = ?GET_ARGS([owner, before, limit], Req),
+    ?MK_RESPONSE(get_hotspot_list(Args));
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address));
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
-get_hotspot_list(undefined, Limit)  ->
+
+get_hotspot_list([{owner, undefined}, {before, undefined}, {limit, Limit}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_HOTSPOT_LIST, [Limit]),
     {ok, hotspot_list_to_json(Results)};
-get_hotspot_list(Before, Limit) ->
+get_hotspot_list([{owner, undefined}, {before, Before}, {limit, Limit}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_HOTSPOT_LIST_BEFORE, [Before, Limit]),
+    {ok, hotspot_list_to_json(Results)};
+get_hotspot_list([{owner, Owner}, {before, undefined}, {limit, Limit}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST, [Owner, Limit]),
+    {ok, hotspot_list_to_json(Results)};
+get_hotspot_list([{owner, Owner}, {before, Before}, {limit, Limit}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [Owner, Before, Limit]),
     {ok, hotspot_list_to_json(Results)}.
+
 
 get_hotspot(Address) ->
     case ?PREPARED_QUERY(?S_HOTSPOT, [Address]) of
@@ -63,21 +70,6 @@ get_hotspot(Address) ->
             {error, not_found}
     end.
 
-get_owner_hotspot_list(Account, undefined, Limit) ->
-    lager:info("ACCOUNT ~p ~p ~p", [Account, undefined, Limit]),
-    case ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST, [Account, Limit]) of
-        {ok, _, Results} ->
-            {ok, hotspot_list_to_json(Results)};
-        Other ->
-            lager:error("OTHER ~p", [Other])
-    end;
-get_owner_hotspot_list(Account, Before, Limit) ->
-    case ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [Account, Before, Limit]) of
-        {ok, _, Results} ->
-            {ok, hotspot_list_to_json(Results)};
-        Other ->
-            lager:error("OTHER ~p", [Other])
-    end.
 
 %%
 %% to_jaon

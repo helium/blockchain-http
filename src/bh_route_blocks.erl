@@ -8,7 +8,7 @@
 -export([prepare_conn/1, handle/3]).
 %% Utilities
 -export([get_block_height/0,
-         get_block_list/2,
+         get_block_list/1,
          get_block/1,
          get_block_txn_list/1,
          get_block_by_hash/1,
@@ -51,9 +51,8 @@ prepare_conn(Conn) ->
 
 
 handle('GET', [], Req) ->
-    Before = binary_to_integer(?GET_ARG_BEFORE(Req)),
-    Limit = ?GET_ARG_LIMIT(Req),
-    ?MK_RESPONSE(get_block_list(Before, Limit));
+    Args = ?GET_ARGS([before, limit], Req),
+    ?MK_RESPONSE(get_block_list(Args));
 handle('GET', [<<"height">>], _Req) ->
     ?MK_RESPONSE(get_block_height());
 handle('GET', [<<"hash">>, BlockHash], _Req) ->
@@ -69,10 +68,10 @@ handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
 
 
-get_block_list(Before, Limit) when Before =< 0 ->
+get_block_list([{before, undefined}, {limit, Limit}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST, [Limit]),
     {ok, block_list_to_json(Results)};
-get_block_list(Before, Limit) ->
+get_block_list([{before, Before}, {limit, Limit}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [Before, Limit]),
     {ok, block_list_to_json(Results)}.
 
