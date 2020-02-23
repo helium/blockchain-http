@@ -1,6 +1,6 @@
 # blockchain-http
 
-[![Build status](https://badge.buildkite.com/dccd9ab02cd8867a21f53479adcdc692edf426f6bb63732038.svg)](https://buildkite.com/helium/blockchain-http)
+[![Build status](https://badge.buildkite.com/dccd9ab02cd8867a21f53479adcdc692edf426f6bb63732038.svg?branch=master)](https://buildkite.com/helium/blockchain-http)
 
 This is an Erlang application to serve up the Helium blockchain as
 stored by the
