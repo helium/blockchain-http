@@ -56,13 +56,23 @@ handle('GET', [], Req) ->
 handle('GET', [<<"height">>], _Req) ->
     ?MK_RESPONSE(get_block_height());
 handle('GET', [<<"hash">>, BlockHash], _Req) ->
-    ?MK_RESPONSE(get_block_by_hash(elli_request:uri_decode(BlockHash)));
+    ?MK_RESPONSE(get_block_by_hash(BlockHash));
 handle('GET', [<<"hash">>, BlockHash, <<"transactions">>], _Req) ->
-    ?MK_RESPONSE(get_block_by_hash_txn_list(elli_request:uri_decode(BlockHash)));
+    ?MK_RESPONSE(get_block_by_hash_txn_list(BlockHash));
 handle('GET', [BlockId], _Req) ->
-    ?MK_RESPONSE(get_block(binary_to_integer(BlockId)));
+    case catch binary_to_integer(BlockId) of
+        {'EXIT', _} ->
+            ?RESPONSE_400;
+        Num ->
+            ?MK_RESPONSE(get_block(Num))
+    end;
 handle('GET', [BlockId, <<"transactions">>], _Req) ->
-    ?MK_RESPONSE(get_block_txn_list(binary_to_integer(BlockId)));
+    case catch binary_to_integer(BlockId) of
+        {'EXIT', _} ->
+            ?RESPONSE_400;
+        Num ->
+            ?MK_RESPONSE(get_block_txn_list(binary_to_integer(Num)))
+    end;
 
 handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.

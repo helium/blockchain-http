@@ -33,7 +33,7 @@ prepare_conn(Conn) ->
     ok.
 
 handle('GET', [TxnHash], _Req) ->
-    ?MK_RESPONSE(get_pending_txn(elli_request:uri_decode(TxnHash)));
+    ?MK_RESPONSE(get_pending_txn(TxnHash));
 handle('POST', [], Req) ->
     #{ <<"txn">> := EncodedTxn } = jsone:decode(elli_request:body(Req)),
     BinTxn = base64:decode(EncodedTxn),
