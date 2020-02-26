@@ -8,6 +8,10 @@
 
 -callback handle(elli:http_method(), Path::[binary()], Req::elli:req()) -> elli:result().
 
+-type arg_spec() :: Key::atom() | {Key::atom(), Default::any()}.
+-type arg() :: {Key::atom(), Value::any()}.
+
+-spec get_args([arg_spec()], elli:req()) -> [arg()].
 get_args(Names, Req) ->
     get_args(Names, Req, []).
 
@@ -17,7 +21,11 @@ get_args([limit | Tail], Req, Acc) ->
     get_args([{limit, ?DEFAULT_ARG_LIMIT} | Tail], Req, Acc);
 get_args([{limit, Default} | Tail], Req, Acc) ->
     V = elli_request:get_arg_decoded(<<"limit">>, Req, Default),
-    get_args(Tail, Req, [{limit, min(?MAX_LIMIT, binary_to_integer(V))} | Acc]);
+    N = case catch binary_to_integer(V) of
+            {'EXIT', _} -> binary_to_integer(?DEFAULT_ARG_LIMIT);
+            NumVal -> NumVal
+        end,
+    get_args(Tail, Req, [{limit, min(?MAX_LIMIT, N)} | Acc]);
 get_args([Key | Tail], Req, Acc) when is_atom(Key) ->
     get_args([{Key, undefined} | Tail], Req, Acc);
 get_args([{Key, Default} | Tail], Req, Acc) ->

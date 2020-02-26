@@ -43,14 +43,14 @@ release:
 
 
 start:
-	cp -f .env ./_build/default/rel/blockchain_http/
-	./_build/default/rel/blockchain_http/bin/blockchain_http start
+	cp -f .env ./_build/prod/rel/blockchain_http/
+	./_build/prod/rel/blockchain_http/bin/blockchain_http start
 
 stop:
-	-./_build/default/rel/blockchain_http/bin/blockchain_http stop
+	-./_build/prod/rel/blockchain_http/bin/blockchain_http stop
 
 reset: stop
-	rm -rf rm -rf ./_build/default/rel/blockchain_http/log/*
+	rm -rf rm -rf ./_build/prod/rel/blockchain_http/log/*
 
 console:
-	./_build/default/rel/blockchain_http/bin/blockchain_http remote_console
+	./_build/prod/rel/blockchain_http/bin/blockchain_http remote_console
