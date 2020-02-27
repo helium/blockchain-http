@@ -71,7 +71,7 @@ handle('GET', [BlockId, <<"transactions">>], _Req) ->
         {'EXIT', _} ->
             ?RESPONSE_400;
         Num ->
-            ?MK_RESPONSE(get_block_txn_list(binary_to_integer(Num)))
+            ?MK_RESPONSE(get_block_txn_list(Num))
     end;
 
 handle(_Method, _Path, _Req) ->
