@@ -24,6 +24,16 @@ Once started the application will start serving up the blockchain
 through a number of routes. Documentation for these routes will be
 added soon.
 
+### Installing Ubuntu Required Packages
+
+If running on Ubuntu, you will need the following packages installed before
+running `make release`:
+
+```bash
+sudo apt install erlang cmake libsodium-dev libssl-dev
+```
+
+
 ## WARNING
 
 This application does NOT serve up over TLS, and does NOT rate
