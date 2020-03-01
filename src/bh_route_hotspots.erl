@@ -17,23 +17,25 @@
 -define(S_OWNER_HOTSPOT_LIST, "owner_hotspot_list").
 -define(S_HOTSPOT, "hotspot").
 
--define(SELECT_HOTSPOT_BASE, "select l.block, l.address, l.owner, l.location, l.score from gateway_ledger l ").
+-define(SELECT_HOTSPOT_BASE,
+        "select g.block, g.address, g.owner, g.location, g.score, "
+        "l.short_street, l.long_street, l.short_city, l.long_city, l.short_state, l.long_state, l.short_country, l.long_country from gateway_ledger g left join locations l on g.location = l.location ").
 
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT_LIST_BEFORE,
-                           ?SELECT_HOTSPOT_BASE "where l.address > $1 order by block desc, address limit $2", []),
+                           ?SELECT_HOTSPOT_BASE "where g.address > $1 order by block desc, address limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT_LIST,
                            ?SELECT_HOTSPOT_BASE "order by block desc, address limit $1", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST_BEFORE,
-                           ?SELECT_HOTSPOT_BASE "where l.owner = $1 and l.address > $2 order by block desc, address limit $3", []),
+                           ?SELECT_HOTSPOT_BASE "where g.owner = $1 and g.address > $2 order by block desc, address limit $3", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST,
-                           ?SELECT_HOTSPOT_BASE "where l.owner = $1 order by block desc, address limit $2", []),
+                           ?SELECT_HOTSPOT_BASE "where g.owner = $1 order by block desc, address limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT,
-                           ?SELECT_HOTSPOT_BASE "where l.address = $1", []),
+                           ?SELECT_HOTSPOT_BASE "where g.address = $1", []),
 
     ok.
 
@@ -78,7 +80,7 @@ get_hotspot(Address) ->
 hotspot_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
 
-hotspot_to_json({Block, Address, Owner, Location, Score}) ->
+hotspot_to_json({Block, Address, Owner, Location, Score, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry}) ->
     {ok, Name} = erl_angry_purple_tiger:animal_name(Address),
     ?INSERT_LAT_LON(Location,
                     #{
@@ -86,6 +88,17 @@ hotspot_to_json({Block, Address, Owner, Location, Score}) ->
                       <<"name">> => list_to_binary(Name),
                       <<"owner">> => Owner,
                       <<"location">> => Location,
+                      <<"geocode">> =>
+                          #{
+                            <<"short_street">> => ShortStreet,
+                            <<"long_street">> => LongStreet,
+                            <<"short_city">> => ShortCity,
+                            <<"long_city">> => LongCity,
+                            <<"short_state">> => ShortState,
+                            <<"long_state">> => LongState,
+                            <<"short_country">> => ShortCountry,
+                            <<"long_country">> => LongCountry
+                           },
                       <<"score_update_height">> => Block,
                       <<"score">> => Score
                      }).
