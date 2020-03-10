@@ -63,33 +63,38 @@ handle_event(request_complete, [Req, ResponseCode, _ResponseHeaders,
     %% The Elli request process is done handling the request, so we
     %% can afford to do some heavy lifting here.
 
+    case elli_request:raw_path(Req) of
+        <<"/">> ->
+            %% Ignore heartbeat requests
+            ok;
+        Path ->
+            Accepted     = proplists:get_value(accepted, Timings),
+            RequestStart = proplists:get_value(request_start, Timings),
+            HeadersEnd   = proplists:get_value(headers_end, Timings),
+            BodyEnd      = proplists:get_value(body_end, Timings),
+            UserStart    = proplists:get_value(user_start, Timings),
+            UserEnd      = proplists:get_value(user_end, Timings),
+            RequestEnd   = proplists:get_value(request_end, Timings),
+            BodySize = proplists:get_value(resp_body, Sizes),
 
-    Accepted     = proplists:get_value(accepted, Timings),
-    RequestStart = proplists:get_value(request_start, Timings),
-    HeadersEnd   = proplists:get_value(headers_end, Timings),
-    BodyEnd      = proplists:get_value(body_end, Timings),
-    UserStart    = proplists:get_value(user_start, Timings),
-    UserEnd      = proplists:get_value(user_end, Timings),
-    RequestEnd   = proplists:get_value(request_end, Timings),
-    BodySize = proplists:get_value(resp_body, Sizes),
+            TimeStr = io_lib:format("~w/~w/~w/~w/~w/~w",
+                                    [RequestStart - Accepted,
+                                     HeadersEnd -  RequestStart,
+                                     BodyEnd - HeadersEnd,
+                                     UserEnd - UserStart,
+                                     RequestEnd - UserEnd,
+                                     RequestEnd - RequestStart]),
 
-    TimeStr = io_lib:format("~w/~w/~w/~w/~w/~w",
-                            [RequestStart - Accepted,
-                             HeadersEnd -  RequestStart,
-                             BodyEnd - HeadersEnd,
-                             UserEnd - UserStart,
-                             RequestEnd - UserEnd,
-                             RequestEnd - RequestStart]),
-
-    lager:info("~s ~s ~w ~w \"~s ~s\"",
-               [elli_request:peer(Req),
-                TimeStr,
-                ResponseCode,
-                BodySize,
-                elli_request:method(Req),
-                elli_request:raw_path(Req)
-               ]),
-    ok;
+            lager:info("~s ~s ~w ~w \"~s ~s\"",
+                       [elli_request:peer(Req),
+                        TimeStr,
+                        ResponseCode,
+                        BodySize,
+                        elli_request:method(Req),
+                        Path
+                       ]),
+            ok
+    end;
 handle_event(chunk_complete, [Req, ResponseCode, ResponseHeaders,
                               _ClosingEnd, Timings], Config) ->
     handle_event(request_complete, [Req, ResponseCode, ResponseHeaders,
