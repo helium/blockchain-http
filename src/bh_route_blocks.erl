@@ -76,7 +76,7 @@ get_block_height() ->
 
 get_block_by_height(Height) ->
     case ?PREPARED_QUERY(?S_BLOCK_BY_HEIGHT, [Height]) of
-        {ok, _, Results} ->
+        {ok, _, Results} when Results /= []->
             {ok, block_to_json(Results)};
         _ ->
             {error, not_found}
@@ -84,7 +84,7 @@ get_block_by_height(Height) ->
 
 get_block_by_hash(BlockHash) ->
     case ?PREPARED_QUERY(?S_BLOCK_BY_HASH, [BlockHash]) of
-        {ok, _, Results} ->
+        {ok, _, Results} when Results /= [] ->
             {ok, block_to_json(Results)};
         _ ->
             {error, not_found}
