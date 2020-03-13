@@ -45,14 +45,21 @@ handle(_, _, _Req) ->
     ?RESPONSE_404.
 
 -type supported_txn() :: #blockchain_txn_payment_v1_pb{}
-                         | #blockchain_txn_payment_v2_pb{}.
+                         | #blockchain_txn_payment_v2_pb{}
+                         | #blockchain_txn_create_htlc_v1_pb{}
+                         | #blockchain_txn_redeem_htlc_v1_pb{}.
+
 -type nonce_type() :: binary().
 
 -spec insert_pending_txn(supported_txn(), binary()) -> {ok, jsone:json_object()}.
 insert_pending_txn(#blockchain_txn_payment_v1_pb{payer=Payer, nonce=Nonce }=Txn, Bin) ->
     insert_pending_txn(Txn, Payer, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_payment_v2_pb{payer=Payer, nonce=Nonce}=Txn, Bin) ->
-    insert_pending_txn(Txn, Payer, Nonce, <<"balance">>, Bin).
+    insert_pending_txn(Txn, Payer, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_create_htlc_v1_pb{payer=Payer, nonce=Nonce}=Txn, Bin) ->
+    insert_pending_txn(Txn, Payer, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_redeem_htlc_v1_pb{payee=Payee}=Txn, Bin) ->
+    insert_pending_txn(Txn, Payee, 0, <<"balance">>, Bin).
 
 -spec insert_pending_txn(supported_txn(), libp2p_crypto:pubkey_bin(), non_neg_integer(), nonce_type(), binary()) -> {ok, jsone:json_object()}.
 insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
@@ -113,16 +120,23 @@ txn_unwrap(#blockchain_txn_pb{txn={bundle, #blockchain_txn_bundle_v1_pb{transact
 txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
     Txn.
 
-txn_hash(#blockchain_txn_payment_v1_pb{}=Txn) ->
-    BaseTxn = Txn#blockchain_txn_payment_v1_pb{signature = <<>>},
-    EncodedTxn = blockchain_txn_payment_v1_pb:encode_msg(BaseTxn),
-    crypto:hash(sha256, EncodedTxn);
-txn_hash(#blockchain_txn_payment_v2_pb{}=Txn) ->
-    BaseTxn = Txn#blockchain_txn_payment_v2_pb{signature = <<>>},
-    EncodedTxn = blockchain_txn_payment_v2_pb:encode_msg(BaseTxn),
-    crypto:hash(sha256, EncodedTxn).
 
-txn_type(#blockchain_txn_payment_v1_pb{}) ->
-    <<"payment_v1">>;
-txn_type(#blockchain_txn_payment_v2_pb{}) ->
-    <<"payment_v2">>.
+-define(TXN_HASH(T),
+        txn_hash(#T{}=Txn) ->
+               BaseTxn = Txn#T{signature = <<>>},
+               EncodedTxn = T:encode_msg(BaseTxn),
+               crypto:hash(sha256, EncodedTxn) ).
+
+-define(TXN_TYPE(T, B),
+        txn_type(#T{}) ->
+               B).
+
+?TXN_HASH(blockchain_txn_payment_v1_pb);
+?TXN_HASH(blockchain_txn_payment_v2_pb);
+?TXN_HASH(blockchain_txn_create_htlc_v1_pb);
+?TXN_HASH(blockchain_txn_redeem_htlc_v1_pb).
+
+?TXN_TYPE(blockchain_txn_payment_v1_pb, <<"payment_v1">>);
+?TXN_TYPE(blockchain_txn_payment_v2_pb, <<"payment_v2">>);
+?TXN_TYPE(blockchain_txn_create_htlc_v1_pb, <<"create_htlc_v1">>);
+?TXN_TYPE(blockchain_txn_redeem_htlc_v1_pb, <<"redeem_htlc_v1">>).
