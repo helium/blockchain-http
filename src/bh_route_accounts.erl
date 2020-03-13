@@ -41,7 +41,7 @@ handle('GET', [Account, <<"hotspots">>], Req) ->
     Args = ?GET_ARGS([before, limit], Req),
     ?MK_RESPONSE(bh_route_hotspots:get_hotspot_list([{owner, Account} | Args]));
 handle('GET', [Account, <<"transactions">>], Req) ->
-    Args = ?GET_ARGS([before, limit], Req),
+    Args = ?GET_ARGS([filter_types, before, limit], Req),
     ?MK_RESPONSE(bh_route_txns:get_txn_list([{actor, Account} | Args]));
 
 handle(_, _, _Req) ->

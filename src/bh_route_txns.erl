@@ -19,29 +19,31 @@
 
 -define(SELECT_TXN_FIELDS, "select t.block, t.hash, t.type, t.fields ").
 -define(SELECT_TXN_BASE, ?SELECT_TXN_FIELDS "from transactions t ").
+-define(SELECT_ACTOR_TXN_BASE, ?SELECT_TXN_FIELDS
+        "from transaction_actors a inner join transactions t on a.transaction_hash = t.hash " ).
 
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_TXN,
                           ?SELECT_TXN_BASE "where t.hash = $1", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_TXN_LIST,
-                           ?SELECT_TXN_BASE "order by block desc limit $1", []),
+                           ?SELECT_TXN_BASE "where t.type = ANY($1) order by block desc limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_TXN_LIST_BEFORE,
-                           ?SELECT_TXN_BASE "where t.height < $1 order by block desc limit $2", []),
+                           ?SELECT_TXN_BASE "where t.type  = ANY($1) and t.block < $2 order by block desc limit $3", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST,
-                           ?SELECT_TXN_FIELDS "from transaction_actors a inner join transactions on a.transaction_hash = t.hash where a.actor = $1 order by block desc limit $2", []),
+                           ?SELECT_ACTOR_TXN_BASE "where a.actor = $1 and t.type = ANY($2) order by block desc limit $3", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST_BEFORE,
-                           ?SELECT_TXN_FIELDS "from transaction_actors a inner join transactions on a.transaction_hash = t.hash where a.actor = $1 and t.height < $2 order by block desc limit $3", []),
+                           ?SELECT_ACTOR_TXN_BASE "where a.actor = $1 and t.type = ANY($2) and t.block < $3 order by block desc limit $4", []),
 
     ok.
 
 
 handle('GET', [], Req) ->
-    Args = ?GET_ARGS([before, limit], Req),
-    ?MK_RESPONSE(get_txn_list([{actor, udefined} | Args]));
+    Args = ?GET_ARGS([filter_types, before, limit], Req),
+    ?MK_RESPONSE(get_txn_list([{actor, undefined} | Args]));
 handle('GET', [TxnHash], _Req) ->
     ?MK_RESPONSE(get_txn(TxnHash));
 
@@ -57,20 +59,52 @@ get_txn(Key) ->
             {error, not_found}
     end.
 
-get_txn_list([{actor, undefined}, {before, undefined}, {limit, Limit}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_TXN_LIST, [Limit]),
+get_txn_list([{actor, undefined}, {filter_types, Types}, {before, undefined}, {limit, Limit}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_TXN_LIST, [filter_types(Types), Limit]),
     {ok, txn_list_to_json(Results)};
-get_txn_list([{actor, undefined}, {before, Before}, {limit, Limit}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_TXN_LIST_BEFORE, [Before, Limit]),
+get_txn_list([{actor, undefined}, {filter_types, Types}, {before, Before}, {limit, Limit}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_TXN_LIST_BEFORE, [filter_types(Types), Before, Limit]),
     {ok, txn_list_to_json(Results)};
 
-get_txn_list([{actor, Actor}, {before, undefined}, {limit, Limit}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_ACTOR_TXN_LIST, [Actor, Limit]),
+get_txn_list([{actor, Actor}, {filter_types, Types}, {before, undefined}, {limit, Limit}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_ACTOR_TXN_LIST, [Actor, filter_types(Types), Limit]),
     {ok, txn_list_to_json(Results)};
-get_txn_list([{actor, Actor}, {before, Before}, {limit, Limit}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_ACTOR_TXN_LIST_BEFORE, [Actor, Before, Limit]),
+get_txn_list([{actor, Actor}, {filter_types, Types}, {before, Before}, {limit, Limit}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_ACTOR_TXN_LIST_BEFORE, [Actor, filter_types(Types), Before, Limit]),
     {ok, txn_list_to_json(Results)}.
 
+
+-define(FILTER_TYPES,
+        [<<"coinbase_v1">>,
+         <<"security_coinbase_v1">>,
+         <<"oui_v1">>,
+         <<"gen_gateway_v1">>,
+         <<"routing_v1">>,
+         <<"payment_v1">>,
+         <<"security_exchange_v1">>,
+         <<"consensus_group_v1">>,
+         <<"add_gateway_v1">>,
+         <<"assert_location_v1">>,
+         <<"create_htlc_v1">>,
+         <<"redeem_htlc_v1">>,
+         <<"poc_request_v1">>,
+         <<"poc_receipts_v1">>,
+         <<"vars_v1">>,
+         <<"rewards_v1">>,
+         <<"token_burn_v1">>,
+         <<"dc_coinbase_v1">>,
+         <<"token_burn_exchange_rate_v1">>,
+         <<"payment_v2">>]).
+
+-spec filter_types(undefined | [binary()] | binary()) -> iolist().
+filter_types(undefined) ->
+    filter_types(?FILTER_TYPES);
+filter_types(Bin) when is_binary(Bin) ->
+    SplitTypes = binary:split(Bin, <<",">>, [global]),
+    Types = lists:filter(fun(T) -> lists:member(T, ?FILTER_TYPES) end, SplitTypes),
+    filter_types(Types);
+filter_types(Types) when is_list(Types) ->
+    [<<"{">>, lists:join(<<",">>, Types), <<"}">>].
 
 %%
 %% to_jaon
