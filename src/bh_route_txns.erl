@@ -7,19 +7,41 @@
 
 -export([prepare_conn/1, handle/3]).
 %% Utilities
--export([get_txn/1, txn_to_json/1, txn_list_to_json/1]).
+-export([get_txn_list/1, get_txn/1,
+         txn_to_json/1, txn_list_to_json/1]).
 
 
 -define(S_TXN, "txn").
+-define(S_TXN_LIST, "txn_list").
+-define(S_TXN_LIST_BEFORE, "txn_list_before").
+-define(S_ACTOR_TXN_LIST, "actor_txn_list").
+-define(S_ACTOR_TXN_LIST_BEFORE, "actor_txn_list_before").
 
--define(SELECT_TXN_BASE, "select t.block, t.hash, t.type, t.fields from transactions t ").
+-define(SELECT_TXN_FIELDS, "select t.block, t.hash, t.type, t.fields ").
+-define(SELECT_TXN_BASE, ?SELECT_TXN_FIELDS "from transactions t ").
 
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_TXN,
                           ?SELECT_TXN_BASE "where t.hash = $1", []),
 
+    {ok, _} = epgsql:parse(Conn, ?S_TXN_LIST,
+                           ?SELECT_TXN_BASE "order by block desc limit $1", []),
+
+    {ok, _} = epgsql:parse(Conn, ?S_TXN_LIST_BEFORE,
+                           ?SELECT_TXN_BASE "where t.height < $1 order by block desc limit $2", []),
+
+    {ok, _} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST,
+                           ?SELECT_TXN_FIELDS "from transaction_actors a inner join transactions on a.transaction_hash = t.hash where a.actor = $1 order by block desc limit $2", []),
+
+    {ok, _} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST_BEFORE,
+                           ?SELECT_TXN_FIELDS "from transaction_actors a inner join transactions on a.transaction_hash = t.hash where a.actor = $1 and t.height < $2 order by block desc limit $3", []),
+
     ok.
 
+
+handle('GET', [], Req) ->
+    Args = ?GET_ARGS([before, limit], Req),
+    ?MK_RESPONSE(get_txn_list([{actor, udefined} | Args]));
 handle('GET', [TxnHash], _Req) ->
     ?MK_RESPONSE(get_txn(TxnHash));
 
@@ -34,6 +56,21 @@ get_txn(Key) ->
         _ ->
             {error, not_found}
     end.
+
+get_txn_list([{actor, undefined}, {before, undefined}, {limit, Limit}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_TXN_LIST, [Limit]),
+    {ok, txn_list_to_json(Results)};
+get_txn_list([{actor, undefined}, {before, Before}, {limit, Limit}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_TXN_LIST_BEFORE, [Before, Limit]),
+    {ok, txn_list_to_json(Results)};
+
+get_txn_list([{actor, Actor}, {before, undefined}, {limit, Limit}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_ACTOR_TXN_LIST, [Actor, Limit]),
+    {ok, txn_list_to_json(Results)};
+get_txn_list([{actor, Actor}, {before, Before}, {limit, Limit}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_ACTOR_TXN_LIST_BEFORE, [Actor, Before, Limit]),
+    {ok, txn_list_to_json(Results)}.
+
 
 %%
 %% to_jaon
