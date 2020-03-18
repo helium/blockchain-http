@@ -33,7 +33,7 @@ prepare_conn(Conn) ->
                            ?SELECT_BLOCK_BASE "where b.height < $1 order by height DESC limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_BLOCK_LIST,
-                           ?SELECT_BLOCK_BASE "where b.height <= (select max(height) from blocks) order by height DESC limit $1", []),
+                           ?SELECT_BLOCK_BASE "order by height DESC limit $1", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_BLOCK_BY_HEIGHT,
                            ?SELECT_BLOCK_TXN_BASE "where b.height = $1", []),
