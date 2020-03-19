@@ -19,10 +19,10 @@
 
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT_LIST_BEFORE,
-                           ?SELECT_ACCOUNT_BASE "where l.address > $1 order by block desc, address limit $2", []),
+                           ?SELECT_ACCOUNT_BASE "where l.address > $1 order by first_block desc, address limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT_LIST,
-                           ?SELECT_ACCOUNT_BASE "order by block desc, address limit $1", []),
+                           ?SELECT_ACCOUNT_BASE "order by first_block desc, address limit $1", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT,
                            ?SELECT_ACCOUNT_BASE(
