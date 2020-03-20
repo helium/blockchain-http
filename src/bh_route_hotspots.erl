@@ -23,16 +23,16 @@
 
 prepare_conn(Conn) ->
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT_LIST_BEFORE,
-                           ?SELECT_HOTSPOT_BASE "where g.address > $1 order by block desc, address limit $2", []),
+                           ?SELECT_HOTSPOT_BASE "where g.address > $1 order by first_block desc, address limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT_LIST,
-                           ?SELECT_HOTSPOT_BASE "order by block desc, address limit $1", []),
+                           ?SELECT_HOTSPOT_BASE "order by first_block desc, address limit $1", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST_BEFORE,
-                           ?SELECT_HOTSPOT_BASE "where g.owner = $1 and g.address > $2 order by block desc, address limit $3", []),
+                           ?SELECT_HOTSPOT_BASE "where g.owner = $1 and g.address > $2 order by first_block desc, address limit $3", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST,
-                           ?SELECT_HOTSPOT_BASE "where g.owner = $1 order by block desc, address limit $2", []),
+                           ?SELECT_HOTSPOT_BASE "where g.owner = $1 order by first_block desc, address limit $2", []),
 
     {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT,
                            ?SELECT_HOTSPOT_BASE "where g.address = $1", []),
