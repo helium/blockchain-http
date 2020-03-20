@@ -14,7 +14,7 @@
      compiler,
      lager,
      epgsql,
-     poolboy,
+     dispcount,
      jsone,
      base64url,
      h3,
