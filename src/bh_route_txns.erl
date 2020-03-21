@@ -136,7 +136,7 @@ txn_to_json({<<"poc_request_v1">>,
                       <<"signature">> => Signature,
                       <<"challenger">> => Challenger,
                       <<"owner">> => Owner,
-                      <<"location">> => Owner
+                      <<"location">> => Location
                      });
 txn_to_json({<<"poc_receipts_v1">>,
              #{<<"fee">> := Fee,
