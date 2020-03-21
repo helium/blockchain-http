@@ -1,6 +1,6 @@
 -module(bh_db_worker).
 
--include("bh_db_worker.hrl").
+-include("bh_route_handler.hrl").
 
 -callback prepare_conn(epgsql:connection()) -> ok.
 
@@ -31,7 +31,7 @@ squery(Pool, Sql) ->
             dispcount:checkin(Pool, Reference, Conn),
             Res;
         {error, busy} ->
-            throw(busy)
+            throw(?RESPONSE_503)
     end.
 
 -spec equery(Pool::term(), Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
@@ -42,7 +42,7 @@ equery(Pool, Stmt, Params) ->
             dispcount:checkin(Pool, Reference, Conn),
             Res;
         {error, busy} ->
-            throw(busy)
+            throw(?RESPONSE_503)
     end.
 
 -spec prepared_query(Pool::term(), Name::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_prepared_query:response().
@@ -53,7 +53,7 @@ prepared_query(Pool, Name, Params) ->
             dispcount:checkin(Pool, Reference, Conn),
             Res;
         {error, busy} ->
-            throw(busy)
+            throw(?RESPONSE_503)
     end.
 
 init(Args) ->
