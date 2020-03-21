@@ -50,7 +50,7 @@ handle('GET', [TxnHash], _Req) ->
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
--spec get_txn(Key::binary()) -> {ok, jsone:json_object()} | {error, term()}.
+-spec get_txn(Key::binary()) -> {ok, jiffy:json_object()} | {error, term()}.
 get_txn(Key) ->
     case ?PREPARED_QUERY(?S_TXN, [Key]) of
         {ok, _, [Result]} ->

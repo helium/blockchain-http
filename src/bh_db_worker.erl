@@ -20,7 +20,7 @@
         }).
 
 
--spec squery(Pool::atom(), Stmt::string()) -> epgsql_cmd_squery:response().
+-spec squery(Pool::term(), Stmt::string()) -> epgsql_cmd_squery:response().
 squery(Pool, Sql) ->
     case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
         {ok, Reference, Conn} ->
@@ -31,7 +31,7 @@ squery(Pool, Sql) ->
             throw(busy)
     end.
 
--spec equery(Pool::atom(), Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
+-spec equery(Pool::term(), Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
 equery(Pool, Stmt, Params) ->
     case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
         {ok, Reference, Conn} ->
@@ -42,7 +42,7 @@ equery(Pool, Stmt, Params) ->
             throw(busy)
     end.
 
--spec prepared_query(Pool::atom(), Name::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_prepared_query:response().
+-spec prepared_query(Pool::term(), Name::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_prepared_query:response().
 prepared_query(Pool, Name, Params) ->
     case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
         {ok, Reference, Conn} ->

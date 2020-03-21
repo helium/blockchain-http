@@ -35,7 +35,7 @@ prepare_conn(Conn) ->
 handle('GET', [TxnHash], _Req) ->
     ?MK_RESPONSE(get_pending_txn(TxnHash));
 handle('POST', [], Req) ->
-    #{ <<"txn">> := EncodedTxn } = jsone:decode(elli_request:body(Req)),
+    #{ <<"txn">> := EncodedTxn } = jiffy:decode(elli_request:body(Req)),
     BinTxn = base64:decode(EncodedTxn),
     Txn = txn_unwrap(blockchain_txn_pb:decode_msg(BinTxn, blockchain_txn_pb)),
     Result = insert_pending_txn(Txn, BinTxn),
@@ -48,13 +48,13 @@ handle(_, _, _Req) ->
                          | #blockchain_txn_payment_v2_pb{}.
 -type nonce_type() :: binary().
 
--spec insert_pending_txn(supported_txn(), binary()) -> {ok, jsone:json_object()}.
+-spec insert_pending_txn(supported_txn(), binary()) -> {ok, jiffy:json_object()}.
 insert_pending_txn(#blockchain_txn_payment_v1_pb{payer=Payer, nonce=Nonce }=Txn, Bin) ->
     insert_pending_txn(Txn, Payer, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_payment_v2_pb{payer=Payer, nonce=Nonce}=Txn, Bin) ->
     insert_pending_txn(Txn, Payer, Nonce, <<"balance">>, Bin).
 
--spec insert_pending_txn(supported_txn(), libp2p_crypto:pubkey_bin(), non_neg_integer(), nonce_type(), binary()) -> {ok, jsone:json_object()}.
+-spec insert_pending_txn(supported_txn(), libp2p_crypto:pubkey_bin(), non_neg_integer(), nonce_type(), binary()) -> {ok, jiffy:json_object()}.
 insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
     TxnHash = ?BIN_TO_B64(txn_hash(Txn)),
     Params = [
@@ -74,12 +74,12 @@ insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
 get_pending_txn_list() ->
     get_pending_txn_list(pending, calendar:universal_time(), ?MAX_LIMIT).
 
--spec get_pending_txn_list(be_pending_txn:status(), calendar:datetime(), non_neg_integer()) -> {ok, jsone:json_array()}.
+-spec get_pending_txn_list(be_pending_txn:status(), calendar:datetime(), non_neg_integer()) -> {ok, jiffy:json_array()}.
 get_pending_txn_list(Status, Before, Limit) ->
     {ok, _, Results} =  ?PREPARED_QUERY(?S_PENDING_TXN_LIST_BEFORE, [Status, Before, Limit]),
     {ok, pending_txn_list_to_json(Results)}.
 
--spec get_pending_txn(Key::binary()) -> {ok, jsone:json_object()} | {error, term()}.
+-spec get_pending_txn(Key::binary()) -> {ok, jiffy:json_object()} | {error, term()}.
 get_pending_txn(Key) ->
     case ?PREPARED_QUERY(?S_PENDING_TXN, [Key]) of
         {ok, _, [Result]} ->

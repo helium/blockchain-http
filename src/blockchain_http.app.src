@@ -15,7 +15,6 @@
      lager,
      epgsql,
      dispcount,
-     jsone,
      jiffy,
      base64url,
      h3,
