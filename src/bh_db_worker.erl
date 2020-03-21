@@ -1,12 +1,15 @@
 -module(bh_db_worker).
 
--include("bh_db_worker.hrl").
+-include("bh_route_handler.hrl").
 
 -callback prepare_conn(epgsql:connection()) -> ok.
 
 -behaviour(dispcount).
 
--define(POOL_CHECKOUT_TIMEOUT, 100).
+%% how long the pool worker, if we get one, has to give us the db conn
+-define(POOL_CHECKOUT_TIMEOUT, 500).
+%% how many times to try to get a worker
+-define(POOL_CHECKOUT_RETRIES, 3).
 
 -export([init/1, checkout/2, checkin/2, handle_info/2, dead/1,
          terminate/2, code_change/3]).
@@ -22,35 +25,35 @@
 
 -spec squery(Pool::term(), Stmt::string()) -> epgsql_cmd_squery:response().
 squery(Pool, Sql) ->
-    case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
+    case do_checkout(Pool, ?POOL_CHECKOUT_RETRIES) of
         {ok, Reference, Conn} ->
             Res = epgsql:squery(Conn, Sql),
             dispcount:checkin(Pool, Reference, Conn),
             Res;
         {error, busy} ->
-            throw(busy)
+            throw(?RESPONSE_503)
     end.
 
 -spec equery(Pool::term(), Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
 equery(Pool, Stmt, Params) ->
-    case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
+    case do_checkout(Pool, ?POOL_CHECKOUT_RETRIES) of
         {ok, Reference, Conn} ->
             Res = epgsql:equery(Conn, Stmt, Params),
             dispcount:checkin(Pool, Reference, Conn),
             Res;
         {error, busy} ->
-            throw(busy)
+            throw(?RESPONSE_503)
     end.
 
 -spec prepared_query(Pool::term(), Name::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_prepared_query:response().
 prepared_query(Pool, Name, Params) ->
-    case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
+    case do_checkout(Pool, ?POOL_CHECKOUT_RETRIES) of
         {ok, Reference, Conn} ->
             Res = epgsql:prepared_query(Conn, Name, Params),
             dispcount:checkin(Pool, Reference, Conn),
             Res;
         {error, busy} ->
-            throw(busy)
+            throw(?RESPONSE_503)
     end.
 
 init(Args) ->
@@ -84,6 +87,9 @@ checkin(Conn, State) ->
 dead(State) ->
     {ok, State#state{given=false}}.
 
+handle_info({'EXIT', Conn, Reason}, State = #state{db_conn=Conn}) ->
+    lager:info("dispcount worker's db connection exited ~p", [Reason]),
+    {stop, Reason, State};
 handle_info(_Msg, State) ->
     lager:info("dispcount worker got unexpected message ~p", [_Msg]),
     {ok, State}.
@@ -94,3 +100,12 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+do_checkout(_Pool, 0) ->
+    {error, busy};
+do_checkout(Pool, Tries) ->
+    case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
+        {error, busy} ->
+            do_checkout(Pool, Tries - 1);
+        Res -> Res
+    end.
