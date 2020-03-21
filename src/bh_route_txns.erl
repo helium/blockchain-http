@@ -23,23 +23,24 @@
         "from transaction_actors a inner join transactions t on a.transaction_hash = t.hash " ).
 
 prepare_conn(Conn) ->
-    {ok, _} = epgsql:parse(Conn, ?S_TXN,
+    {ok, S1} = epgsql:parse(Conn, ?S_TXN,
                           ?SELECT_TXN_BASE "where t.hash = $1", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_TXN_LIST,
+    {ok, S2} = epgsql:parse(Conn, ?S_TXN_LIST,
                            ?SELECT_TXN_BASE "where t.type = ANY($1) order by block desc limit $2", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_TXN_LIST_BEFORE,
+    {ok, S3} = epgsql:parse(Conn, ?S_TXN_LIST_BEFORE,
                            ?SELECT_TXN_BASE "where t.type  = ANY($1) and t.block < $2 order by block desc limit $3", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST,
+    {ok, S4} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST,
                            ?SELECT_ACTOR_TXN_BASE "where a.actor = $1 and t.type = ANY($2) order by block desc limit $3", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST_BEFORE,
+    {ok, S5} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST_BEFORE,
                            ?SELECT_ACTOR_TXN_BASE "where a.actor = $1 and t.type = ANY($2) and t.block < $3 order by block desc limit $4", []),
 
-    ok.
-
+    #{?S_TXN => S1, ?S_TXN_LIST => S2,
+      ?S_TXN_LIST_BEFORE => S3, ?S_ACTOR_TXN_LIST => S4,
+      ?S_ACTOR_TXN_LIST_BEFORE => S5}.
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([filter_types, before, limit], Req),

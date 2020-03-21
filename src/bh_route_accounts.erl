@@ -18,19 +18,20 @@
 -define(SELECT_ACCOUNT_BASE, ?SELECT_ACCOUNT_BASE("")).
 
 prepare_conn(Conn) ->
-    {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT_LIST_BEFORE,
+    {ok, S1} = epgsql:parse(Conn, ?S_ACCOUNT_LIST_BEFORE,
                            ?SELECT_ACCOUNT_BASE "where l.address > $1 order by first_block desc, address limit $2", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT_LIST,
+    {ok, S2} = epgsql:parse(Conn, ?S_ACCOUNT_LIST,
                            ?SELECT_ACCOUNT_BASE "order by first_block desc, address limit $1", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_ACCOUNT,
+    {ok, S3} = epgsql:parse(Conn, ?S_ACCOUNT,
                            ?SELECT_ACCOUNT_BASE(
                               ", (select coalesce(max(nonce), l.nonce) from pending_transactions p where p.address = l.address and nonce_type='balance' and status != 'failed') as speculative_nonce"
                              )
                            "where l.address = $1", []),
 
-    ok.
+    #{?S_ACCOUNT_LIST_BEFORE => S1, ?S_ACCOUNT_LIST => S2,
+      ?S_ACCOUNT => S3}.
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([before, limit], Req),

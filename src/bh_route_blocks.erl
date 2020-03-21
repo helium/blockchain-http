@@ -26,22 +26,24 @@
         "from blocks b left join transactions t on b.height = t.block ").
 
 prepare_conn(Conn) ->
-    {ok, _} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT,
+    {ok, S1} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT,
                            "select max(height) from blocks", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_BLOCK_LIST_BEFORE,
+    {ok, S2} = epgsql:parse(Conn, ?S_BLOCK_LIST_BEFORE,
                            ?SELECT_BLOCK_BASE "where b.height < $1 order by height DESC limit $2", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_BLOCK_LIST,
+    {ok, S3} = epgsql:parse(Conn, ?S_BLOCK_LIST,
                            ?SELECT_BLOCK_BASE "order by height DESC limit $1", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_BLOCK_BY_HEIGHT,
+    {ok, S4} = epgsql:parse(Conn, ?S_BLOCK_BY_HEIGHT,
                            ?SELECT_BLOCK_TXN_BASE "where b.height = $1", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_BLOCK_BY_HASH,
+    {ok, S5} = epgsql:parse(Conn, ?S_BLOCK_BY_HASH,
                            ?SELECT_BLOCK_TXN_BASE "where b.block_hash = $1", []),
 
-    ok.
+    #{?S_BLOCK_HEIGHT => S1, ?S_BLOCK_LIST_BEFORE => S2,
+      ?S_BLOCK_LIST => S3, ?S_BLOCK_BY_HEIGHT => S4,
+      ?S_BLOCK_BY_HASH => S5}.
 
 
 handle('GET', [], Req) ->
@@ -99,10 +101,10 @@ block_list_to_json(Results) ->
 
 block_base_to_json({Height, Time, Hash, TxnCount}) ->
     #{
-      <<"height">> => Height,
-      <<"time">> => Time,
-      <<"hash">> => Hash,
-      <<"transaction_count">> => TxnCount
+      height => Height,
+      time => Time,
+      hash => Hash,
+      transaction_count => TxnCount
      }.
 
 block_to_json(Results) ->
@@ -113,7 +115,7 @@ block_to_json(Results) ->
     {Height, Time, Hash, TxnCount, _TxnHash, _Type, _Fields} = hd(Results),
     Block = block_base_to_json({Height, Time, Hash, TxnCount}),
     Block#{
-           <<"transactions">> => Txns
+           transactions => Txns
            }.
 
 block_txn_to_json({_Height, _Time, _Hash, _TxnCount, null, _Type, _Fields}, _Acc) ->

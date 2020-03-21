@@ -78,6 +78,7 @@ init([]) ->
     {ok, RWPoolInfo} = dispcount:dispatcher_info(rw_pool),
     persistent_term:put(rw_pool, RWPoolInfo),
 
+
     lager:info("Starting http listener on ~p", [ListenPort]),
     ChildSpecs =
         [
@@ -85,3 +86,4 @@ init([]) ->
         ],
 
     {ok, {SupFlags, ChildSpecs}}.
+

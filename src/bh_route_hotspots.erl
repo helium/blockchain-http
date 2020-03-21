@@ -22,22 +22,24 @@
         "l.short_street, l.long_street, l.short_city, l.long_city, l.short_state, l.long_state, l.short_country, l.long_country from gateway_ledger g left join locations l on g.location = l.location ").
 
 prepare_conn(Conn) ->
-    {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT_LIST_BEFORE,
+    {ok, S1} = epgsql:parse(Conn, ?S_HOTSPOT_LIST_BEFORE,
                            ?SELECT_HOTSPOT_BASE "where g.address > $1 order by first_block desc, address limit $2", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT_LIST,
+    {ok, S2} = epgsql:parse(Conn, ?S_HOTSPOT_LIST,
                            ?SELECT_HOTSPOT_BASE "order by first_block desc, address limit $1", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST_BEFORE,
+    {ok, S3} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST_BEFORE,
                            ?SELECT_HOTSPOT_BASE "where g.owner = $1 and g.address > $2 order by first_block desc, address limit $3", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST,
+    {ok, S4} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST,
                            ?SELECT_HOTSPOT_BASE "where g.owner = $1 order by first_block desc, address limit $2", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_HOTSPOT,
+    {ok, S5} = epgsql:parse(Conn, ?S_HOTSPOT,
                            ?SELECT_HOTSPOT_BASE "where g.address = $1", []),
 
-    ok.
+    #{?S_HOTSPOT_LIST_BEFORE => S1, ?S_HOTSPOT_LIST => S2,
+      ?S_OWNER_HOTSPOT_LIST_BEFORE => S3, ?S_OWNER_HOTSPOT_LIST => S4,
+      ?S_HOTSPOT => S5}.
 
 
 handle('GET', [], Req) ->
