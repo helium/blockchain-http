@@ -4,45 +4,54 @@
 
 -callback prepare_conn(epgsql:connection()) -> ok.
 
--behaviour(gen_server).
--behaviour(poolboy_worker).
+-behaviour(dispcount).
 
--export([start_link/1]).
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-         code_change/3]).
+-define(POOL_CHECKOUT_TIMEOUT, 100).
+
+-export([init/1, checkout/2, checkin/2, handle_info/2, dead/1,
+         terminate/2, code_change/3]).
 
 -export([squery/2, equery/3, prepared_query/3]).
 
 -record(state,
         {
+         given = false :: boolean(),
          db_conn :: epgsql:connection()
         }).
 
 
--spec squery(Pool::atom(), Stmt::string()) -> epgsql_cmd_squery:response().
+-spec squery(Pool::term(), Stmt::string()) -> epgsql_cmd_squery:response().
 squery(Pool, Sql) ->
-    poolboy:transaction(Pool,
-                        fun(Worker) ->
-                                gen_server:call(Worker, {squery, Sql}, infinity)
-                        end).
+    case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
+        {ok, Reference, Conn} ->
+            Res = epgsql:squery(Conn, Sql),
+            dispcount:checkin(Pool, Reference, Conn),
+            Res;
+        {error, busy} ->
+            throw(busy)
+    end.
 
--spec equery(Pool::atom(), Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
+-spec equery(Pool::term(), Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
 equery(Pool, Stmt, Params) ->
-    poolboy:transaction(Pool,
-                        fun(Worker) ->
-                                gen_server:call(Worker, {equery, Stmt, Params}, infinity)
-                        end).
+    case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
+        {ok, Reference, Conn} ->
+            Res = epgsql:equery(Conn, Stmt, Params),
+            dispcount:checkin(Pool, Reference, Conn),
+            Res;
+        {error, busy} ->
+            throw(busy)
+    end.
 
--spec prepared_query(Pool::atom(), Name::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_prepared_query:response().
+-spec prepared_query(Pool::term(), Name::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_prepared_query:response().
 prepared_query(Pool, Name, Params) ->
-    poolboy:transaction(Pool,
-                        fun(Worker) ->
-                                gen_server:call(Worker, {prepared_query, Name, Params}, infinity)
-                        end).
-
-
-start_link(Args) ->
-    gen_server:start_link(?MODULE, Args, []).
+    case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
+        {ok, Reference, Conn} ->
+            Res = epgsql:prepared_query(Conn, Name, Params),
+            dispcount:checkin(Pool, Reference, Conn),
+            Res;
+        {error, busy} ->
+            throw(busy)
+    end.
 
 init(Args) ->
     process_flag(trap_exit, true),
@@ -53,33 +62,34 @@ init(Args) ->
                      end
              end,
     DBOpts = GetOpt(db_opts),
-    Codecs = [{epgsql_codec_json, {jsone,
-                                   [{object_key_type, scalar}, undefined_as_null],
-                                   [undefined_as_null]}}],
+    Codecs = [{epgsql_codec_json, {jiffy, [], [return_maps]}}],
     {ok, Conn} = epgsql:connect(DBOpts#{codecs => Codecs}),
     lists:foreach(fun(Mod) ->
                           Mod:prepare_conn(Conn)
                   end, GetOpt(db_handlers)),
     {ok, #state{db_conn=Conn}}.
 
-handle_call({squery, Sql}, _From, #state{db_conn=Conn}=State) ->
-    {reply, epgsql:squery(Conn, Sql), State};
-handle_call({equery, Stmt, Params}, _From, #state{db_conn=Conn}=State) ->
-    {reply, epgsql:equery(Conn, Stmt, Params), State};
-handle_call({prepared_query, Name, Params}, _From, #state{db_conn=Conn}=State) ->
-    {reply, epgsql:prepared_query(Conn, Name, Params), State};
-handle_call(Request, _From, State) ->
-    lager:notice("Unhandled call ~p", [Request]),
-    {reply, ok, State}.
+checkout(_From, State = #state{given=true}) ->
+    lager:warning("unexpected checkout when already checked out"),
+    {error, busy, State};
+checkout(_From, State = #state{db_conn = Conn}) ->
+    {ok, Conn, State#state{given=true}}.
 
-handle_cast(_Msg, State) ->
-    {noreply, State}.
+checkin(Conn, State = #state{db_conn = Conn, given=true}) ->
+    {ok, State#state{given=false}};
+checkin(Conn, State) ->
+    lager:warning("unexpected checkin of ~p when we have ~p", [Conn, State#state.db_conn]),
+    {ignore, State}.
 
-handle_info(_Info, State) ->
-    {noreply, State}.
+dead(State) ->
+    {ok, State#state{given=false}}.
 
-terminate(_Reason, #state{db_conn=Conn}) ->
-    catch epgsql:close(Conn),
+handle_info(_Msg, State) ->
+    lager:info("dispcount worker got unexpected message ~p", [_Msg]),
+    {ok, State}.
+
+terminate(_Reason, _State) ->
+    %% let the GC clean the socket.
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

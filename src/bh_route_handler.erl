@@ -35,7 +35,7 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
 mk_response({ok, Json}) ->
     {ok,
      [{<<"Content-Type">>, <<"application/json; charset=utf-8">>}],
-     jsone:encode(#{<<"data">> => Json}, [undefined_as_null])};
+     jiffy:encode(#{<<"data">> => Json}, [])};
 mk_response({error, not_found}) ->
     ?RESPONSE_404.
 

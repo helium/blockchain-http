@@ -1,6 +1,7 @@
 -include("bh_db_worker.hrl").
 
 -define(RESPONSE_404, {404, [], <<"Not Found">>}).
+-define(RESPONSE_408, {408, [], <<"Too Busy">>}).
 -define(RESPONSE_400, {400, [], <<"Bad Request">>}).
 
 -define(MAX_LIMIT, 1000).
@@ -8,7 +9,10 @@
 
 -define(GET_ARGS(A,R), bh_route_handler:get_args((A), (R))).
 
--define(MK_RESPONSE(R), bh_route_handler:mk_response((R))).
+-define(MK_RESPONSE(R), try bh_route_handler:mk_response((R))
+                        catch throw:busy ->
+                                  ?RESPONSE_408
+                        end).
 -define(INSERT_LAT_LON(L, N, F), bh_route_handler:lat_lon((L), (N), (F))).
 -define(INSERT_LAT_LON(L, F), bh_route_handler:lat_lon((L), (F))).
 

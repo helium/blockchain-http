@@ -14,8 +14,8 @@
      compiler,
      lager,
      epgsql,
-     poolboy,
-     jsone,
+     dispcount,
+     jiffy,
      base64url,
      h3,
      iso8601,
@@ -27,6 +27,7 @@
      libp2p_crypto,
      erl_angry_purple_tiger,
      elli,
+     tools,
      recon
     ]
    },
