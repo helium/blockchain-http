@@ -17,7 +17,7 @@
 -define(S_ACTOR_TXN_LIST, "actor_txn_list").
 -define(S_ACTOR_TXN_LIST_BEFORE, "actor_txn_list_before").
 
--define(SELECT_TXN_FIELDS, "select t.block, t.hash, t.type, t.fields ").
+-define(SELECT_TXN_FIELDS, "select t.block, t.time, t.hash, t.type, t.fields ").
 -define(SELECT_TXN_BASE, ?SELECT_TXN_FIELDS "from transactions t ").
 -define(SELECT_ACTOR_TXN_BASE, ?SELECT_TXN_FIELDS
         "from transaction_actors a inner join transactions t on a.transaction_hash = t.hash " ).
@@ -113,12 +113,13 @@ filter_types(Types) when is_list(Types) ->
 txn_list_to_json(Results) ->
     lists:map(fun txn_to_json/1, Results).
 
-txn_to_json({Height, Hash, Type, Fields}) ->
+txn_to_json({Height, Time, Hash, Type, Fields}) ->
     Json = txn_to_json({Type, Fields}),
     Json#{
           <<"type">> => Type,
           <<"hash">> => Hash,
-          <<"height">> => Height
+          <<"height">> => Height,
+          <<"time">> => Time
          };
 
 txn_to_json({<<"poc_request_v1">>,
