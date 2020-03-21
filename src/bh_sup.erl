@@ -40,20 +40,38 @@ init([]) ->
     {ok, ListenPort} = application:get_env(blockchain_http, port),
     ok = dispcount:start_dispatch(
         ro_pool,
-        {bh_db_worker, [{db_opts, RO_DBOpts}, {db_handlers, RO_DBHandlers}]},
-         [{restart,permanent},{shutdown,4000},
-          {maxr,10},{maxt,60},{resources,proplists:get_value(size, RO_PoolOpts, 200)}]
-          ),
+        {bh_db_worker,
+         [
+          {db_opts, RO_DBOpts},
+          {db_handlers, RO_DBHandlers}
+         ]},
+         [
+          {restart,permanent},
+          {shutdown,4000},
+          {dispatch_mechanism, round_robin},
+          {maxr,10},
+          {maxt,60},
+          {resources, proplists:get_value(size, RO_PoolOpts, 200)}
+         ]),
 
     {ok, ROPoolInfo} = dispcount:dispatcher_info(ro_pool),
     persistent_term:put(ro_pool, ROPoolInfo),
- 
+
     ok = dispcount:start_dispatch(
         rw_pool,
-        {bh_db_worker, [{db_opts, RW_DBOpts}, {db_handlers, RW_DBHandlers}]},
-         [{restart,permanent},{shutdown,4000},
-          {maxr,10},{maxt,60},{resources,proplists:get_value(size, RW_PoolOpts, 5)}]
-          ),
+        {bh_db_worker,
+         [
+          {db_opts, RW_DBOpts},
+          {db_handlers, RW_DBHandlers}
+         ]},
+         [
+          {restart,permanent},
+          {shutdown,4000},
+          {dispatch_mechanism, round_robin},
+          {maxr,10},
+          {maxt,60},
+          {resources,proplists:get_value(size, RW_PoolOpts, 5)}
+         ]),
 
     {ok, RWPoolInfo} = dispcount:dispatcher_info(rw_pool),
     persistent_term:put(rw_pool, RWPoolInfo),
