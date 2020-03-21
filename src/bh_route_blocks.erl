@@ -120,5 +120,5 @@ block_txn_to_json({_Height, _Time, _Hash, _TxnCount, null, _Type, _Fields}, _Acc
     %% The left join shortcuts out to an empty transaction list if no
     %% transactions are found.
     [];
-block_txn_to_json({Height, _Time, _Hash, _TxnCount, Hash, Type, Fields}, Acc) ->
-    [bh_route_txns:txn_to_json({Height, Hash, Type, Fields}) | Acc].
+block_txn_to_json({Height, Time, _Hash, _TxnCount, TxnHash, Type, Fields}, Acc) ->
+    [bh_route_txns:txn_to_json({Height, Time, TxnHash, Type, Fields}) | Acc].
