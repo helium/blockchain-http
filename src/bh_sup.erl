@@ -48,7 +48,8 @@ init([]) ->
          [
           {restart,permanent},
           {shutdown,4000},
-          {dispatch_mechanism, round_robin},
+          {dispatch_mechanism, proplists:get_value(dispatch_mechanism, RO_PoolOpts, hash)},
+          {watcher_type, proplists:get_value(watcher_type, RO_PoolOpts, ets)},
           {maxr,10},
           {maxt,60},
           {resources, proplists:get_value(size, RO_PoolOpts, 200)}
@@ -67,7 +68,8 @@ init([]) ->
          [
           {restart,permanent},
           {shutdown,4000},
-          {dispatch_mechanism, round_robin},
+          {dispatch_mechanism, proplists:get_value(dispatch_mechanism, RW_PoolOpts, hash)},
+          {watcher_type, proplists:get_value(watcher_type, RW_PoolOpts, ets)},
           {maxr,10},
           {maxt,60},
           {resources,proplists:get_value(size, RW_PoolOpts, 5)}
