@@ -21,16 +21,17 @@
 -define(SELECT_PENDING_TXN_BASE, "select t.created_at, t.updated_at, t.hash, t.status, t.failed_reason from pending_transactions t ").
 
 prepare_conn(Conn) ->
-    {ok, _} = epgsql:parse(Conn, ?S_PENDING_TXN_LIST_BEFORE,
+    {ok, S1} = epgsql:parse(Conn, ?S_PENDING_TXN_LIST_BEFORE,
                            ?SELECT_PENDING_TXN_BASE "where t.created_at < $2 and t.status = $1 order by created_at DESC limit $3", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_PENDING_TXN,
+    {ok, S2} = epgsql:parse(Conn, ?S_PENDING_TXN,
                            ?SELECT_PENDING_TXN_BASE "where hash = $1", []),
 
-    {ok, _} = epgsql:parse(Conn, ?S_INSERT_PENDING_TXN,
+    {ok, S3} = epgsql:parse(Conn, ?S_INSERT_PENDING_TXN,
                            "insert into pending_transactions (hash, type, address, nonce, nonce_type, status, data) values ($1, $2, $3, $4, $5, $6, $7)", []),
 
-    ok.
+    #{?S_PENDING_TXN_LIST_BEFORE => S1, ?S_PENDING_TXN => S2,
+      ?S_INSERT_PENDING_TXN => S3}.
 
 handle('GET', [TxnHash], _Req) ->
     ?MK_RESPONSE(get_pending_txn(TxnHash));
