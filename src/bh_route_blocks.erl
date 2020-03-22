@@ -98,15 +98,15 @@ get_block_by_hash(BlockHash) ->
 
 build_json(Ref, Fun, Acc) ->
     receive {_, Ref, {columns, Columns}} ->
-                lager:info("got columns ~p", [Columns]),
+                %lager:info("got columns ~p", [Columns]),
                 build_json(Ref, Fun, Acc);
             {_, Ref, {data, Row}} ->
                 build_json(Ref, Fun, [jiffy:encode(Fun(Row))|Acc]);
             {_, Ref, {complete, Type}} ->
-                lager:info("got complete ~p", [Type]),
+                %lager:info("got complete ~p", [Type]),
                 build_json(Ref, Fun, Acc);
             {_, Ref, done} ->
-                lager:info("got done"),
+                %lager:info("got done"),
                 lists:join($,, Acc);
             Other ->
                 lager:info("Got other ~p", [Other]),
