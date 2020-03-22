@@ -3,7 +3,7 @@
 -include("bh_route_handler.hrl").
 -include_lib("epgsql/include/epgsql.hrl").
 
--callback prepare_conn(epgsql:connection()) -> ok.
+-callback prepare_conn(epgsql:connection()) -> map().
 
 -behaviour(dispcount).
 
