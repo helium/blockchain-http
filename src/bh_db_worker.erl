@@ -3,7 +3,7 @@
 -include("bh_route_handler.hrl").
 -include_lib("epgsql/include/epgsql.hrl").
 
--callback prepare_conn(epgsql:connection()) -> ok.
+-callback prepare_conn(epgsql:connection()) -> map().
 
 -behaviour(dispcount).
 
@@ -15,7 +15,7 @@
 -export([init/1, checkout/2, transaction/3, checkin/2, handle_info/2, dead/1,
          terminate/2, code_change/3]).
 
--export([squery/2, equery/3, prepared_query/3]).
+-export([squery/2, equery/3, prepared_query/3, prepared_queryi/3]).
 
 -record(state,
         {
@@ -89,6 +89,24 @@ prepared_query(Pool, Name, Params) ->
                 500 ->
                     throw(?RESPONSE_503)
             end;
+        {error, busy} ->
+            throw(?RESPONSE_503)
+    end.
+
+-spec prepared_queryi(Pool::term(), Name::string(), Params::[epgsql:bind_param()]) -> reference().
+prepared_queryi(Pool, Name, Params) ->
+    Ref = make_ref(),
+    Fun = fun(From, {Stmts, Conn}) ->
+                  Statement = maps:get(Name, Stmts),
+                  #statement{types = Types} = Statement,
+                  TypedParameters = lists:zip(Types, Params),
+                  %% construct the same kind of cast the epgsqla:prepared_statement does, but redirect
+                  %% the output to the elli process directly
+                  gen_server:cast(Conn, {{incremental, From, Ref}, epgsql_cmd_prepared_query, {Statement, TypedParameters}})
+          end,
+    case dispcount:transaction(Pool, Fun) of
+        ok ->
+            Ref;
         {error, busy} ->
             throw(?RESPONSE_503)
     end.
