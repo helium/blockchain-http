@@ -67,7 +67,7 @@ handle(_Method, _Path, _Req) ->
 
 get_block_list([{before, undefined}, {limit, Limit}]) ->
     Ref = ?PREPARED_QUERYI(?S_BLOCK_LIST, [Limit]),
-    {ok, build_json(Ref, fun block_base_to_json/1, [])};
+    {ok, {json, build_json(Ref, fun block_base_to_json/1, [])}};
 get_block_list([{before, Before}, {limit, Limit}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [Before, Limit]),
     {ok, block_list_to_json(Results)}.

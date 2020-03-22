@@ -32,6 +32,10 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
     V = elli_request:get_arg_decoded(atom_to_binary(Key, latin1), Req, Default),
     get_args(Tail, Req, [{Key, V} | Acc]).
 
+mk_response({ok, {json, Json}}) ->
+    {ok, 
+     [{<<"Content-Type">>, <<"application/json; charset=utf-8">>}],
+     ["[", Json, "]"]};
 mk_response({ok, Json}) ->
     {ok,
      [{<<"Content-Type">>, <<"application/json; charset=utf-8">>}],
