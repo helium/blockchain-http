@@ -3,7 +3,7 @@
  {<<"base64url">>,{pkg,<<"base64url">>,<<"1.0.1">>},0},
  {<<"dispcount">>,
   {git,"https://github.com/Vagabond/dispcount",
-       {ref,"c80e5478c011b49c5043209112d9de034d301e10"}},
+       {ref,"c5bde4945ab31089823c30ab09d60a944201d776"}},
   0},
  {<<"ecc_compact">>,{pkg,<<"ecc_compact">>,<<"1.0.4">>},1},
  {<<"elli">>,{pkg,<<"elli">>,<<"3.2.0">>},0},

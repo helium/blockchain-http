@@ -42,9 +42,6 @@ handle_info({'DOWN', Ref, process, _Pid, noproc}, State) ->
         error ->
             {noreply, State}
     end;
-handle_info({'DOWN', Ref, process, _Pid, Reason}, State) when Reason == normal; Reason == shutdown ->
-    %% ignore these
-    {noreply, maps:remove(Ref, State)};
 handle_info({'DOWN', Ref, process, _Pid, Reason}, State) ->
     case maps:find(Ref, State) of
         {ok, Name} ->
