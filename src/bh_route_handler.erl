@@ -21,11 +21,11 @@ get_args([limit | Tail], Req, Acc) ->
     get_args([{limit, ?DEFAULT_ARG_LIMIT} | Tail], Req, Acc);
 get_args([{limit, Default} | Tail], Req, Acc) ->
     V = elli_request:get_arg_decoded(<<"limit">>, Req, Default),
-    N = case catch binary_to_integer(V) of
-            {'EXIT', _} -> binary_to_integer(?DEFAULT_ARG_LIMIT);
-            NumVal -> NumVal
-        end,
-    get_args(Tail, Req, [{limit, min(?MAX_LIMIT, N)} | Acc]);
+    try binary_to_integer(V) of
+        N ->  get_args(Tail, Req, [{limit, min(?MAX_LIMIT, N)} | Acc])
+    catch _:_ ->
+            binary_to_integer(?DEFAULT_ARG_LIMIT)
+    end;
 get_args([Key | Tail], Req, Acc) when is_atom(Key) ->
     get_args([{Key, undefined} | Tail], Req, Acc);
 get_args([{Key, Default} | Tail], Req, Acc) ->
