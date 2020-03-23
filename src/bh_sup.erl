@@ -34,10 +34,12 @@ init([]) ->
     {ok, RW_DBHandlers} = application:get_env(blockchain_http, db_rw_handlers),
 
     {ok, RO_PoolOpts} = application:get_env(blockchain_http, db_ro_pool),
-    RO_PoolSize = os:getenv("DATABASE_RO_POOL_SIZE", proplists:get_value(size, RO_PoolOpts, 100)),
     {ok, RO_DBOpts} = psql_migration:connection_opts([], "DATABASE_RO_URL"),
     {ok, RO_DBHandlers} = application:get_env(blockchain_http, db_ro_handlers),
-
+    RO_PoolSize = case os:getenv("DATABASE_RO_POOL_SIZE") of
+                      false -> proplists:get_value(size, RO_PoolOpts, 100);
+                      RO_SizeStr -> list_to_integer(RO_SizeStr)
+                  end,
     {ok, ListenPort} = application:get_env(blockchain_http, port),
     ok = dispcount:start_dispatch(
         ro_pool,
