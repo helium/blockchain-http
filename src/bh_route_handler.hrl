@@ -2,6 +2,7 @@
 
 -define(RESPONSE_404, {404, [], <<"Not Found">>}).
 -define(RESPONSE_503, {503, [], <<"Too Busy">>}).
+-define(RESPONSE_503_SHUTDOWN, {503, [], <<"Stopping">>}).
 -define(RESPONSE_400, {400, [], <<"Bad Request">>}).
 
 -define(MAX_LIMIT, 1000).

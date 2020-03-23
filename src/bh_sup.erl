@@ -82,6 +82,7 @@ init([]) ->
     lager:info("Starting http listener on ~p", [ListenPort]),
     ChildSpecs =
         [
+         ?WORKER(bh_pool_watcher, [[ ro_pool, rw_pool ]]),
          ?WORKER(elli, [ [{callback, bh_routes}, {port, ListenPort}] ])
         ],
 
