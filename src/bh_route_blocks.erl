@@ -69,8 +69,13 @@ get_block_list([{before, undefined}, {limit, Limit}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST, [Limit]),
     {ok, block_list_to_json(Results)};
 get_block_list([{before, Before}, {limit, Limit}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [Before, Limit]),
-    {ok, block_list_to_json(Results)}.
+    case catch binary_to_integer(Before) of
+        {'EXIT', _} ->
+            get_block_list([{before, undefined}, {limit, Limit}]);
+        Height ->
+            {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [Height, Limit]),
+            {ok, block_list_to_json(Results)}
+    end.
 
 get_block_height() ->
     {ok, _, [{Height}]} = ?PREPARED_QUERY(?S_BLOCK_HEIGHT, []),
