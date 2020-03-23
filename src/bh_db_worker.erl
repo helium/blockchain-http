@@ -28,6 +28,8 @@
 
 
 -spec squery(Pool::term(), Stmt::string()) -> epgsql_cmd_squery:response().
+squery(shutdown, _) ->
+    throw(?RESPONSE_503_SHUTDOWN);
 squery(Pool, Sql) ->
     case do_checkout(Pool, ?POOL_CHECKOUT_RETRIES) of
         {ok, Reference, Conn} ->
@@ -45,6 +47,8 @@ squery(Pool, Sql) ->
     end.
 
 -spec equery(Pool::term(), Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
+equery(shutdown, _, _) ->
+    throw(?RESPONSE_503_SHUTDOWN);
 equery(Pool, Stmt, Params) ->
     case do_checkout(Pool, ?POOL_CHECKOUT_RETRIES) of
         {ok, Reference, Conn} ->
@@ -70,6 +74,8 @@ equery(Pool, Stmt, Params) ->
     end.
 
 -spec prepared_query(Pool::term(), Name::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_prepared_query:response().
+prepared_query(shutdown, _, _) ->
+    throw(?RESPONSE_503_SHUTDOWN);
 prepared_query(Pool, Name, Params) ->
     Ref = make_ref(),
     Fun = fun(From, {Stmts, Conn}) ->
