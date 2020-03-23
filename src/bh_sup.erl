@@ -34,6 +34,7 @@ init([]) ->
     {ok, RW_DBHandlers} = application:get_env(blockchain_http, db_rw_handlers),
 
     {ok, RO_PoolOpts} = application:get_env(blockchain_http, db_ro_pool),
+    RO_PoolSize = os:getenv("DATABASE_RO_POOL_SIZE", proplists:get_value(size, RO_PoolOpts, 100)),
     {ok, RO_DBOpts} = psql_migration:connection_opts([], "DATABASE_RO_URL"),
     {ok, RO_DBHandlers} = application:get_env(blockchain_http, db_ro_handlers),
 
@@ -52,7 +53,7 @@ init([]) ->
           {watcher_type, proplists:get_value(watcher_type, RO_PoolOpts, ets)},
           {maxr,10},
           {maxt,60},
-          {resources, proplists:get_value(size, RO_PoolOpts, 200)}
+          {resources, RO_PoolSize}
          ]),
 
     {ok, ROPoolInfo} = dispcount:dispatcher_info(ro_pool),
@@ -87,4 +88,3 @@ init([]) ->
         ],
 
     {ok, {SupFlags, ChildSpecs}}.
-
