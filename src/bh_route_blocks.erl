@@ -54,11 +54,10 @@ handle('GET', [<<"height">>], _Req) ->
 handle('GET', [<<"hash">>, BlockHash], _Req) ->
     ?MK_RESPONSE(get_block_by_hash(BlockHash));
 handle('GET', [BlockId], _Req) ->
-    case catch binary_to_integer(BlockId) of
-        {'EXIT', _} ->
-            ?RESPONSE_400;
-        Height ->
-            ?MK_RESPONSE(get_block_by_height(Height))
+    try binary_to_integer(BlockId) of
+        Height -> ?MK_RESPONSE(get_block_by_height(Height))
+    catch _:_ ->
+        ?RESPONSE_400
     end;
 
 handle(_Method, _Path, _Req) ->
@@ -69,8 +68,13 @@ get_block_list([{before, undefined}, {limit, Limit}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST, [Limit]),
     {ok, block_list_to_json(Results)};
 get_block_list([{before, Before}, {limit, Limit}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [Before, Limit]),
-    {ok, block_list_to_json(Results)}.
+    try binary_to_integer(Before) of
+        Height ->
+            {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [Height, Limit]),
+            {ok, block_list_to_json(Results)}
+    catch _:_ ->
+            get_block_list([{before, undefined}, {limit, Limit}])
+    end.
 
 get_block_height() ->
     {ok, _, [{Height}]} = ?PREPARED_QUERY(?S_BLOCK_HEIGHT, []),
