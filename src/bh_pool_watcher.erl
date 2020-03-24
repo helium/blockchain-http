@@ -32,10 +32,9 @@ handle_info({monitor, Name}, State) ->
     catch
         What:Why ->
             lager:info("dispcount still not ready ~p:~p", [What, Why]),
-            %% likely things have not finished restarting
+            %% likely things have not finished restarting, try again shortly
             erlang:demonitor(Ref, [flush]),
             erlang:send_after(500, self(), {monitor, Name}),
-            %% still down, wait for the DOWN to come back
             {noreply, State}
     end;
 handle_info({'DOWN', Ref, process, _Pid, noproc}, State) ->
