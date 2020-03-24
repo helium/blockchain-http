@@ -36,7 +36,7 @@ prepare_conn(Conn) ->
 handle('GET', [TxnHash], _Req) ->
     ?MK_RESPONSE(get_pending_txn(TxnHash));
 handle('POST', [], Req) ->
-    #{ <<"txn">> := EncodedTxn } = jiffy:decode(elli_request:body(Req)),
+    #{ <<"txn">> := EncodedTxn } = jiffy:decode(elli_request:body(Req), [return_maps]),
     BinTxn = base64:decode(EncodedTxn),
     Txn = txn_unwrap(blockchain_txn_pb:decode_msg(BinTxn, blockchain_txn_pb)),
     Result = insert_pending_txn(Txn, BinTxn),
@@ -52,7 +52,7 @@ handle(_, _, _Req) ->
 
 -type nonce_type() :: binary().
 
--spec insert_pending_txn(supported_txn(), binary()) -> {ok, jiffy:json_object()}.
+-spec insert_pending_txn(supported_txn(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
 insert_pending_txn(#blockchain_txn_payment_v1_pb{payer=Payer, nonce=Nonce }=Txn, Bin) ->
     insert_pending_txn(Txn, Payer, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_payment_v2_pb{payer=Payer, nonce=Nonce}=Txn, Bin) ->
@@ -62,7 +62,7 @@ insert_pending_txn(#blockchain_txn_create_htlc_v1_pb{payer=Payer, nonce=Nonce}=T
 insert_pending_txn(#blockchain_txn_redeem_htlc_v1_pb{payee=Payee}=Txn, Bin) ->
     insert_pending_txn(Txn, Payee, 0, <<"balance">>, Bin).
 
--spec insert_pending_txn(supported_txn(), libp2p_crypto:pubkey_bin(), non_neg_integer(), nonce_type(), binary()) -> {ok, jiffy:json_object()}.
+-spec insert_pending_txn(supported_txn(), libp2p_crypto:pubkey_bin(), non_neg_integer(), nonce_type(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
 insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
     TxnHash = ?BIN_TO_B64(txn_hash(Txn)),
     Params = [
@@ -74,8 +74,12 @@ insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
               <<"received">>,
               Bin
              ],
-    {ok, _} = ?PREPARED_QUERY(?DB_RW_POOL, ?S_INSERT_PENDING_TXN, Params),
-    {ok, #{ <<"hash">> => TxnHash}}.
+    case ?PREPARED_QUERY(?DB_RW_POOL, ?S_INSERT_PENDING_TXN, Params) of
+        {ok, _} ->
+            {ok, #{ <<"hash">> => TxnHash}};
+        {error, {error, error, _, unique_violation, _, _}} ->
+            {error, conflict}
+    end.
 
 
 %% @equiv get_pending_txn_list(Status, Before, Limit)
