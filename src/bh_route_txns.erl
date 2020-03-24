@@ -201,6 +201,12 @@ txn_to_json({<<"rewards_v1">>, Fields}) ->
     Fields;
 txn_to_json({<<"payment_v1">>, Fields}) ->
     Fields;
+txn_to_json({<<"payment_v2">>, Fields}) ->
+    Fields;
+txn_to_json({<<"create_htlc_v1">>, Fields}) ->
+    Fields;
+txn_to_json({<<"redeem_htlc_v1">>, Fields}) ->
+    Fields;
 txn_to_json({<<"state_channel_open_v1">>, Fields}) ->
     Fields;
 txn_to_json({<<"state_channel_close_v1">>, Fields}) ->
