@@ -41,6 +41,8 @@ mk_response({ok, Json}) ->
       {<<"Access-Control-Allow-Origin">>, <<"*">>}
      ],
      jiffy:encode(#{<<"data">> => Json}, [])};
+mk_response({error, conflict}) ->
+    ?RESPONSE_409;
 mk_response({error, not_found}) ->
     ?RESPONSE_404.
 

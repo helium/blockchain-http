@@ -1,6 +1,7 @@
 -include("bh_db_worker.hrl").
 
 -define(RESPONSE_404, {404, [], <<"Not Found">>}).
+-define(RESPONSE_409, {409, [], <<"Conflict">>}).
 -define(RESPONSE_503, {503, [], <<"Too Busy">>}).
 -define(RESPONSE_503_SHUTDOWN, {503, [], <<"Stopping">>}).
 -define(RESPONSE_400, {400, [], <<"Bad Request">>}).
