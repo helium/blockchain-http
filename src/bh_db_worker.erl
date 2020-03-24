@@ -21,9 +21,8 @@
         {
          given = false :: boolean(),
          db_conn :: epgsql:connection(),
-         conn_ref :: reference(),
          handlers :: [atom()],
-         prepared_statements = #{} :: map()
+         prepared_statements :: map()
         }).
 
 
@@ -106,12 +105,14 @@ init(Args) ->
                          {_, V} -> V
                      end
              end,
-    #{host := Host, username := Username, password := Password} = DBOpts = GetOpt(db_opts),
+    DBOpts = GetOpt(db_opts),
     Codecs = [{epgsql_codec_json, {jiffy, [], [return_maps]}}],
-    {ok, Conn} = epgsqla:start_link(),
-    %% there's not an async connect that just takes Conn and Opts, for some reason
-    Ref = epgsqla:connect(Conn, Host, Username, Password, DBOpts#{codecs => Codecs}),
-    {ok, #state{db_conn=Conn, conn_ref=Ref, given=true, handlers=GetOpt(db_handlers)}}.
+    {ok, Conn} = epgsql:connect(DBOpts#{codecs => Codecs}),
+    Handlers = GetOpt(db_handlers),
+    PreparedStatements = lists:foldl(fun(Mod, Acc) ->
+                                             maps:merge(Mod:prepare_conn(Conn), Acc)
+                                     end, #{}, Handlers),
+    {ok, #state{db_conn=Conn, given=false, handlers=Handlers, prepared_statements=PreparedStatements}}.
 
 checkout(_From, State = #state{given=true}) ->
     lager:warning("unexpected checkout when already checked out"),
@@ -132,14 +133,6 @@ checkin(Conn, State) ->
 dead(State) ->
     {ok, State#state{given=false}}.
 
-handle_info({Conn, Ref, connected}, State = #state{db_conn=Conn, conn_ref=Ref, handlers=Handlers}) ->
-    %% connection is ready now
-    PreparedStatements = lists:foldl(fun(Mod, Acc) ->
-                                             maps:merge(Mod:prepare_conn(Conn), Acc)
-                                     end, #{}, Handlers),
-    {ok, State#state{given=false, prepared_statements=PreparedStatements}};
-handle_info({Conn, Ref, {error, Reason}}, State = #state{db_conn=Conn, conn_ref=Ref}) ->
-    {stop, {error, Reason}, State};
 handle_info({'EXIT', Conn, Reason}, State = #state{db_conn=Conn}) ->
     lager:info("dispcount worker's db connection exited ~p", [Reason]),
     {stop, Reason, State};
