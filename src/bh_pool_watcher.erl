@@ -25,21 +25,28 @@ handle_info({monitor, Name}, State) ->
     Ref = erlang:monitor(process, get_name(Name)),
     try dispcount:dispatcher_info(Name) of
         {ok, PoolInfo} ->
+            lager:info("dispcount is back"),
             %% it's back, update the persistent term
             persistent_term:put(Name, PoolInfo),
             {noreply, maps:put(Ref, Name, State)}
-    catch _:_ ->
-              %% still down, wait for the DOWN to come back
-              {noreply, State}
+    catch
+        What:Why ->
+            lager:info("dispcount still not ready ~p:~p", [What, Why]),
+            %% likely things have not finished restarting, try again shortly
+            erlang:demonitor(Ref, [flush]),
+            erlang:send_after(500, self(), {monitor, Name}),
+            {noreply, State}
     end;
 handle_info({'DOWN', Ref, process, _Pid, noproc}, State) ->
     case maps:find(Ref, State) of
         {ok, Name} ->
+            lager:notice("Pool ~p monitor failed with noproc, retrying", [Name]),
             %% noproc means the process wasn't alive when we tried to monitor it
             %% we should probably wait a bit and retry
             erlang:send_after(5000, self(), {monitor, Name}),
             {noreply, maps:remove(Ref, State)};
         error ->
+            lager:warning("unknown ref ~p exited with reason noproc", [Ref]),
             {noreply, State}
     end;
 handle_info({'DOWN', Ref, process, _Pid, Reason}, State) ->
@@ -49,6 +56,7 @@ handle_info({'DOWN', Ref, process, _Pid, Reason}, State) ->
             lager:notice("Pool ~p exited with reason ~p", [Name, Reason]),
             {noreply, maps:remove(Ref, State)};
         error ->
+            lager:warning("unknown ref ~p exited with reason ~p", [Ref, Reason]),
             {noreply, State}
     end;
 handle_info(Msg, State) ->
