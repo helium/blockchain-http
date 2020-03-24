@@ -40,6 +40,6 @@ sudo apt install esl-erlang cmake libsodium-dev libssl-dev
 ## WARNING
 
 This application does NOT serve up over TLS, and does NOT rate
-controll, or access control clients. Please run this service behind a
+control, or access control clients. Please run this service behind a
 load balancer that terminates SSL and does some rate and access
 control.
