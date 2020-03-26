@@ -121,7 +121,11 @@ checkout(_From, State = #state{db_conn = Conn}) ->
     {ok, Conn, State#state{given=true}}.
 
 transaction(From, Fun, State = #state{db_conn=Conn, prepared_statements=Stmts}) ->
-    Fun(From, {Stmts, Conn}),
+    try Fun(From, {Stmts, Conn}) of
+        _ -> ok
+    catch What:Why:Stack ->
+            lager:warning("Transaction failed: ~p", [{What, Why, Stack}])
+    end,
     {ok, State}.
 
 checkin(Conn, State = #state{db_conn = Conn, given=true}) ->
