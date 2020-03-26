@@ -17,33 +17,47 @@
 -define(S_OWNER_HOTSPOT_LIST, "owner_hotspot_list").
 -define(S_HOTSPOT, "hotspot").
 
--define(SELECT_HOTSPOT_BASE,
-        "select g.block, g.address, g.owner, g.location, g.score, "
-        "l.short_street, l.long_street, l.short_city, l.long_city, l.short_state, l.long_state, l.short_country, l.long_country from gateway_ledger g left join locations l on g.location = l.location ").
+-define(SELECT_HOTSPOT_BASE(G),
+        "select (select max(height) from blocks) as height, g.block, g.first_block, g.address, g.owner, g.location, g.score, "
+        "l.short_street, l.long_street, l.short_city, l.long_city, l.short_state, l.long_state, l.short_country, l.long_country " G " left join locations l on g.location = l.location ").
+-define(SELECT_HOTSPOT_BASE, ?SELECT_HOTSPOT_BASE("from gateway_ledger g")).
+-define(SELECT_OWNER_HOTSPOT, ?SELECT_HOTSPOT_BASE("from (select * from gateway_ledger where owner = $1 order by first_block desc, address) as g")).
+
+-define(HOTSPOT_LIST_LIMIT, 100).
 
 prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_HOTSPOT_LIST_BEFORE,
-                           ?SELECT_HOTSPOT_BASE "where g.address > $1 order by first_block desc, address limit $2", []),
+                           [?SELECT_HOTSPOT_BASE,
+                            "where (g.address > $1 and g.first_block = $2) or (g.first_block < $2) ",
+                            "order by g.first_block desc, g.address limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
+                            []),
 
     {ok, S2} = epgsql:parse(Conn, ?S_HOTSPOT_LIST,
-                           ?SELECT_HOTSPOT_BASE "order by first_block desc, address limit $1", []),
+                           [?SELECT_HOTSPOT_BASE,
+                            "order by g.first_block desc, g.address limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
+                            []),
 
     {ok, S3} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST_BEFORE,
-                           ?SELECT_HOTSPOT_BASE "where g.owner = $1 and g.address > $2 order by first_block desc, address limit $3", []),
+                           [?SELECT_OWNER_HOTSPOT,
+                            "where (g.address > $2 and g.first_block = $3) or (g.first_block < $3) limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
+                            []),
 
     {ok, S4} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST,
-                           ?SELECT_HOTSPOT_BASE "where g.owner = $1 order by first_block desc, address limit $2", []),
+                           ?SELECT_OWNER_HOTSPOT, []),
 
     {ok, S5} = epgsql:parse(Conn, ?S_HOTSPOT,
-                           ?SELECT_HOTSPOT_BASE "where g.address = $1", []),
+                           [?SELECT_HOTSPOT_BASE,
+                            "where g.address = $1"], []),
 
-    #{?S_HOTSPOT_LIST_BEFORE => S1, ?S_HOTSPOT_LIST => S2,
-      ?S_OWNER_HOTSPOT_LIST_BEFORE => S3, ?S_OWNER_HOTSPOT_LIST => S4,
+    #{?S_HOTSPOT_LIST_BEFORE => S1,
+      ?S_HOTSPOT_LIST => S2,
+      ?S_OWNER_HOTSPOT_LIST_BEFORE => S3,
+      ?S_OWNER_HOTSPOT_LIST => S4,
       ?S_HOTSPOT => S5}.
 
 
 handle('GET', [], Req) ->
-    Args = ?GET_ARGS([owner, before, limit], Req),
+    Args = ?GET_ARGS([owner, cursor], Req),
     ?MK_RESPONSE(get_hotspot_list(Args));
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address));
@@ -52,18 +66,28 @@ handle(_, _, _Req) ->
     ?RESPONSE_404.
 
 
-get_hotspot_list([{owner, undefined}, {before, undefined}, {limit, Limit}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_HOTSPOT_LIST, [Limit]),
-    {ok, hotspot_list_to_json(Results)};
-get_hotspot_list([{owner, undefined}, {before, Before}, {limit, Limit}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_HOTSPOT_LIST_BEFORE, [Before, Limit]),
-    {ok, hotspot_list_to_json(Results)};
-get_hotspot_list([{owner, Owner}, {before, undefined}, {limit, Limit}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST, [Owner, Limit]),
-    {ok, hotspot_list_to_json(Results)};
-get_hotspot_list([{owner, Owner}, {before, Before}, {limit, Limit}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [Owner, Before, Limit]),
-    {ok, hotspot_list_to_json(Results)}.
+get_hotspot_list([{owner, undefined}, {cursor, undefined}]) ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, []),
+    mk_hotspot_list_from_result(undefined, undefined, Result);
+get_hotspot_list([{owner, Owner}, {cursor, undefined}]) ->
+    Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST, [Owner]),
+    mk_hotspot_list_from_result(undefined, Owner, Result);
+get_hotspot_list([{owner, undefined}, {cursor, Cursor}]) ->
+    case ?CURSOR_DECODE(Cursor) of
+        {ok, C=#{ <<"before_address">> := BeforeAddress,
+                  <<"before_block">> := BeforeBlock,
+                  <<"height">> := CursorHeight }} ->
+            case maps:get(<<"owner">>, C, false) of
+                false ->
+                    Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST_BEFORE, [BeforeAddress, BeforeBlock]),
+                    mk_hotspot_list_from_result(CursorHeight, undefined, Result);
+                Owner ->
+                    Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [Owner, BeforeAddress, BeforeBlock]),
+                    mk_hotspot_list_from_result(CursorHeight, Owner, Result)
+            end;
+        _ ->
+            {error, badarg}
+    end.
 
 
 get_hotspot(Address) ->
@@ -74,6 +98,41 @@ get_hotspot(Address) ->
             {error, not_found}
     end.
 
+mk_hotspot_list_from_result(undefined, Owner, {ok, _, Results}) ->
+    %% no cursor, return a result
+    {ok, hotspot_list_to_json(Results), mk_cursor(Results, Owner)};
+mk_hotspot_list_from_result(Height, Owner, {ok, _, [{Height, _Block, _FirstBlock,
+                                                     _Address, _Owner, _Location, _Score,
+                                                     _ShortStreet, _LongStreet,
+                                                     _ShortCity, _LongCity,
+                                                     _ShortState, _LongState,
+                                                     _ShortCountry, _LongCountry} | _] = Results}) ->
+    %% The above head ensures that the given cursor height matches the
+    %% height in the results
+    {ok, hotspot_list_to_json(Results), mk_cursor(Results, Owner)};
+mk_hotspot_list_from_result(_Height, _Owner, {ok, _, _}) ->
+    %% For a mismatched height we return a bad argument so the
+    %% requester can re-start
+    {error, badarg}.
+
+
+mk_cursor(Results, Owner) when is_list(Results) ->
+    case length(Results) < ?HOTSPOT_LIST_LIMIT of
+        true -> undefined;
+        false ->
+            {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location, _Score,
+             _ShortStreet, _LongStreet,
+             _ShortCity, _LongCity,
+             _ShortState, _LongState,
+             _ShortCountry, _LongCountry} = lists:last(Results),
+            Result0 = #{ before_address => Address,
+                         before_block => FirstBlock,
+                         height => Height},
+            case Owner of
+                undefined -> Result0;
+                _ -> Result0#{ owner => Owner }
+            end
+    end.
 
 %%
 %% to_jaon
@@ -82,7 +141,11 @@ get_hotspot(Address) ->
 hotspot_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
 
-hotspot_to_json({Block, Address, Owner, Location, Score, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry}) ->
+hotspot_to_json({Height, ScoreBlock, _FirstBlock, Address, Owner, Location, Score,
+                 ShortStreet, LongStreet,
+                 ShortCity, LongCity,
+                 ShortState, LongState,
+                 ShortCountry, LongCountry}) ->
     {ok, Name} = erl_angry_purple_tiger:animal_name(Address),
     ?INSERT_LAT_LON(Location,
                     #{
@@ -101,6 +164,7 @@ hotspot_to_json({Block, Address, Owner, Location, Score, ShortStreet, LongStreet
                             <<"short_country">> => ShortCountry,
                             <<"long_country">> => LongCountry
                            },
-                      <<"score_update_height">> => Block,
-                      <<"score">> => Score
+                      <<"score_update_height">> => ScoreBlock,
+                      <<"score">> => Score,
+                      <<"block">> => Height
                      }).
