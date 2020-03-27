@@ -4,7 +4,8 @@
 
 -export([get_args/2,
          mk_response/1,
-         lat_lon/2, lat_lon/3]).
+         lat_lon/2, lat_lon/3,
+         cursor_encode/1, cursor_decode/1]).
 
 -callback handle(elli:http_method(), Path::[binary()], Req::elli:req()) -> elli:result().
 
@@ -35,12 +36,29 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
         end,
     get_args(Tail, Req, [{Key, V} | Acc]).
 
-mk_response({ok, Json}) ->
+%% @doc Construct a standard response given a map, list and an
+%% optional cursor if needed. Given an error tuple, it will respond
+%% with a pre-configured error code.
+-spec mk_response({ok, Json::(map() | list()), Cursor::map() | undefined}
+                  | {ok, Json::(map() | list())}
+                  | {error, term()}) -> {ok | elli:response_code(), elli:headers(), elli:body()}.
+mk_response({ok, Json, Cursor}) ->
+     Result0 = #{ data => Json },
+     Result = case Cursor of
+                  undefined ->
+                      Result0;
+                  _ ->
+                      Result0#{ cursor => cursor_encode(Cursor)}
+              end,
     {ok,
      [{<<"Content-Type">>, <<"application/json; charset=utf-8">>},
       {<<"Access-Control-Allow-Origin">>, <<"*">>}
      ],
-     jiffy:encode(#{<<"data">> => Json}, [])};
+     jiffy:encode(Result, [])};
+mk_response({ok, Json}) ->
+    mk_response({ok, Json, undefined});
+mk_response({error, badarg}) ->
+    ?RESPONSE_400;
 mk_response({error, conflict}) ->
     ?RESPONSE_409;
 mk_response({error, not_found}) ->
@@ -59,3 +77,21 @@ lat_lon(Location, {LatName, LonName}, Fields) when is_binary(Location) ->
             LatName => Lat,
             LonName => Lon
            }.
+
+-spec cursor_decode(binary()) -> {ok, map()} | {error, term()}.
+cursor_decode(Bin) when is_binary(Bin) ->
+    try  jiffy:decode(base64url:decode(Bin), [return_maps]) of
+         Map when is_map(Map) ->
+            {ok, Map};
+         _ ->
+            {error, badarg}
+    catch _:_ ->
+            {error, badarg}
+    end;
+cursor_decode(_) ->
+    {error, badarg}.
+
+
+-spec cursor_encode(map()) -> binary().
+cursor_encode(Map) ->
+    ?BIN_TO_B64(jiffy:encode(Map)).
