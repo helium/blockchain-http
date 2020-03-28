@@ -49,6 +49,9 @@ handle('GET', [Account], _Req) ->
 handle('GET', [Account, <<"hotspots">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(bh_route_hotspots:get_hotspot_list([{owner, Account} | Args]));
+handle('GET', [Account, <<"activity">>], Req) ->
+    Args = ?GET_ARGS([cursor, filter_types], Req),
+    ?MK_RESPONSE(bh_route_txns:get_account_activity_list(Account, Args));
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
@@ -101,6 +104,7 @@ mk_cursor(Results) when is_list(Results) ->
                height => Height
              }
     end.
+
 
 %%
 %% json
