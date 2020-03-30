@@ -80,18 +80,27 @@ get_account(Account) ->
 
 mk_account_list_from_result(undefined, {ok, _, Results}) ->
     {ok, account_list_to_json(Results), mk_cursor(Results)};
-mk_account_list_from_result(Height, {ok, _, [{Height, _Address,
-                                             _DCBalance, _DCNonce,
-                                             _SecBalance, _SecNonce,
-                                             _Balance, _Nonce,
-                                             _FirstBlock} | _] = Results}) ->
+mk_account_list_from_result(CursorHeight, {ok, _, [{Height, _Address,
+                                                    _DCBalance, _DCNonce,
+                                                    _SecBalance, _SecNonce,
+                                                    _Balance, _Nonce,
+                                                    _FirstBlock} | _]}) when Height /= CursorHeight ->
+    %% For a mismatched height we return a bad argument so the
+    %% requester can re-start
+    {error, badarg};
+mk_account_list_from_result(CursorHeight, {ok, _, [{Height, _Address,
+                                                    _DCBalance, _DCNonce,
+                                                    _SecBalance, _SecNonce,
+                                                    _Balance, _Nonce,
+                                                    _FirstBlock} | _] = Results}) when Height == CursorHeight ->
     %% The above head ensures that the given cursor height matches the
     %% height in the results
     {ok, account_list_to_json(Results), mk_cursor(Results)};
-mk_account_list_from_result(_Height, {ok, _, _}) ->
-    %% For a mismatched height we return a bad argument so the
-    %% requester can re-start
-    {error, badarg}.
+mk_account_list_from_result(_Height, {ok, _, Results}) ->
+    %% This really only happens when Result = [], which can happen if
+    %% the last page is exactly the right height to allow for another
+    %% (empty) last page.
+    {ok, account_list_to_json(Results), mk_cursor(Results)}.
 
 
 mk_cursor(Results) when is_list(Results) ->
