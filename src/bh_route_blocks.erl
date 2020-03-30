@@ -23,10 +23,10 @@
 -define(S_BLOCK_BY_HASH, "block_by_hash").
 -define(S_BLOCK_BY_HASH_BEFORE, "block_by_hash_before").
 
--define(SELECT_BLOCK_BASE, "select b.height, b.time, b.block_hash, b.transaction_count from blocks b ").
+-define(SELECT_BLOCK_BASE, "select b.height, b.time, b.block_hash, b.prev_hash, b.transaction_count from blocks b ").
 -define(SELECT_BLOCK_TXN_BASE(C),
         "select * from "
-        "(select b.height, b.time, b.block_hash, b.transaction_count, t.hash, t.type, t.fields "
+        "(select b.height, b.time, b.block_hash, b.prev_hash, b.transaction_count, t.hash, t.type, t.fields "
         "from blocks b left join transactions t on b.height = t.block "
         "where b." C " = $1 order by t.hash) r "
        ).
@@ -112,8 +112,8 @@ mk_cursor(Results) when is_list(Results) ->
     case length(Results) of
         0 -> undefined;
         _ -> case lists:last(Results) of
-                 {Height, _Time, _Hash, _TxnCount} when Height == 1 -> undefined;
-                 {Height, _Time, _Hash, _TxnCount}  -> #{ before => Height}
+                 {Height, _Time, _Hash, _PrevHash, _TxnCount} when Height == 1 -> undefined;
+                 {Height, _Time, _Hash, _PrevHash, _TxnCount}  -> #{ before => Height}
              end
     end.
 
@@ -168,11 +168,12 @@ mk_block_txn_list_cursor(Results) ->
 block_list_to_json(Results) ->
     lists:map(fun block_base_to_json/1, Results).
 
-block_base_to_json({Height, Time, Hash, TxnCount}) ->
+block_base_to_json({Height, Time, Hash, PrevHash, TxnCount}) ->
     #{
       height => Height,
       time => Time,
       hash => Hash,
+      prev_hash => PrevHash,
       transaction_count => TxnCount
      }.
 
@@ -181,15 +182,15 @@ block_to_json(Results) ->
     Txns = lists:foldl(fun block_txn_to_json/2, [], Results),
     %% The left join guarnateees there's always at least one
     %% transaction in results to pull block information from.
-    {Height, Time, Hash, TxnCount, _TxnHash, _Type, _Fields} = hd(Results),
-    Block = block_base_to_json({Height, Time, Hash, TxnCount}),
+    {Height, Time, Hash, PrevHash, TxnCount, _TxnHash, _Type, _Fields} = hd(Results),
+    Block = block_base_to_json({Height, Time, Hash, PrevHash, TxnCount}),
     Block#{
            transactions => Txns
            }.
 
-block_txn_to_json({_Height, _Time, _Hash, _TxnCount, null, _Type, _Fields}, _Acc) ->
+block_txn_to_json({_Height, _Time, _Hash, _PrevHash, _TxnCount, null, _Type, _Fields}, _Acc) ->
     %% The left join shortcuts out to an empty transaction list if no
     %% transactions are found.
     [];
-block_txn_to_json({Height, Time, _Hash, _TxnCount, TxnHash, Type, Fields}, Acc) ->
+block_txn_to_json({Height, Time, _Hash, _PrevHash, _TxnCount, TxnHash, Type, Fields}, Acc) ->
     [bh_route_txns:txn_to_json({Height, Time, TxnHash, Type, Fields}) | Acc].
