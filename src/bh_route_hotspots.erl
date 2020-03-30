@@ -101,19 +101,30 @@ get_hotspot(Address) ->
 mk_hotspot_list_from_result(undefined, Owner, {ok, _, Results}) ->
     %% no cursor, return a result
     {ok, hotspot_list_to_json(Results), mk_cursor(Results, Owner)};
-mk_hotspot_list_from_result(Height, Owner, {ok, _, [{Height, _Block, _FirstBlock,
-                                                     _Address, _Owner, _Location, _Score,
-                                                     _ShortStreet, _LongStreet,
-                                                     _ShortCity, _LongCity,
-                                                     _ShortState, _LongState,
-                                                     _ShortCountry, _LongCountry} | _] = Results}) ->
+mk_hotspot_list_from_result(CursorHeight, _Owner,
+                            {ok, _, [{Height, _Block, _FirstBlock,
+                                      _Address, _Owner, _Location, _Score,
+                                      _ShortStreet, _LongStreet,
+                                      _ShortCity, _LongCity,
+                                      _ShortState, _LongState,
+                                      _ShortCountry, _LongCountry} | _]}) when CursorHeight /= Height ->
+    {error, badarg};
+mk_hotspot_list_from_result(CursorHeight, Owner,
+                            {ok, _, [{Height, _Block, _FirstBlock,
+                                      _Address, _Owner, _Location, _Score,
+                                      _ShortStreet, _LongStreet,
+                                      _ShortCity, _LongCity,
+                                      _ShortState, _LongState,
+                                      _ShortCountry, _LongCountry} | _] = Results}) when CursorHeight == Height ->
     %% The above head ensures that the given cursor height matches the
     %% height in the results
     {ok, hotspot_list_to_json(Results), mk_cursor(Results, Owner)};
-mk_hotspot_list_from_result(_Height, _Owner, {ok, _, _}) ->
-    %% For a mismatched height we return a bad argument so the
-    %% requester can re-start
-    {error, badarg}.
+mk_hotspot_list_from_result(_Height, Owner,
+                            {ok, _, Results}) ->
+    %% This really only happens when Result = [], which can happen if
+    %% the last page is exactly the right height to allow for another
+    %% (empty) last page.
+    {ok, hotspot_list_to_json(Results), mk_cursor(Results, Owner)}.
 
 
 mk_cursor(Results, Owner) when is_list(Results) ->
