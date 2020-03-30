@@ -8,19 +8,30 @@
 -export([prepare_conn/1, handle/3]).
 %% Utilities
 -export([get_txn/1,
+         get_account_activity_list/2,
          txn_to_json/1,
          txn_list_to_json/1,
          filter_types/1]).
 
-
 -define(S_TXN, "txn").
 -define(S_ACTOR_TXN_LIST, "actor_txn_list").
--define(S_ACTOR_TXN_LIST_BEFORE, "actor_txn_list_before").
+-define(S_ACTOR_ACTIVITY_LIST, "actor_activity_list").
+-define(S_ACTOR_ACTIVITY_LIST_BEFORE, "actor_activity_list_before").
 
--define(SELECT_TXN_FIELDS, "select t.block, t.time, t.hash, t.type, t.fields ").
--define(SELECT_TXN_BASE, ?SELECT_TXN_FIELDS "from transactions t ").
--define(SELECT_ACTOR_TXN_BASE, ?SELECT_TXN_FIELDS
-        "from transaction_actors a inner join transactions t on a.transaction_hash = t.hash " ).
+-define(SELECT_TXN_FIELDS(F), ["select t.block, t.time, t.hash, t.type, ", (F), " "]).
+-define(SELECT_TXN_BASE, [?SELECT_TXN_FIELDS("t.fields"), "from transactions t "]).
+
+-define(SELECT_ACTOR_ACTIVITY_BASE,
+        [?SELECT_TXN_FIELDS("txn_filter_account_activity(t.actor, t.type, t.fields) as fields"),
+         "from (select tr.*, a.actor ",
+         "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
+         %% Select the actor address from the account_ledger to ensure
+         %% it is an actual existing account and not some other actor.
+         "where a.actor = (select address from account_ledger where address = $1) ",
+         "and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
+         ]).
+-define(ACTOR_ACTIVITY_LIST_LIMIT, 50).
+
 
 -define(FILTER_TYPES,
         [<<"coinbase_v1">>,
@@ -46,9 +57,27 @@
 
 prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_TXN,
-                            ?SELECT_TXN_BASE "where t.hash = $1", []),
+                            [?SELECT_TXN_BASE,
+                             "where t.hash = $1"],
+                            []),
 
-    #{?S_TXN => S1}.
+    {ok, S2} = epgsql:parse(Conn, ?S_ACTOR_ACTIVITY_LIST,
+                            [?SELECT_ACTOR_ACTIVITY_BASE,
+                             "limit ", integer_to_list(?ACTOR_ACTIVITY_LIST_LIMIT)
+                            ],
+                            []),
+
+    {ok, S3} = epgsql:parse(Conn, ?S_ACTOR_ACTIVITY_LIST_BEFORE,
+                            [?SELECT_ACTOR_ACTIVITY_BASE,
+                             "where (t.block = $3 and t.hash > $4) or t.block < $3 ",
+                             "limit ", integer_to_list(?ACTOR_ACTIVITY_LIST_LIMIT)
+                            ],
+                            []),
+
+    #{?S_TXN => S1,
+      ?S_ACTOR_ACTIVITY_LIST => S2,
+      ?S_ACTOR_ACTIVITY_LIST_BEFORE => S3
+     }.
 
 handle('GET', [TxnHash], _Req) ->
     ?MK_RESPONSE(get_txn(TxnHash));
@@ -65,6 +94,41 @@ get_txn(Key) ->
             {error, not_found}
     end.
 
+
+get_account_activity_list(Account, [{cursor, undefined}, {filter_types, Types}]) ->
+    Result = ?PREPARED_QUERY(?S_ACTOR_ACTIVITY_LIST, [Account, filter_types(Types)]),
+    mk_account_activity_list_from_result(Account, Types, Result);
+get_account_activity_list(Account, [{cursor, Cursor}, {filter_types, _}]) ->
+    case ?CURSOR_DECODE(Cursor) of
+        {ok, C=#{ <<"hash">> := Hash,
+                  <<"block">> := Block}} ->
+            Types = maps:get(<<"types">>, C, undefined),
+            Result = ?PREPARED_QUERY(?S_ACTOR_ACTIVITY_LIST_BEFORE, [Account, filter_types(Types), Block, Hash]),
+            mk_account_activity_list_from_result(Account, Types, Result);
+        _ ->
+            {error, badarg}
+    end.
+
+
+mk_account_activity_list_from_result(_Account, _Types, {ok, _, []}) ->
+    {error, not_found};
+mk_account_activity_list_from_result(Account, Types, {ok, _, Results}) ->
+    {ok, txn_list_to_json(Results), mk_account_activiyt_cursor(Account, Types, Results)}.
+
+
+mk_account_activiyt_cursor(Account, Types, Results) ->
+    case length(Results) < ?ACTOR_ACTIVITY_LIST_LIMIT of
+        true -> undefined;
+        false ->
+            {Height, _Time, Hash, _Type, _Fields} = lists:last(Results),
+            Cursor0 = #{ hash => Hash,
+                         account => Account,
+                         block => Height},
+            case Types of
+                undefined -> Cursor0;
+                _ -> Cursor0#{ types => Types}
+            end
+    end.
 
 %%
 %% to_jaon
