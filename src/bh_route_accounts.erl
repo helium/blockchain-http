@@ -43,15 +43,15 @@ prepare_conn(Conn) ->
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(get_account_list(Args));
+    ?MK_RESPONSE(get_account_list(Args), block_time);
 handle('GET', [Account], _Req) ->
-    ?MK_RESPONSE(get_account(Account));
+    ?MK_RESPONSE(get_account(Account), never);
 handle('GET', [Account, <<"hotspots">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(bh_route_hotspots:get_hotspot_list([{owner, Account} | Args]));
+    ?MK_RESPONSE(bh_route_hotspots:get_hotspot_list([{owner, Account} | Args]), block_time);
 handle('GET', [Account, <<"activity">>], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
-    ?MK_RESPONSE(bh_route_txns:get_account_activity_list(Account, Args));
+    ?MK_RESPONSE(bh_route_txns:get_account_activity_list(Account, Args), block_time);
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
