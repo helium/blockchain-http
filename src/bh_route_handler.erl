@@ -3,7 +3,7 @@
 -include("bh_route_handler.hrl").
 
 -export([get_args/2,
-         mk_response/1,
+         mk_response/2,
          lat_lon/2, lat_lon/3,
          cursor_encode/1, cursor_decode/1]).
 
@@ -27,13 +27,20 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
         end,
     get_args(Tail, Req, [{Key, V} | Acc]).
 
+
+-type cache_time() :: infinity
+                    | never
+                    | undefined
+                    | block_time.
+
 %% @doc Construct a standard response given a map, list and an
 %% optional cursor if needed. Given an error tuple, it will respond
 %% with a pre-configured error code.
 -spec mk_response({ok, Json::(map() | list()), Cursor::map() | undefined}
                   | {ok, Json::(map() | list())}
-                  | {error, term()}) -> {ok | elli:response_code(), elli:headers(), elli:body()}.
-mk_response({ok, Json, Cursor}) ->
+                  | {error, term()},
+                 cache_time()) -> {ok | elli:response_code(), elli:headers(), elli:body()}.
+mk_response({ok, Json, Cursor}, CacheTime) ->
      Result0 = #{ data => Json },
      Result = case Cursor of
                   undefined ->
@@ -42,18 +49,36 @@ mk_response({ok, Json, Cursor}) ->
                       Result0#{ cursor => cursor_encode(Cursor)}
               end,
     {ok,
-     [{<<"Content-Type">>, <<"application/json; charset=utf-8">>},
-      {<<"Access-Control-Allow-Origin">>, <<"*">>}
-     ],
+     add_cache_header(
+       CacheTime,
+       [{<<"Content-Type">>, <<"application/json; charset=utf-8">>},
+        {<<"Access-Control-Allow-Origin">>, <<"*">>}
+       ]),
      jiffy:encode(Result, [])};
-mk_response({ok, Json}) ->
-    mk_response({ok, Json, undefined});
-mk_response({error, badarg}) ->
+mk_response({ok, Json}, CacheTime) ->
+    mk_response({ok, Json, undefined}, CacheTime);
+mk_response({error, badarg}, _) ->
     ?RESPONSE_400;
-mk_response({error, conflict}) ->
+mk_response({error, conflict}, _) ->
     ?RESPONSE_409;
-mk_response({error, not_found}) ->
+mk_response({error, not_found}, _) ->
     ?RESPONSE_404.
+
+
+-spec add_cache_header(cache_time(), Acc::list()) -> list(tuple()).
+add_cache_header(undefined, Acc) ->
+    Acc;
+add_cache_header(infinity, Acc) ->
+    [{<<"Surrogate-Control">>, <<"max-age=86400">>},
+     {<<"Cache-Control">>, <<"max-age=86400">>}
+     | Acc];
+add_cache_header(never, Acc) ->
+     [{<<"Cache-Control">>, <<"private, no-store">>}
+      | Acc];
+add_cache_header(block_time, Acc) ->
+    [{<<"Surrogate-Control">>, <<"max-age=60">>},
+     {<<"Cache-Control">>, <<"max-age=60">>}
+     | Acc].
 
 lat_lon(Location, Fields) ->
     lat_lon(Location, {<<"lat">>, <<"lng">>}, Fields).

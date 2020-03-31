@@ -80,7 +80,7 @@ prepare_conn(Conn) ->
      }.
 
 handle('GET', [TxnHash], _Req) ->
-    ?MK_RESPONSE(get_txn(TxnHash));
+    ?MK_RESPONSE(get_txn(TxnHash), infinity);
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.

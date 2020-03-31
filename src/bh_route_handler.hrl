@@ -11,7 +11,8 @@
 
 -define(GET_ARGS(A,R), bh_route_handler:get_args((A), (R))).
 
--define(MK_RESPONSE(R), bh_route_handler:mk_response((R))).
+-define(MK_RESPONSE(R), ?MK_RESPONSE(R, undefined)).
+-define(MK_RESPONSE(R,C), bh_route_handler:mk_response((R),(C))).
 -define(INSERT_LAT_LON(L, N, F), bh_route_handler:lat_lon((L), (N), (F))).
 -define(INSERT_LAT_LON(L, F), bh_route_handler:lat_lon((L), (F))).
 -define(CURSOR_ENCODE(M), bh_route_handler:cursor_encode(M)).
