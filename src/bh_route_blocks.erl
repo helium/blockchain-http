@@ -78,16 +78,20 @@ prepare_conn(Conn) ->
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(get_block_list(Args));
+    CacheTime = case Args of
+                    [{cursor, undefined}] -> block_time;
+                    _ -> infinity
+                end,
+    ?MK_RESPONSE(get_block_list(Args), CacheTime);
 handle('GET', [<<"height">>], _Req) ->
-    ?MK_RESPONSE(get_block_height());
+    ?MK_RESPONSE(get_block_height(), block_time);
 handle('GET', [<<"hash">>, BlockHash], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(get_block_by_hash(BlockHash, Args));
+    ?MK_RESPONSE(get_block_by_hash(BlockHash, Args), infinity);
 handle('GET', [BlockId], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     try binary_to_integer(BlockId) of
-        Height -> ?MK_RESPONSE(get_block_by_height(Height, Args))
+        Height -> ?MK_RESPONSE(get_block_by_height(Height, Args), infinity)
     catch _:_ ->
         ?RESPONSE_400
     end;

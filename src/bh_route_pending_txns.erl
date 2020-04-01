@@ -34,13 +34,13 @@ prepare_conn(Conn) ->
       ?S_INSERT_PENDING_TXN => S3}.
 
 handle('GET', [TxnHash], _Req) ->
-    ?MK_RESPONSE(get_pending_txn(TxnHash));
+    ?MK_RESPONSE(get_pending_txn(TxnHash), block_time);
 handle('POST', [], Req) ->
     #{ <<"txn">> := EncodedTxn } = jiffy:decode(elli_request:body(Req), [return_maps]),
     BinTxn = base64:decode(EncodedTxn),
     Txn = txn_unwrap(blockchain_txn_pb:decode_msg(BinTxn, blockchain_txn_pb)),
     Result = insert_pending_txn(Txn, BinTxn),
-    ?MK_RESPONSE(Result);
+    ?MK_RESPONSE(Result, never);
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.

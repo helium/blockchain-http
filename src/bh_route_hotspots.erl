@@ -58,9 +58,9 @@ prepare_conn(Conn) ->
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([owner, cursor], Req),
-    ?MK_RESPONSE(get_hotspot_list(Args));
+    ?MK_RESPONSE(get_hotspot_list(Args), block_time);
 handle('GET', [Address], _Req) ->
-    ?MK_RESPONSE(get_hotspot(Address));
+    ?MK_RESPONSE(get_hotspot(Address), block_time);
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
