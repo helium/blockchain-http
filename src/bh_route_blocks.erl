@@ -156,12 +156,12 @@ mk_block_txn_list_from_result(_) ->
 
 mk_block_txn_list_cursor(Results) ->
     case Results of
-        [{_Height, _Time, _Hash, _TxnCount, null, _Type, _Fields}] ->
+        [{_Height, _Time, _Hash, _PrevHash, _TxnCount, null, _Type, _Fields}] ->
             undefined;
         _ when length(Results) < ?BLOCK_TXN_LIST_LIMIT ->
             undefined;
         _ ->
-            {_Height, _Time, _Hash, _TxnCount, TxnHash, _Type, _Fields} = lists:last(Results),
+            {_Height, _Time, _Hash, _PrevHash, _TxnCount, TxnHash, _Type, _Fields} = lists:last(Results),
             #{ hash => TxnHash }
     end.
 
