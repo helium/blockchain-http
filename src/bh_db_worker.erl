@@ -106,12 +106,3 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
-
-do_checkout(_Pool, 0) ->
-    {error, busy};
-do_checkout(Pool, Tries) ->
-    case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
-        {error, busy} ->
-            do_checkout(Pool, Tries - 1);
-        Res -> Res
-    end.
