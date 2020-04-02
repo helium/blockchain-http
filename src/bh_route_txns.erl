@@ -9,27 +9,35 @@
 %% Utilities
 -export([get_txn/1,
          get_account_activity_list/2,
+         get_hotspot_activity_list/2,
          txn_to_json/1,
          txn_list_to_json/1,
          filter_types/1]).
 
 -define(S_TXN, "txn").
 -define(S_ACTOR_TXN_LIST, "actor_txn_list").
--define(S_ACTOR_ACTIVITY_LIST, "actor_activity_list").
--define(S_ACTOR_ACTIVITY_LIST_BEFORE, "actor_activity_list_before").
+-define(S_ACCOUNT_ACTIVITY_LIST, "account_activity_list").
+-define(S_ACCOUNT_ACTIVITY_LIST_BEFORE, "account_activity_list_before").
+-define(S_HOTSPOT_ACTIVITY_LIST, "hotspot_activity_list").
+-define(S_HOTSPOT_ACTIVITY_LIST_BEFORE, "hotspot_activity_list_before").
 
 -define(SELECT_TXN_FIELDS(F), ["select t.block, t.time, t.hash, t.type, ", (F), " "]).
 -define(SELECT_TXN_BASE, [?SELECT_TXN_FIELDS("t.fields"), "from transactions t "]).
 
--define(SELECT_ACTOR_ACTIVITY_BASE,
-        [?SELECT_TXN_FIELDS("txn_filter_account_activity(t.actor, t.type, t.fields) as fields"),
+-define(SELECT_ACTOR_ACTIVITY_BASE(L, F),
+        [?SELECT_TXN_FIELDS(F"(t.actor, t.type, t.fields) as fields"),
          "from (select tr.*, a.actor ",
          "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-         %% Select the actor address from the account_ledger to ensure
-         %% it is an actual existing account and not some other actor.
-         "where a.actor = (select address from account_ledger where address = $1) ",
+         %% Select the actor address from the appropriate_ledger to ensure
+         %% it is an actual existing hotspot or account and not some other actor.
+         "where a.actor = (select address from ", (L), " where address = $1) ",
          "and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
          ]).
+-define(SELECT_ACCOUNT_ACTIVITY_BASE,
+        ?SELECT_ACTOR_ACTIVITY_BASE("account_ledger", "txn_filter_account_activity")).
+-define(SELECT_HOTSPOT_ACTIVITY_BASE,
+        ?SELECT_ACTOR_ACTIVITY_BASE("gateway_ledger", "txn_filter_gateway_activity")).
+
 -define(ACTOR_ACTIVITY_LIST_LIMIT, 50).
 
 
@@ -61,22 +69,37 @@ prepare_conn(Conn) ->
                              "where t.hash = $1"],
                             []),
 
-    {ok, S2} = epgsql:parse(Conn, ?S_ACTOR_ACTIVITY_LIST,
-                            [?SELECT_ACTOR_ACTIVITY_BASE,
+    {ok, S2} = epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_LIST,
+                            [?SELECT_ACCOUNT_ACTIVITY_BASE,
                              "limit ", integer_to_list(?ACTOR_ACTIVITY_LIST_LIMIT)
                             ],
                             []),
 
-    {ok, S3} = epgsql:parse(Conn, ?S_ACTOR_ACTIVITY_LIST_BEFORE,
-                            [?SELECT_ACTOR_ACTIVITY_BASE,
+    {ok, S3} = epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_LIST_BEFORE,
+                            [?SELECT_ACCOUNT_ACTIVITY_BASE,
+                             "where (t.block = $3 and t.hash > $4) or t.block < $3 ",
+                             "limit ", integer_to_list(?ACTOR_ACTIVITY_LIST_LIMIT)
+                            ],
+                            []),
+
+    {ok, S4} = epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_LIST,
+                            [?SELECT_HOTSPOT_ACTIVITY_BASE,
+                             "limit ", integer_to_list(?ACTOR_ACTIVITY_LIST_LIMIT)
+                            ],
+                            []),
+
+    {ok, S5} = epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_LIST_BEFORE,
+                            [?SELECT_HOTSPOT_ACTIVITY_BASE,
                              "where (t.block = $3 and t.hash > $4) or t.block < $3 ",
                              "limit ", integer_to_list(?ACTOR_ACTIVITY_LIST_LIMIT)
                             ],
                             []),
 
     #{?S_TXN => S1,
-      ?S_ACTOR_ACTIVITY_LIST => S2,
-      ?S_ACTOR_ACTIVITY_LIST_BEFORE => S3
+      ?S_ACCOUNT_ACTIVITY_LIST => S2,
+      ?S_ACCOUNT_ACTIVITY_LIST_BEFORE => S3,
+      ?S_HOTSPOT_ACTIVITY_LIST => S4,
+      ?S_HOTSPOT_ACTIVITY_LIST_BEFORE => S5
      }.
 
 handle('GET', [TxnHash], _Req) ->
@@ -95,40 +118,58 @@ get_txn(Key) ->
     end.
 
 
-get_account_activity_list(Account, [{cursor, undefined}, {filter_types, Types}]) ->
-    Result = ?PREPARED_QUERY(?S_ACTOR_ACTIVITY_LIST, [Account, filter_types(Types)]),
-    mk_account_activity_list_from_result(Account, Types, Result);
-get_account_activity_list(Account, [{cursor, Cursor}, {filter_types, _}]) ->
+%%
+%% Account Activity
+%%
+
+get_account_activity_list(Account, Args) ->
+    get_activity_list(Account, {?S_ACCOUNT_ACTIVITY_LIST, ?S_ACCOUNT_ACTIVITY_LIST_BEFORE}, Args).
+
+%%
+%% Hotspot Activity
+%%
+
+get_hotspot_activity_list(Address, Args) ->
+    get_activity_list(Address, {?S_HOTSPOT_ACTIVITY_LIST, ?S_HOTSPOT_ACTIVITY_LIST_BEFORE}, Args).
+
+
+%%
+%% Common Activity
+%%
+
+get_activity_list(Actor, {StartQuery, _CursorQuery}, [{cursor, undefined}, {filter_types, Types}]) ->
+    Result = ?PREPARED_QUERY(StartQuery, [Actor, filter_types(Types)]),
+    mk_activity_list_from_result(Types, Result);
+get_activity_list(Actor, {_StartQuery, CursorQuery}, [{cursor, Cursor}, {filter_types, _}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, C=#{ <<"hash">> := Hash,
                   <<"block">> := Block}} ->
             Types = maps:get(<<"types">>, C, undefined),
-            Result = ?PREPARED_QUERY(?S_ACTOR_ACTIVITY_LIST_BEFORE, [Account, filter_types(Types), Block, Hash]),
-            mk_account_activity_list_from_result(Account, Types, Result);
+            Result = ?PREPARED_QUERY(CursorQuery, [Actor, filter_types(Types), Block, Hash]),
+            mk_activity_list_from_result(Types, Result);
         _ ->
             {error, badarg}
     end.
 
-
-mk_account_activity_list_from_result(_Account, _Types, {ok, _, []}) ->
+mk_activity_list_from_result(_Types, {ok, _, []}) ->
     {error, not_found};
-mk_account_activity_list_from_result(Account, Types, {ok, _, Results}) ->
-    {ok, txn_list_to_json(Results), mk_account_activiyt_cursor(Account, Types, Results)}.
+mk_activity_list_from_result(Types, {ok, _, Results}) ->
+    {ok, txn_list_to_json(Results), mk_activity_cursor(Types, Results)}.
 
 
-mk_account_activiyt_cursor(Account, Types, Results) ->
+mk_activity_cursor(Types, Results) ->
     case length(Results) < ?ACTOR_ACTIVITY_LIST_LIMIT of
         true -> undefined;
         false ->
             {Height, _Time, Hash, _Type, _Fields} = lists:last(Results),
             Cursor0 = #{ hash => Hash,
-                         account => Account,
                          block => Height},
             case Types of
                 undefined -> Cursor0;
                 _ -> Cursor0#{ types => Types}
             end
     end.
+
 
 %%
 %% to_jaon
