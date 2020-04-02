@@ -11,11 +11,13 @@
 -define(POOL_CHECKOUT_TIMEOUT, 500).
 %% how many times to try to get a worker
 -define(POOL_CHECKOUT_RETRIES, 3).
+%% how long to wait for a query response
+-define(POOL_QUERY_TIMEOUT, 5000).
 
 -export([init/1, checkout/2, transaction/3, checkin/2, handle_info/2, dead/1,
          terminate/2, code_change/3]).
 
--export([squery/2, equery/3, prepared_query/3]).
+-export([prepared_query/3]).
 
 -record(state,
         {
@@ -25,52 +27,6 @@
          prepared_statements :: map()
         }).
 
-
--spec squery(Pool::term(), Stmt::string()) -> epgsql_cmd_squery:response().
-squery(shutdown, _) ->
-    throw(?RESPONSE_503_SHUTDOWN);
-squery(Pool, Sql) ->
-    case do_checkout(Pool, ?POOL_CHECKOUT_RETRIES) of
-        {ok, Reference, Conn} ->
-            Ref = epgsqla:squery(Conn, Sql),
-            dispcount:checkin(Pool, Reference, Conn),
-            receive
-                {Conn, Ref, Res} ->
-                    Res
-            after
-                500 ->
-                    throw(?RESPONSE_503)
-            end;
-        {error, busy} ->
-            throw(?RESPONSE_503)
-    end.
-
--spec equery(Pool::term(), Stmt::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_equery:response().
-equery(shutdown, _, _) ->
-    throw(?RESPONSE_503_SHUTDOWN);
-equery(Pool, Stmt, Params) ->
-    case do_checkout(Pool, ?POOL_CHECKOUT_RETRIES) of
-        {ok, Reference, Conn} ->
-            case epgsql:parse(Conn, Stmt) of
-                {ok, #statement{types = Types} = Statement} ->
-                    TypedParameters = lists:zip(Types, Params),
-                    Ref = epgsqla:equery(Conn, Statement, TypedParameters),
-                    dispcount:checkin(Pool, Reference, Conn),
-                    receive
-                        {Conn, Ref, Res} ->
-                            Res
-                    after
-                        500 ->
-                            throw(?RESPONSE_503)
-                    end;
-                Error ->
-                    dispcount:checkin(Pool, Reference, Conn),
-                    lager:warning("failed to parse query ~p : ~p", [Stmt, Error]),
-                    throw({500, [], <<"Internal server error">>})
-            end;
-        {error, busy} ->
-            throw(?RESPONSE_503)
-    end.
 
 -spec prepared_query(Pool::term(), Name::string(), Params::[epgsql:bind_param()]) -> epgsql_cmd_prepared_query:response().
 prepared_query(shutdown, _, _) ->
@@ -91,7 +47,7 @@ prepared_query(Pool, Name, Params) ->
                 {_Conn, Ref, Res} ->
                     Res
             after
-                500 ->
+                ?POOL_QUERY_TIMEOUT ->
                     throw(?RESPONSE_503)
             end;
         {error, busy} ->
@@ -150,12 +106,3 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
-
-do_checkout(_Pool, 0) ->
-    {error, busy};
-do_checkout(Pool, Tries) ->
-    case dispcount:checkout(Pool, ?POOL_CHECKOUT_TIMEOUT) of
-        {error, busy} ->
-            do_checkout(Pool, Tries - 1);
-        Res -> Res
-    end.
