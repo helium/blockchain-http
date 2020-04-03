@@ -83,10 +83,16 @@ init([]) ->
 
 
     lager:info("Starting http listener on ~p", [ListenPort]),
+    ElliConfig = [{mods, [
+                          {bh_middleware_cors, []},
+                          {bh_routes, []}
+                         ]}],
     ChildSpecs =
         [
          ?WORKER(bh_pool_watcher, [[ ro_pool, rw_pool ]]),
-         ?WORKER(elli, [ [{callback, bh_routes}, {port, ListenPort}] ])
+         ?WORKER(elli, [ [{callback, elli_middleware},
+                          {callback_args, ElliConfig},
+                          {port, ListenPort}] ])
         ],
 
     {ok, {SupFlags, ChildSpecs}}.

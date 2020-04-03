@@ -33,6 +33,7 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
                     | undefined
                     | block_time.
 
+
 %% @doc Construct a standard response given a map, list and an
 %% optional cursor if needed. Given an error tuple, it will respond
 %% with a pre-configured error code.
@@ -51,8 +52,7 @@ mk_response({ok, Json, Cursor}, CacheTime) ->
     {ok,
      add_cache_header(
        CacheTime,
-       [{<<"Content-Type">>, <<"application/json; charset=utf-8">>},
-        {<<"Access-Control-Allow-Origin">>, <<"*">>}
+       [{<<"Content-Type">>, <<"application/json; charset=utf-8">>}
        ]),
      jiffy:encode(Result, [])};
 mk_response({ok, Json}, CacheTime) ->
