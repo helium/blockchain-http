@@ -28,7 +28,7 @@
         [?SELECT_TXN_FIELDS("txn_filter_actor_activity(t.actor, t.type, t.fields) as fields"),
          "from (select tr.*, a.actor ",
          "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-         "where a.actor = (select address from ", (L), " where address = $1) ", (E)
+         "where a.actor = (select address from ", (L), " where address = $1) ", (E),
          " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
          ]).
 
