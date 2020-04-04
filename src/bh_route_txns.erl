@@ -24,19 +24,26 @@
 -define(SELECT_TXN_FIELDS(F), ["select t.block, t.time, t.hash, t.type, ", (F), " "]).
 -define(SELECT_TXN_BASE, [?SELECT_TXN_FIELDS("t.fields"), "from transactions t "]).
 
--define(SELECT_ACTOR_ACTIVITY_BASE(L, F),
-        [?SELECT_TXN_FIELDS(F"(t.actor, t.type, t.fields) as fields"),
+-define(SELECT_ACTOR_ACTIVITY_BASE(L, E),
+        [?SELECT_TXN_FIELDS("txn_filter_actor_activity(t.actor, t.type, t.fields) as fields"),
          "from (select tr.*, a.actor ",
          "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-         %% Select the actor address from the appropriate_ledger to ensure
-         %% it is an actual existing hotspot or account and not some other actor.
-         "where a.actor = (select address from ", (L), " where address = $1) ",
-         "and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
+         "where a.actor = (select address from ", (L), " where address = $1) ", (E),
+         " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
          ]).
+
+
 -define(SELECT_ACCOUNT_ACTIVITY_BASE,
-        ?SELECT_ACTOR_ACTIVITY_BASE("account_ledger", "txn_filter_account_activity")).
+        ?SELECT_ACTOR_ACTIVITY_BASE("account_ledger",
+                                    %% For account activity we limit
+                                    %% the actor roles to just a
+                                    %% few.
+                                    "and a.actor_role in ('payer', 'payee', 'owner')")).
 -define(SELECT_HOTSPOT_ACTIVITY_BASE,
-        ?SELECT_ACTOR_ACTIVITY_BASE("gateway_ledger", "txn_filter_gateway_activity")).
+        ?SELECT_ACTOR_ACTIVITY_BASE("gateway_ledger",
+                                    %% Filter out gateway roles that
+                                    %% should be in accounts
+                                    "and a.actor_role not in ('payer', 'payee', 'owner')")).
 
 -define(ACTOR_ACTIVITY_LIST_LIMIT, 50).
 
