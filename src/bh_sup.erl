@@ -30,11 +30,11 @@ init([]) ->
                  intensity => 10,
                  period => 10},
     {ok, RW_PoolOpts} = application:get_env(blockchain_http, db_rw_pool),
-    {ok, RW_DBOpts} = psql_migration:connection_opts([], "DATABASE_RW_URL"),
+    {ok, RW_DBOpts} = psql_migration:connection_opts([], {env, "DATABASE_RW_URL"}),
     {ok, RW_DBHandlers} = application:get_env(blockchain_http, db_rw_handlers),
 
     {ok, RO_PoolOpts} = application:get_env(blockchain_http, db_ro_pool),
-    {ok, RO_DBOpts} = psql_migration:connection_opts([], "DATABASE_RO_URL"),
+    {ok, RO_DBOpts} = psql_migration:connection_opts([], {env, "DATABASE_RO_URL"}),
     {ok, RO_DBHandlers} = application:get_env(blockchain_http, db_ro_handlers),
     RO_PoolSize = case os:getenv("DATABASE_RO_POOL_SIZE") of
                       false -> proplists:get_value(size, RO_PoolOpts, 100);
