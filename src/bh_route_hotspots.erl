@@ -63,7 +63,7 @@ handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address), block_time);
 handle('GET', [Address, <<"activity">>], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
-    ?MK_RESPONSE(bh_route_txns:get_hotspot_activity_list(Address, Args), block_time);
+    ?MK_RESPONSE(bh_route_txns:get_activity_list({hotspot, Address}, Args), block_time);
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
