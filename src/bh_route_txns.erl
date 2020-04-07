@@ -24,24 +24,21 @@
 -define(SELECT_TXN_FIELDS(F), ["select t.block, t.time, t.hash, t.type, ", (F), " "]).
 -define(SELECT_TXN_BASE, [?SELECT_TXN_FIELDS("t.fields"), "from transactions t "]).
 
--define(SELECT_ACTOR_ACTIVITY_BASE(L, E),
+-define(SELECT_ACTOR_ACTIVITY_BASE(E),
         [?SELECT_TXN_FIELDS("txn_filter_actor_activity(t.actor, t.type, t.fields) as fields"),
          "from (select tr.*, a.actor ",
          "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-         "where a.actor = (select address from ", (L), " where address = $1) ", (E),
+         " where a.actor = $1 ", (E),
          " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
-         ]).
-
+        ]).
 
 -define(SELECT_ACCOUNT_ACTIVITY_BASE,
-        ?SELECT_ACTOR_ACTIVITY_BASE("account_ledger",
-                                    %% For account activity we limit
+        ?SELECT_ACTOR_ACTIVITY_BASE(%% For account activity we limit
                                     %% the actor roles to just a
                                     %% few.
                                     "and a.actor_role in ('payer', 'payee', 'owner')")).
 -define(SELECT_HOTSPOT_ACTIVITY_BASE,
-        ?SELECT_ACTOR_ACTIVITY_BASE("gateway_ledger",
-                                    %% Filter out gateway roles that
+        ?SELECT_ACTOR_ACTIVITY_BASE(%% Filter out gateway roles that
                                     %% should be in accounts
                                     "and a.actor_role not in ('payer', 'payee', 'owner')")).
 
@@ -158,8 +155,6 @@ get_activity_list(Actor, {_StartQuery, CursorQuery}, [{cursor, Cursor}, {filter_
             {error, badarg}
     end.
 
-mk_activity_list_from_result(_Types, {ok, _, []}) ->
-    {error, not_found};
 mk_activity_list_from_result(Types, {ok, _, Results}) ->
     {ok, txn_list_to_json(Results), mk_activity_cursor(Types, Results)}.
 
