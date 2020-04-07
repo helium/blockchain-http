@@ -4,7 +4,11 @@
 -include("ct_utils.hrl").
 
 all() -> [
-          height_test
+          height_test,
+          block_for_height_test,
+          block_for_height_txns_test,
+          block_for_hash_test,
+          block_for_hash_txns_test
          ].
 
 init_per_suite(Config) ->
@@ -18,3 +22,27 @@ height_test(_Config) ->
     ?assertMatch(#{ <<"data">> := #{ <<"height">> :=  _}}, Json),
 
     ok.
+
+block_for_height_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/blocks/1"),
+    ?assertMatch(#{ <<"data">> :=
+                        #{ <<"height">> :=  1,
+                           <<"transaction_count">> := 70
+                         }}, Json).
+
+block_for_height_txns_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/blocks/1/transactions"),
+    #{ <<"data">> := Txns, <<"cursor">> := _ } = Json,
+    ?assertEqual(50, length(Txns)).
+
+block_for_hash_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/blocks/hash/La6PuV80Ps9qTP0339Pwm64q3_deMTkv6JOo1251EJI"),
+    ?assertMatch(#{ <<"data">> :=
+                        #{ <<"height">> :=  1,
+                           <<"transaction_count">> := 70
+                         }}, Json).
+
+block_for_hash_txns_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/blocks/hash/La6PuV80Ps9qTP0339Pwm64q3_deMTkv6JOo1251EJI/transactions"),
+    #{ <<"data">> := Txns, <<"cursor">> := _ } = Json,
+    ?assertEqual(50, length(Txns)).
