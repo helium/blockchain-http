@@ -52,6 +52,9 @@ handle('GET', [Account, <<"hotspots">>], Req) ->
 handle('GET', [Account, <<"activity">>], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
     ?MK_RESPONSE(bh_route_txns:get_activity_list({account, Account}, Args), block_time);
+handle('GET', [Account, <<"elections">>], Req) ->
+    Args = ?GET_ARGS([cursor], Req),
+    ?MK_RESPONSE(bh_route_elections:get_election_list({account, Account}, Args), block_time);
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.

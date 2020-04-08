@@ -9,7 +9,8 @@
 %% Utilities
 -export([get_block_height/0,
          get_block_list/1,
-         get_block/1]).
+         get_block/1,
+         get_block_txn_list/2]).
 
 -define(S_BLOCK_HEIGHT, "block_height").
 
@@ -18,10 +19,18 @@
 
 -define(S_BLOCK_BY_HASH, "block_by_hash").
 -define(S_BLOCK_BY_HEIGHT, "block_by_height").
+-define(S_BLOCK_HEIGHT_TXN_LIST, "block_height_txn_list").
+-define(S_BLOCK_HEIGHT_TXN_LIST_BEFORE, "block_height_txn_list_before").
+-define(S_BLOCK_HASH_TXN_LIST, "block_hash_txn_list_list").
+-define(S_BLOCK_HASH_TXN_LIST_BEFORE, "block_hash_txn_list_before").
 
 -define(SELECT_BLOCK_BASE, "select b.height, b.time, b.block_hash, b.prev_hash, b.transaction_count from blocks b ").
+-define(SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
+        [?SELECT_TXN_BASE, "from (select * from transactions where block = $1 order by hash) t "]).
 
--define(BLOCK_LIST_LIMIT, 100).
+-define(SELECT_BLOCK_HASH_TXN_LIST_BASE,
+        [?SELECT_TXN_BASE, "from (select * from transactions where block = (select height from blocks where block_hash = $1) order by hash) t "]).
+
 
 prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT,
@@ -47,11 +56,41 @@ prepare_conn(Conn) ->
                             "where b.block_hash = $1"],
                             []),
 
+    {ok, S6} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT_TXN_LIST,
+                            [?SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
+                             "limit ", integer_to_list(?BLOCK_TXN_LIST_LIMIT)
+                            ],
+                            []),
+
+    {ok, S7} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE,
+                            [?SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
+                             "where t.hash > $2",
+                             "limit ", integer_to_list(?BLOCK_TXN_LIST_LIMIT)
+                            ],
+                            []),
+
+    {ok, S8} = epgsql:parse(Conn, ?S_BLOCK_HASH_TXN_LIST,
+                            [?SELECT_BLOCK_HASH_TXN_LIST_BASE,
+                             "limit ", integer_to_list(?BLOCK_TXN_LIST_LIMIT)
+                            ],
+                            []),
+
+    {ok, S9} = epgsql:parse(Conn, ?S_BLOCK_HASH_TXN_LIST_BEFORE,
+                            [?SELECT_BLOCK_HASH_TXN_LIST_BASE,
+                             "where t.hash > $2",
+                             "limit ", integer_to_list(?BLOCK_TXN_LIST_LIMIT)
+                            ],
+                            []),
+
     #{?S_BLOCK_HEIGHT => S1,
       ?S_BLOCK_LIST => S2,
       ?S_BLOCK_LIST_BEFORE => S3,
       ?S_BLOCK_BY_HEIGHT => S4,
-      ?S_BLOCK_BY_HASH => S5
+      ?S_BLOCK_BY_HASH => S5,
+      ?S_BLOCK_HEIGHT_TXN_LIST => S6,
+      ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE => S7,
+      ?S_BLOCK_HASH_TXN_LIST => S8,
+      ?S_BLOCK_HASH_TXN_LIST_BEFORE => S9
      }.
 
 
@@ -68,7 +107,7 @@ handle('GET', [<<"hash">>, BlockHash], _Req) ->
     ?MK_RESPONSE(get_block({hash, BlockHash}), infinity);
 handle('GET', [<<"hash">>, BlockHash, <<"transactions">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(bh_route_txns:get_block_txn_list({hash, BlockHash}, Args), infinity);
+    ?MK_RESPONSE(get_block_txn_list({hash, BlockHash}, Args), infinity);
 handle('GET', [BlockId], _Req) ->
     try binary_to_integer(BlockId) of
         Height -> ?MK_RESPONSE(get_block({height, Height}), infinity)
@@ -78,7 +117,7 @@ handle('GET', [BlockId], _Req) ->
 handle('GET', [BlockId, <<"transactions">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     try binary_to_integer(BlockId) of
-        Height -> ?MK_RESPONSE(bh_route_txns:get_block_txn_list({height, Height}, Args), infinity)
+        Height -> ?MK_RESPONSE(get_block_txn_list({height, Height}, Args), infinity)
     catch _:_ ->
         ?RESPONSE_400
     end;
@@ -123,6 +162,33 @@ mk_block_from_result({ok, _, [Result]}) ->
     {ok, block_to_json(Result)};
 mk_block_from_result(_) ->
     {error, not_found}.
+
+get_block_txn_list({height, Height}, Args) ->
+    get_block_txn_list(Height, {?S_BLOCK_HEIGHT_TXN_LIST, ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE}, Args);
+get_block_txn_list({hash, Hash}, Args) ->
+    get_block_txn_list(Hash, {?S_BLOCK_HASH_TXN_LIST, ?S_BLOCK_HASH_TXN_LIST_BEFORE}, Args).
+
+get_block_txn_list(Block, {StartQuery, _CursorQuery}, [{cursor, undefined}]) ->
+    Result = ?PREPARED_QUERY(StartQuery, [Block]),
+    mk_txn_list_from_result(Result);
+get_block_txn_list(Block, {_StartQuery, CursorQuery}, [{cursor, Cursor}]) ->
+    case ?CURSOR_DECODE(Cursor) of
+        {ok, #{ <<"hash">> := Hash }} ->
+            Result = ?PREPARED_QUERY(CursorQuery, [Block, Hash]),
+            mk_txn_list_from_result(Result)
+    end.
+
+mk_txn_list_from_result({ok, _, Results}) ->
+    {ok, ?TXN_LIST_TO_JSON(Results), mk_txn_list_cursor(Results)}.
+
+mk_txn_list_cursor(Results) ->
+    case length(Results) < ?BLOCK_TXN_LIST_LIMIT of
+        true -> undefined;
+        false ->
+            {_Height, _Time, Hash, _Type, _Fields} = lists:last(Results),
+            #{ hash => Hash}
+    end.
+
 
 
 block_list_to_json(Results) ->
