@@ -21,6 +21,8 @@ handle(Method, [<<"v1">>, <<"transactions">> | Tail], Req) ->
     bh_route_txns:handle(Method, Tail, Req);
 handle(Method, [<<"v1">>, <<"pending_transactions">> | Tail], Req) ->
     bh_route_pending_txns:handle(Method, Tail, Req);
+handle(Method, [<<"v1">>, <<"elections">> | Tail], Req) ->
+    bh_route_elections:handle(Method, Tail, Req);
 handle('GET', [], _Req) ->
     {200, [], <<>>};
 

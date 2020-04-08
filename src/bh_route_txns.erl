@@ -8,7 +8,6 @@
 -export([prepare_conn/1, handle/3]).
 %% Utilities
 -export([get_txn/1,
-         get_block_txn_list/2,
          get_activity_list/2,
          txn_to_json/1,
          txn_list_to_json/1,
@@ -20,13 +19,6 @@
 -define(S_ACCOUNT_ACTIVITY_LIST_BEFORE, "account_activity_list_before").
 -define(S_HOTSPOT_ACTIVITY_LIST, "hotspot_activity_list").
 -define(S_HOTSPOT_ACTIVITY_LIST_BEFORE, "hotspot_activity_list_before").
--define(S_BLOCK_HEIGHT_TXN_LIST, "block_height_txn_list").
--define(S_BLOCK_HEIGHT_TXN_LIST_BEFORE, "block_height_txn_list_before").
--define(S_BLOCK_HASH_TXN_LIST, "block_hash_txn_list_list").
--define(S_BLOCK_HASH_TXN_LIST_BEFORE, "block_hash_txn_list_before").
-
--define(SELECT_TXN_FIELDS(F), ["select t.block, t.time, t.hash, t.type, ", (F), " "]).
--define(SELECT_TXN_BASE, ?SELECT_TXN_FIELDS("t.fields")).
 
 -define(SELECT_ACTOR_ACTIVITY_BASE(E),
         [?SELECT_TXN_FIELDS("txn_filter_actor_activity(t.actor, t.type, t.fields) as fields"),
@@ -46,15 +38,7 @@
                                     %% should be in accounts
                                     "and a.actor_role not in ('payer', 'payee', 'owner')")).
 
--define(SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
-        [?SELECT_TXN_BASE, "from (select * from transactions where block = $1 order by hash) t "]).
-
--define(SELECT_BLOCK_HASH_TXN_LIST_BASE,
-        [?SELECT_TXN_BASE, "from (select * from transactions where block = (select height from blocks where block_hash = $1) order by hash) t "]).
-
 -define(ACTOR_ACTIVITY_LIST_LIMIT, 50).
--define(BLOCK_TXN_LIST_LIMIT, 50).
-
 
 -define(FILTER_TYPES,
         [<<"coinbase_v1">>,
@@ -86,7 +70,6 @@ prepare_conn(Conn) ->
                             []),
 
     {ok, S2} = epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_LIST,
-
                             [?SELECT_ACCOUNT_ACTIVITY_BASE,
                              "limit ", integer_to_list(?ACTOR_ACTIVITY_LIST_LIMIT)
                             ],
@@ -113,43 +96,11 @@ prepare_conn(Conn) ->
                             ],
                             []),
 
-    {ok, S6} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT_TXN_LIST,
-                            [?SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
-                             "limit ", integer_to_list(?BLOCK_TXN_LIST_LIMIT)
-                            ],
-                            []),
-
-    {ok, S7} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE,
-                            [?SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
-                             "where t.hash > $2",
-                             "limit ", integer_to_list(?BLOCK_TXN_LIST_LIMIT)
-                            ],
-                            []),
-
-    {ok, S8} = epgsql:parse(Conn, ?S_BLOCK_HASH_TXN_LIST,
-                            [?SELECT_BLOCK_HASH_TXN_LIST_BASE,
-                             "limit ", integer_to_list(?BLOCK_TXN_LIST_LIMIT)
-                            ],
-                            []),
-
-    {ok, S9} = epgsql:parse(Conn, ?S_BLOCK_HASH_TXN_LIST_BEFORE,
-                            [?SELECT_BLOCK_HASH_TXN_LIST_BASE,
-                             "where t.hash > $2",
-                             "limit ", integer_to_list(?BLOCK_TXN_LIST_LIMIT)
-                            ],
-                            []),
-
-
-
     #{?S_TXN => S1,
       ?S_ACCOUNT_ACTIVITY_LIST => S2,
       ?S_ACCOUNT_ACTIVITY_LIST_BEFORE => S3,
       ?S_HOTSPOT_ACTIVITY_LIST => S4,
-      ?S_HOTSPOT_ACTIVITY_LIST_BEFORE => S5,
-      ?S_BLOCK_HEIGHT_TXN_LIST => S6,
-      ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE => S7,
-      ?S_BLOCK_HASH_TXN_LIST => S8,
-      ?S_BLOCK_HASH_TXN_LIST_BEFORE => S9
+      ?S_HOTSPOT_ACTIVITY_LIST_BEFORE => S5
      }.
 
 handle('GET', [TxnHash], _Req) ->
@@ -168,38 +119,7 @@ get_txn(Key) ->
     end.
 
 
-
 %%
-%% Block Transctions
-%%
-
-get_block_txn_list({height, Height}, Args) ->
-    get_block_txn_list(Height, {?S_BLOCK_HEIGHT_TXN_LIST, ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE}, Args);
-get_block_txn_list({hash, Hash}, Args) ->
-    get_block_txn_list(Hash, {?S_BLOCK_HASH_TXN_LIST, ?S_BLOCK_HASH_TXN_LIST_BEFORE}, Args).
-
-get_block_txn_list(Block, {StartQuery, _CursorQuery}, [{cursor, undefined}]) ->
-    Result = ?PREPARED_QUERY(StartQuery, [Block]),
-    mk_txn_list_from_result(Result);
-get_block_txn_list(Block, {_StartQuery, CursorQuery}, [{cursor, Cursor}]) ->
-    case ?CURSOR_DECODE(Cursor) of
-        {ok, #{ <<"hash">> := Hash }} ->
-            Result = ?PREPARED_QUERY(CursorQuery, [Block, Hash]),
-            mk_txn_list_from_result(Result)
-    end.
-
-mk_txn_list_from_result({ok, _, Results}) ->
-    {ok, txn_list_to_json(Results), mk_txn_list_cursor(Results)}.
-
-mk_txn_list_cursor(Results) ->
-    case length(Results) < ?BLOCK_TXN_LIST_LIMIT of
-        true -> undefined;
-        false ->
-            {_Height, _Time, Hash, _Type, _Fields} = lists:last(Results),
-            #{ hash => Hash}
-    end.
-
-
 %%
 %% Activity
 %%
@@ -244,7 +164,6 @@ mk_activity_cursor(Types, Results) ->
                 _ -> Cursor0#{ types => Types}
             end
     end.
-
 
 %%
 %% to_jaon

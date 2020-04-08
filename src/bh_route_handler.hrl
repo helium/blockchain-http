@@ -20,3 +20,11 @@
 
 -define (BIN_TO_B64(B), base64url:encode((B))).
 -define (BIN_TO_B58(B), list_to_binary(libp2p_crypto:bin_to_b58((B)))).
+
+-define(SELECT_TXN_FIELDS(F), ["select t.block, t.time, t.hash, t.type, ", (F), " "]).
+-define(SELECT_TXN_BASE, ?SELECT_TXN_FIELDS("t.fields")).
+-define(TXN_LIST_TO_JSON(R), bh_route_txns:txn_list_to_json((R))).
+
+-define(BLOCK_LIST_LIMIT, 100).
+-define(BLOCK_TXN_LIST_LIMIT, 50).
+-define(ELECTION_TXN_LIST_LIMIT, 50).
