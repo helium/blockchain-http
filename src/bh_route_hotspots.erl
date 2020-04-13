@@ -65,7 +65,7 @@ handle('GET', [Address, <<"activity">>], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
     ?MK_RESPONSE(bh_route_txns:get_activity_list({hotspot, Address}, Args), block_time);
 handle('GET', [Address, <<"elections">>], Req) ->
-    Args = ?GET_ARGS([cursor_types], Req),
+    Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(bh_route_elections:get_election_list({hotspot, Address}, Args), block_time);
 
 handle(_, _, _Req) ->

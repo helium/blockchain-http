@@ -98,8 +98,8 @@ get_election_list({account, Address}, Args) ->
 get_election_list(undefined, Args) ->
     get_election_list([], {?S_ELECTION_TXN_LIST, ?S_ELECTION_TXN_LIST_BEFORE}, Args).
 
-get_election_list(_, {StartQuery, _CursorQuery}, [{cursor, undefined}]) ->
-    Result = ?PREPARED_QUERY(StartQuery, []),
+get_election_list(Args, {StartQuery, _CursorQuery}, [{cursor, undefined}]) ->
+    Result = ?PREPARED_QUERY(StartQuery, Args),
     mk_election_list_from_result(Result);
 get_election_list(Args, {_StartQuery, CursorQuery}, [{cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
