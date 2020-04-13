@@ -5,7 +5,9 @@
 -include("../src/bh_route_handler.hrl").
 
 all() -> [
-          election_list_test
+          election_list_test,
+          hotspot_election_list_test,
+          account_election_list_test
          ].
 
 init_per_suite(Config) ->
