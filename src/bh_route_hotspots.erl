@@ -67,6 +67,9 @@ handle('GET', [Address, <<"activity">>], Req) ->
 handle('GET', [Address, <<"elections">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(bh_route_elections:get_election_list({hotspot, Address}, Args), block_time);
+handle('GET', [Address, <<"challenges">>], Req) ->
+    Args = ?GET_ARGS([cursor], Req),
+    ?MK_RESPONSE(bh_route_challenges:get_challenge_list({hotspot, Address}, Args), block_time);
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
