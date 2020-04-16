@@ -8,30 +8,53 @@
 
 -export([prepare_conn/1, handle/3]).
 %% Utilities
--export([get_pending_txn_list/0,
+-export([get_pending_txn_list/2,
          get_pending_txn/1,
-         get_pending_txn_list/3,
          insert_pending_txn/2]).
 
 
--define(S_PENDING_TXN_LIST_BEFORE, "pending_txn_list_before").
+-define(S_ACTOR_PENDING_TXN_LIST, "pending_txn_list").
+-define(S_ACTOR_PENDING_TXN_LIST_BEFORE, "pending_txn_list_before").
 -define(S_PENDING_TXN, "pending_txn").
 -define(S_INSERT_PENDING_TXN, "insert_pending_txn").
 
--define(SELECT_PENDING_TXN_BASE, "select t.created_at, t.updated_at, t.hash, t.status, t.failed_reason from pending_transactions t ").
+-define(SELECT_PENDING_TXN_FIELDS,
+        "select t.created_at, t.updated_at, t.hash, t.type, t.status, t.failed_reason, t.fields ").
+
+-define(SELECT_ACTOR_PENDING_TXN_LIST_BASE(E),
+        [?SELECT_PENDING_TXN_FIELDS,
+         "from pending_transaction_actors a inner join pending_transactions t on a.transaction_hash = t.hash ",
+         "where t.status = 'pending' and a.actor = $1", (E), " ",
+         "order by created_at desc ",
+         "limit ", integer_to_list(?PENDING_TXN_LIST_LIMIT)
+        ]).
 
 prepare_conn(Conn) ->
-    {ok, S1} = epgsql:parse(Conn, ?S_PENDING_TXN_LIST_BEFORE,
-                           ?SELECT_PENDING_TXN_BASE "where t.created_at < $2 and t.status = $1 order by created_at DESC limit $3", []),
+    {ok, S1} = epgsql:parse(Conn, ?S_ACTOR_PENDING_TXN_LIST,
+                            ?SELECT_ACTOR_PENDING_TXN_LIST_BASE(""),
+                            []),
 
-    {ok, S2} = epgsql:parse(Conn, ?S_PENDING_TXN,
-                           ?SELECT_PENDING_TXN_BASE "where hash = $1", []),
+    {ok, S2} = epgsql:parse(Conn, ?S_ACTOR_PENDING_TXN_LIST_BEFORE,
+                            ?SELECT_ACTOR_PENDING_TXN_LIST_BASE(" and t.created_at < $2"),
+                            []),
 
-    {ok, S3} = epgsql:parse(Conn, ?S_INSERT_PENDING_TXN,
-                           "insert into pending_transactions (hash, type, address, nonce, nonce_type, status, data) values ($1, $2, $3, $4, $5, $6, $7)", []),
+    {ok, S3} = epgsql:parse(Conn, ?S_PENDING_TXN,
+                           [?SELECT_PENDING_TXN_FIELDS,
+                            "from pending_transactions t ",
+                            "where hash = $1"],
+                            []),
 
-    #{?S_PENDING_TXN_LIST_BEFORE => S1, ?S_PENDING_TXN => S2,
-      ?S_INSERT_PENDING_TXN => S3}.
+    {ok, S4} = epgsql:parse(Conn, ?S_INSERT_PENDING_TXN,
+                           ["insert into pending_transactions ",
+                            "(hash, type, nonce, nonce_type, status, data) values ",
+                            "($1, $2, $3, $4, $5, $6)"],
+                            []),
+
+    #{?S_ACTOR_PENDING_TXN_LIST => S1,
+      ?S_ACTOR_PENDING_TXN_LIST_BEFORE => S2,
+      ?S_PENDING_TXN => S3,
+      ?S_INSERT_PENDING_TXN => S4
+     }.
 
 handle('GET', [TxnHash], _Req) ->
     ?MK_RESPONSE(get_pending_txn(TxnHash), block_time);
@@ -53,22 +76,21 @@ handle(_, _, _Req) ->
 -type nonce_type() :: binary().
 
 -spec insert_pending_txn(supported_txn(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
-insert_pending_txn(#blockchain_txn_payment_v1_pb{payer=Payer, nonce=Nonce }=Txn, Bin) ->
-    insert_pending_txn(Txn, Payer, Nonce, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_payment_v2_pb{payer=Payer, nonce=Nonce}=Txn, Bin) ->
-    insert_pending_txn(Txn, Payer, Nonce, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_create_htlc_v1_pb{payer=Payer, nonce=Nonce}=Txn, Bin) ->
-    insert_pending_txn(Txn, Payer, Nonce, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_redeem_htlc_v1_pb{payee=Payee}=Txn, Bin) ->
-    insert_pending_txn(Txn, Payee, 0, <<"balance">>, Bin).
+insert_pending_txn(#blockchain_txn_payment_v1_pb{nonce=Nonce }=Txn, Bin) ->
+    insert_pending_txn(Txn, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_payment_v2_pb{nonce=Nonce}=Txn, Bin) ->
+    insert_pending_txn(Txn, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_create_htlc_v1_pb{nonce=Nonce}=Txn, Bin) ->
+    insert_pending_txn(Txn, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_redeem_htlc_v1_pb{}=Txn, Bin) ->
+    insert_pending_txn(Txn, 0, <<"balance">>, Bin).
 
--spec insert_pending_txn(supported_txn(), libp2p_crypto:pubkey_bin(), non_neg_integer(), nonce_type(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
-insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
+-spec insert_pending_txn(supported_txn(), non_neg_integer(), nonce_type(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
+insert_pending_txn(Txn, Nonce, NonceType, Bin) ->
     TxnHash = ?BIN_TO_B64(txn_hash(Txn)),
     Params = [
               TxnHash,
               txn_type(Txn),
-              ?BIN_TO_B58(Address),
               Nonce,
               NonceType,
               <<"received">>,
@@ -82,14 +104,35 @@ insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
     end.
 
 
-%% @equiv get_pending_txn_list(Status, Before, Limit)
-get_pending_txn_list() ->
-    get_pending_txn_list(pending, calendar:universal_time(), ?MAX_LIMIT).
+get_pending_txn_list(Actor, [{cursor, undefined}]) ->
+    Result = ?PREPARED_QUERY(?S_ACTOR_PENDING_TXN_LIST, [Actor]),
+    mk_pending_txn_list_from_result(Result);
+get_pending_txn_list(Actor, [{cursor, Cursor}]) ->
+    try ?CURSOR_DECODE(Cursor) of
+        {ok, #{ <<"before">> := Before}} ->
+            BeforeDate = iso8601:parse(Before),
+            Result = ?PREPARED_QUERY(?S_ACTOR_PENDING_TXN_LIST_BEFORE, [Actor, BeforeDate]),
+            mk_pending_txn_list_from_result(Result);
+        _ ->
+            {error, badarg}
+    catch
+        _:_ ->
+            %% handle badarg thrown in bad date formats
+            {error, badarg}
+    end.
 
--spec get_pending_txn_list(be_pending_txn:status(), calendar:datetime(), non_neg_integer()) -> {ok, jiffy:json_array()}.
-get_pending_txn_list(Status, Before, Limit) ->
-    {ok, _, Results} =  ?PREPARED_QUERY(?S_PENDING_TXN_LIST_BEFORE, [Status, Before, Limit]),
-    {ok, pending_txn_list_to_json(Results)}.
+mk_pending_txn_list_from_result({ok, _, Results}) ->
+    {ok, pending_txn_list_to_json(Results), mk_pending_txn_cursor(Results)}.
+
+
+mk_pending_txn_cursor(Results) ->
+    case length(Results) < ?PENDING_TXN_LIST_LIMIT of
+        true -> undefined;
+        false ->
+            {CreatedAt, _UpdatedAt, _Hash, _Type, _Status, _FailedReason, _Fields} = lists:last(Results),
+            #{ before => iso8601:format(CreatedAt)}
+    end.
+
 
 -spec get_pending_txn(Key::binary()) -> {ok, jiffy:json_object()} | {error, term()}.
 get_pending_txn(Key) ->
@@ -107,13 +150,15 @@ get_pending_txn(Key) ->
 pending_txn_list_to_json(Results) ->
     lists:map(fun pending_txn_to_json/1, Results).
 
-pending_txn_to_json({CreatedAt, UpdatedAt, Hash, Status, FailedReason}) ->
+pending_txn_to_json({CreatedAt, UpdatedAt, Hash, Type, Status, FailedReason, Fields}) ->
     #{
-      <<"created_at">> => iso8601:format(CreatedAt),
-      <<"updated_at">> => iso8601:format(UpdatedAt),
-      <<"hash">> => Hash,
-      <<"status">> => Status,
-      <<"failed_reason">> => FailedReason
+      created_at => iso8601:format(CreatedAt),
+      updated_at => iso8601:format(UpdatedAt),
+      hash => Hash,
+      type => Type,
+      status => Status,
+      failed_reason => FailedReason,
+      txn => Fields
      }.
 
 %%
