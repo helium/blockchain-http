@@ -18,8 +18,8 @@
 -define(S_HOTSPOT, "hotspot").
 
 -define(SELECT_HOTSPOT_BASE(G),
-        "select (select max(height) from blocks) as height, g.block, g.first_block, g.address, g.owner, g.location, g.score, "
-        "l.short_street, l.long_street, l.short_city, l.long_city, l.short_state, l.long_state, l.short_country, l.long_country " G " left join locations l on g.location = l.location ").
+        ["select (select max(height) from blocks) as height, g.block, g.first_block, g.address, g.owner, g.location, g.score, ",
+        "g.short_street, g.long_street, g.short_city, g.long_city, g.short_state, g.long_state, g.short_country, g.long_country ", G, " "]).
 -define(SELECT_HOTSPOT_BASE, ?SELECT_HOTSPOT_BASE("from gateway_ledger g")).
 -define(SELECT_OWNER_HOTSPOT, ?SELECT_HOTSPOT_BASE("from (select * from gateway_ledger where owner = $1 order by first_block desc, address) as g")).
 
