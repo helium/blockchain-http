@@ -58,6 +58,9 @@ handle('GET', [Account, <<"elections">>], Req) ->
 handle('GET', [Account, <<"challenges">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(bh_route_challenges:get_challenge_list({account, Account}, Args), block_time);
+handle('GET', [Account, <<"pending_transactions">>], Req) ->
+    Args = ?GET_ARGS([cursor], Req),
+    ?MK_RESPONSE(bh_route_pending_txns:get_pending_txn_list(Account, Args), block_time);
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
