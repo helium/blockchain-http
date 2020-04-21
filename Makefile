@@ -43,6 +43,7 @@ release:
 
 
 start:
+	cp -f .env ./_build/prod/rel/blockchain_http/
 	./_build/prod/rel/blockchain_http/bin/blockchain_http start
 
 stop:
