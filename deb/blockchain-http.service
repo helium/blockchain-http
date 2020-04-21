@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/var/helium/blockchain_http/bin/blockchain_etl foreground
-ExecStop=/var/helium/blockchain_http/bin/blockchain_etl stop
+ExecStart=/var/helium/blockchain_http/bin/blockchain_http foreground
+ExecStop=/var/helium/blockchain_http/bin/blockchain_http stop
 User=ubuntu
 PIDFile=/var/data/blockchain_http/blockchain_http.pid
 Environment=HOME="/var/data/blockchain_http"
