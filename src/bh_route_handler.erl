@@ -37,18 +37,22 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
 %% @doc Construct a standard response given a map, list and an
 %% optional cursor if needed. Given an error tuple, it will respond
 %% with a pre-configured error code.
--spec mk_response({ok, Json::(map() | list()), Cursor::map() | undefined}
-                  | {ok, Json::(map() | list())}
-                  | {error, term()},
-                 cache_time()) -> {ok | elli:response_code(), elli:headers(), elli:body()}.
-mk_response({ok, Json, Cursor}, CacheTime) ->
+-spec mk_response(
+        {ok, Json::(map() | list()), Cursor::map() | undefined, Meta::map | undefined}
+        | {ok, Json::(map() | list()), Cursor::map() | undefined}
+        | {ok, Json::(map() | list())}
+        | {error, term()},
+        cache_time()) -> {ok | elli:response_code(), elli:headers(), elli:body()}.
+mk_response({ok, Json, Cursor, Meta}, CacheTime) ->
      Result0 = #{ data => Json },
-     Result = case Cursor of
-                  undefined ->
-                      Result0;
-                  _ ->
-                      Result0#{ cursor => cursor_encode(Cursor)}
+     Result1 = case Cursor of
+                  undefined -> Result0;
+                  _ -> Result0#{ cursor => cursor_encode(Cursor)}
               end,
+    Result = case Meta of
+                 undefined -> Result1;
+                 _ -> Result1#{ meta => Meta }
+             end,
     {ok,
      add_cache_header(
        CacheTime,
@@ -56,7 +60,9 @@ mk_response({ok, Json, Cursor}, CacheTime) ->
        ]),
      jiffy:encode(Result, [])};
 mk_response({ok, Json}, CacheTime) ->
-    mk_response({ok, Json, undefined}, CacheTime);
+    mk_response({ok, Json, undefined, undefined}, CacheTime);
+mk_response({ok, Json, Cursor}, CacheTime) ->
+    mk_response({ok, Json, Cursor, undefined}, CacheTime);
 mk_response({error, badarg}, _) ->
     ?RESPONSE_400;
 mk_response({error, conflict}, _) ->
