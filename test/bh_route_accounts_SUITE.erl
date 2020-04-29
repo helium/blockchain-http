@@ -35,9 +35,9 @@ activity_result_test(_Config) ->
       }
     } = ?CURSOR_DECODE(Cursor),
     ?assert(length(Data) >= 0),
-    ?assert(StartBlock - EndBlock =< ?ACTOR_ACTIVITY_LIST_LIMIT),
+    ?assert(StartBlock - EndBlock =< ?ACTIVITY_LIST_BLOCK_LIMIT),
     ?assertEqual(EndBlock, CursorBlock),
-    ?assertEqual(?ACTOR_ACTIVITY_LIST_LIMIT, Range).
+    ?assertEqual(?ACTIVITY_LIST_BLOCK_LIMIT, Range).
 
 activity_low_block_test(_Config) ->
     GetCursor = #{ block => 50 },

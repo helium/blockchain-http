@@ -30,4 +30,4 @@
 -define(ELECTION_TXN_LIST_LIMIT, 50).
 -define(CHALLENGE_TXN_LIST_LIMIT, 50).
 -define(PENDING_TXN_LIST_LIMIT, 100).
--define(ACTOR_ACTIVITY_LIST_LIMIT, 1000). % range in blocks
+-define(ACTIVITY_LIST_BLOCK_LIMIT, 1000). % range in blocks
