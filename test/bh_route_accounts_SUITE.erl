@@ -7,6 +7,8 @@
 -include("ct_utils.hrl").
 
 all() -> [
+          get_test,
+          not_found_test,
           activity_result_test,
           activity_low_block_test,
           activity_filter_no_result_test
@@ -17,6 +19,22 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     ?end_bh(Config).
+
+
+get_test(_Config) ->
+    FetchAddress = "1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY",
+    {ok, {_, _, Json}} = ?json_request(["/v1/accounts/", FetchAddress]),
+    #{ <<"data">> :=
+           #{
+             <<"address">> := Address
+            }
+     } = Json,
+    ?assertEqual(FetchAddress, binary_to_list(Address)),
+    ok.
+
+not_found_test(_Config) ->
+    ?assertMatch({error, {_, 404, _}}, ?json_request("/v1/accounts/no_account/no_path")),
+    ok.
 
 activity_result_test(_Config) ->
     %% Test activity for an account. This may or may not have data
@@ -41,7 +59,10 @@ activity_result_test(_Config) ->
 
 activity_low_block_test(_Config) ->
     GetCursor = #{ block => 50 },
-    {ok, {_, _, Json}} = ?json_request("/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/activity?cursor=" ++ binary_to_list(?CURSOR_ENCODE(GetCursor))),
+    {ok, {_, _, Json}} = ?json_request(
+                            ["/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/activity",
+                             "?cursor=", binary_to_list(?CURSOR_ENCODE(GetCursor))
+                            ]),
     #{ <<"data">> := Data,
        <<"meta">> := #{ <<"start_block">> := StartBlock,
                         <<"end_block">> := EndBlock
@@ -59,7 +80,10 @@ activity_filter_no_result_test(_Config) ->
     GetCursor = #{ block => 50,
                    types => <<"rewards_v1">>
                  },
-    {ok, {_, _, Json}} = ?json_request("/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/activity?cursor=" ++  binary_to_list(?CURSOR_ENCODE(GetCursor))),
+    {ok, {_, _, Json}} = ?json_request(
+                            ["/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/activity",
+                             "?cursor=",binary_to_list(?CURSOR_ENCODE(GetCursor))
+                            ]),
     #{ <<"data">> := Data } = Json,
     ?assertEqual(0, length(Data)),
     ok.

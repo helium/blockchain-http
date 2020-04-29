@@ -5,7 +5,8 @@
 -export([get_args/2,
          mk_response/2,
          lat_lon/2, lat_lon/3,
-         cursor_encode/1, cursor_decode/1]).
+         cursor_encode/1, cursor_decode/1,
+         cache_time_block_aligned/1]).
 
 -callback handle(elli:http_method(), Path::[binary()], Req::elli:req()) -> elli:result().
 
@@ -117,3 +118,10 @@ cursor_decode(_) ->
 -spec cursor_encode(map()) -> binary().
 cursor_encode(Map) ->
     ?BIN_TO_B64(jiffy:encode(Map)).
+
+-spec cache_time_block_aligned(list(tuple())) -> cache_time().
+cache_time_block_aligned(Args) ->
+    case lists:keyfind(cursor, 1, Args) of
+        false -> block_time;
+        _ -> infinity
+    end.

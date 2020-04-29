@@ -8,35 +8,61 @@
 -export([prepare_conn/1, handle/3]).
 %% Utilities
 -export([get_txn/1,
+         get_txn_list/2,
+         get_actor_txn_list/3,
          get_activity_list/2,
          txn_to_json/1,
          txn_list_to_json/1,
          filter_types/1]).
 
 -define(S_TXN, "txn").
+-define(S_TXN_LIST, "txn_list").
 -define(S_ACTOR_TXN_LIST, "actor_txn_list").
+-define(S_OWNED_ACTOR_TXN_LIST, "owned_actor_txn_list").
 -define(S_ACCOUNT_ACTIVITY_LIST, "account_activity_list").
 -define(S_ACCOUNT_ACTIVITY_LIST_BEFORE, "account_activity_list_before").
 -define(S_HOTSPOT_ACTIVITY_LIST, "hotspot_activity_list").
 -define(S_HOTSPOT_ACTIVITY_LIST_BEFORE, "hotspot_activity_list_before").
 
--define(SELECT_ACTOR_ACTIVITY_BASE(E),
-        [?SELECT_TXN_FIELDS("txn_filter_actor_activity(t.actor, t.type, t.fields) as fields"),
+-define(SELECT_TXN_LIST,
+       [?SELECT_TXN_BASE,
+        "from transactions t ",
+        "where t.type = ANY($1)",
+        " and block >= $2 and block < $3"
+        " order by t.block desc, t.hash"
+       ]).
+
+-define(SELECT_ACTOR_TXN_LIST_BASE(F, E),
+        [?SELECT_TXN_FIELDS(F),
          "from (select tr.*, a.actor ",
          "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
          " where a.block >= $3 and a.block < $4 and a.actor = $1 ", (E),
          " and tr.type = ANY($2) order by tr.block desc) as t "
         ]).
 
--define(SELECT_ACCOUNT_ACTIVITY_BASE,
-        ?SELECT_ACTOR_ACTIVITY_BASE(%% For account activity we limit
-                                    %% the actor roles to just a
-                                    %% few.
-                                    "and a.actor_role in ('payer', 'payee', 'owner')")).
--define(SELECT_HOTSPOT_ACTIVITY_BASE,
-        ?SELECT_ACTOR_ACTIVITY_BASE(%% Filter out gateway roles that
-                                    %% should be in accounts
-                                    "and a.actor_role not in ('payer', 'payee', 'owner')")).
+-define(SELECT_OWNED_ACTOR_TXN_LIST_BASE(F, E),
+        [?SELECT_TXN_FIELDS(F),
+         "from (select tr.*, a.actor ",
+         "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
+         " where a.block >= $3 and a.block < $4",
+         " and a.actor in (select address from gateway_ledger where owner = $1) ", (E),
+         " and tr.type = ANY($2) order by tr.block desc) as t "
+        ]).
+
+-define(SELECT_ACTOR_TXN_LIST, ?SELECT_ACTOR_TXN_LIST_BASE("t.fields", "")).
+-define(SELECT_OWNED_ACTOR_TXN_LIST, ?SELECT_OWNED_ACTOR_TXN_LIST_BASE("t.fields", "")).
+
+-define(SELECT_ACCOUNT_ACTIVITY_LIST,
+        %% For account activity we limit the actor roles to just a few.
+        ?SELECT_ACTOR_TXN_LIST_BASE(
+           "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
+           "and a.actor_role in ('payer', 'payee', 'owner')")).
+
+-define(SELECT_HOTSPOT_ACTIVITY_LIST,
+        %% Filter out gateway roles that should be in accounts
+        ?SELECT_ACTOR_TXN_LIST_BASE(
+           "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
+           "and a.actor_role not in ('payer', 'payee', 'owner')")).
 
 -define(FILTER_TYPES,
         [<<"coinbase_v1">>,
@@ -67,17 +93,29 @@ prepare_conn(Conn) ->
                              "where t.hash = $1"],
                             []),
 
-    {ok, S2} = epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_LIST, ?SELECT_ACCOUNT_ACTIVITY_BASE,
+    {ok, S2} = epgsql:parse(Conn, ?S_TXN_LIST, ?SELECT_TXN_LIST,
                             []),
 
-    {ok, S3} = epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_LIST, ?SELECT_HOTSPOT_ACTIVITY_BASE,
+    {ok, S3} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST, ?SELECT_ACTOR_TXN_LIST,
+                            []),
+
+    {ok, S4} = epgsql:parse(Conn, ?S_OWNED_ACTOR_TXN_LIST, ?SELECT_OWNED_ACTOR_TXN_LIST,
+                            []),
+
+    {ok, S5} = epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_LIST, ?SELECT_ACCOUNT_ACTIVITY_LIST,
+                            []),
+
+    {ok, S6} = epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_LIST, ?SELECT_HOTSPOT_ACTIVITY_LIST,
                             []),
 
 
     #{
       ?S_TXN => S1,
-      ?S_ACCOUNT_ACTIVITY_LIST => S2,
-      ?S_HOTSPOT_ACTIVITY_LIST => S3
+      ?S_TXN_LIST => S2,
+      ?S_ACTOR_TXN_LIST => S3,
+      ?S_OWNED_ACTOR_TXN_LIST => S4,
+      ?S_ACCOUNT_ACTIVITY_LIST => S5,
+      ?S_HOTSPOT_ACTIVITY_LIST => S6
      }.
 
 handle('GET', [TxnHash], _Req) ->
@@ -95,71 +133,72 @@ get_txn(Key) ->
             {error, not_found}
     end.
 
+get_txn_list(BlockLimit, Args=[{cursor, _}, {filter_types, _}]) ->
+    get_txn_list([], ?S_TXN_LIST, BlockLimit, Args).
 
-%%
-%%
-%% Activity
-%%
+get_actor_txn_list({actor, Address}, BlockLimit, Args=[{cursor, _}, {filter_types, _}]) ->
+    get_txn_list([Address], ?S_ACTOR_TXN_LIST, BlockLimit, Args);
+get_actor_txn_list({owned, Address}, BlockLimit, Args=[{cursor, _}, {filter_types, _}]) ->
+    get_txn_list([Address], ?S_OWNED_ACTOR_TXN_LIST, BlockLimit, Args).
 
 get_activity_list({account, Account}, Args) ->
-    get_activity_list(Account, ?S_ACCOUNT_ACTIVITY_LIST, Args);
+    get_txn_list([Account], ?S_ACCOUNT_ACTIVITY_LIST, ?ACTIVITY_LIST_BLOCK_LIMIT, Args);
 get_activity_list({hotspot, Address}, Args) ->
-    get_activity_list(Address, ?S_HOTSPOT_ACTIVITY_LIST, Args).
+    get_txn_list([Address], ?S_HOTSPOT_ACTIVITY_LIST, ?ACTIVITY_LIST_BLOCK_LIMIT, Args).
 
-
-%%
-%% Common Activity
-%%
-
-get_activity_list(Actor, Query, [{cursor, undefined}, {filter_types, Types}]) ->
+get_txn_list(Args, Query, BlockLimit, [{cursor, undefined}, {filter_types, Types}]) ->
     {ok, #{<<"height">> := CurrentBlock}} = bh_route_blocks:get_block_height(),
     %% High block is exclusive so start past the tip
     HighBlock = CurrentBlock + 1,
     %% Ensure block alignment for the lower end
-    LowBlock = HighBlock - (HighBlock rem ?ACTIVITY_LIST_BLOCK_LIMIT),
-    Result = ?PREPARED_QUERY(Query, [Actor, filter_types(Types), LowBlock, HighBlock]),
-    mk_activity_list_from_result({LowBlock, HighBlock}, Types, Result);
-get_activity_list(Actor, Query, [{cursor, Cursor}, {filter_types, _}]) ->
+    LowBlock = HighBlock - (HighBlock rem BlockLimit),
+    Result = ?PREPARED_QUERY(Query, Args ++ [filter_types(Types), LowBlock, HighBlock]),
+    mk_txn_list_from_result({LowBlock, HighBlock}, BlockLimit, Types, Result);
+get_txn_list(Args, Query, BlockLimit, [{cursor, Cursor}, {filter_types, _}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, C=#{ <<"block">> := Before }} ->
             Types = maps:get(<<"types">>, C, undefined),
             %% Before was the low block and is now the high
             %% block. Bound at block 2 since high block is exclusive
-            HighBlock = max(2, Before - (Before rem ?ACTIVITY_LIST_BLOCK_LIMIT)),
+            HighBlock = max(2, Before - (Before rem BlockLimit)),
             %% Low block is inclusive, lower bound at block 1
-            LowBlock = max(1, HighBlock - ?ACTIVITY_LIST_BLOCK_LIMIT),
-            Result = ?PREPARED_QUERY(Query, [Actor, filter_types(Types), LowBlock, HighBlock]),
-            mk_activity_list_from_result({LowBlock, HighBlock}, Types, Result);
+            LowBlock = max(1, HighBlock - BlockLimit),
+            Result = ?PREPARED_QUERY(Query, Args ++ [filter_types(Types), LowBlock, HighBlock]),
+            mk_txn_list_from_result({LowBlock, HighBlock}, BlockLimit, Types, Result);
         _ ->
             {error, badarg}
     end.
 
-mk_activity_list_from_result({LowBlock, HighBlock}, Types, {ok, _, Results}) ->
+
+
+mk_txn_list_from_result({LowBlock, HighBlock}, BlockLimit, Types, {ok, _, Results}) ->
     {ok,
      txn_list_to_json(Results),
-     mk_activity_cursor(LowBlock, Types),
-     mk_activity_meta({LowBlock, HighBlock})}.
+     mk_txn_list_cursor(LowBlock, BlockLimit, Types),
+     mk_txn_list_meta({LowBlock, HighBlock})}.
 
-mk_activity_cursor(1, _Types) ->
+mk_txn_list_cursor(1, _BlockLimit, _Types) ->
     undefined;
-mk_activity_cursor(LowBlock, Types) ->
+mk_txn_list_cursor(LowBlock, BlockLimit, Types) ->
     Cursor0 = #{
                  block => LowBlock,
                 %% include the block range size to have it be used as
                 %% part of any cache key strategy. This not actually
                 %% used as part of queries.
-                range => ?ACTIVITY_LIST_BLOCK_LIMIT
+                range => BlockLimit
                },
     case Types of
         undefined -> Cursor0;
         _ -> Cursor0#{ types => Types}
     end.
 
-mk_activity_meta({LowBlock, HighBlock}) ->
+mk_txn_list_meta({LowBlock, HighBlock}) ->
     #{
        start_block => HighBlock,
        end_block => LowBlock
      }.
+
+
 
 %%
 %% to_jaon

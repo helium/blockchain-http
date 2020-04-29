@@ -51,11 +51,8 @@ handle('GET', [Account, <<"hotspots">>], Req) ->
     ?MK_RESPONSE(bh_route_hotspots:get_hotspot_list([{owner, Account} | Args]), block_time);
 handle('GET', [Account, <<"activity">>], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
-    CacheTime = case Args of
-                    [{cursor, undefined} | _] -> block_time;
-                    _ -> infinity
-                end,
-    ?MK_RESPONSE(bh_route_txns:get_activity_list({account, Account}, Args), CacheTime);
+    ?MK_RESPONSE(bh_route_txns:get_activity_list({account, Account}, Args),
+                 ?CACHE_TIME_BLOCK_ALIGNED(Args));
 handle('GET', [Account, <<"elections">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(bh_route_elections:get_election_list({account, Account}, Args), block_time);
