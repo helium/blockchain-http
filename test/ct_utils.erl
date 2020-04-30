@@ -18,7 +18,7 @@ end_bh(Config) ->
     Config.
 
 request(Path) ->
-    httpc:request(get, {"http://localhost:8080" ++ Path, []}, [], [{body_format, binary}]).
+    httpc:request(get, {lists:flatten(["http://localhost:8080", Path]), []}, [], [{body_format, binary}]).
 
 json_request(Path) ->
     case ?MODULE:request(Path) of

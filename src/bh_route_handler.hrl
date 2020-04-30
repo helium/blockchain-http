@@ -25,9 +25,13 @@
 -define(SELECT_TXN_BASE, ?SELECT_TXN_FIELDS("t.fields")).
 -define(TXN_LIST_TO_JSON(R), bh_route_txns:txn_list_to_json((R))).
 
+-define(CACHE_TIME_BLOCK_ALIGNED(A), bh_route_handler:cache_time_block_aligned((A))).
+
 -define(BLOCK_LIST_LIMIT, 100).
 -define(BLOCK_TXN_LIST_LIMIT, 50).
--define(ELECTION_TXN_LIST_LIMIT, 50).
 -define(CHALLENGE_TXN_LIST_LIMIT, 50).
 -define(PENDING_TXN_LIST_LIMIT, 100).
 -define(ACTIVITY_LIST_BLOCK_LIMIT, 1000). % range in blocks
+-define(ELECTION_LIST_BLOCK_LIMIT, 1000). % range in blocks
+-define(CHALLENGE_LIST_BLOCK_LIMIT, 10).  % range in blocks, all challenges
+-define(CHALLENGE_ACTOR_LIST_BLOCK_LIMIT, 500). % range in blocks, challenges for hotspot or account

@@ -96,11 +96,7 @@ prepare_conn(Conn) ->
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    CacheTime = case Args of
-                    [{cursor, undefined}] -> block_time;
-                    _ -> infinity
-                end,
-    ?MK_RESPONSE(get_block_list(Args), CacheTime);
+    ?MK_RESPONSE(get_block_list(Args), ?CACHE_TIME_BLOCK_ALIGNED(Args));
 handle('GET', [<<"height">>], _Req) ->
     ?MK_RESPONSE(get_block_height(), block_time);
 handle('GET', [<<"hash">>, BlockHash], _Req) ->
