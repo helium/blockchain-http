@@ -63,7 +63,11 @@ handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address), block_time);
 handle('GET', [Address, <<"activity">>], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
-    ?MK_RESPONSE(bh_route_txns:get_activity_list({hotspot, Address}, Args), block_time);
+    CacheTime = case Args of
+                    [{cursor, undefined} | _] -> block_time;
+                    _ -> infinity
+                end,
+    ?MK_RESPONSE(bh_route_txns:get_activity_list({hotspot, Address}, Args), CacheTime);
 handle('GET', [Address, <<"elections">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(bh_route_elections:get_election_list({hotspot, Address}, Args), block_time);
