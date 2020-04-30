@@ -11,7 +11,8 @@ all() -> [
           not_found_test,
           activity_result_test,
           activity_low_block_test,
-          activity_filter_no_result_test
+          activity_filter_no_result_test,
+          hotspots_test
          ].
 
 init_per_suite(Config) ->
@@ -82,8 +83,16 @@ activity_filter_no_result_test(_Config) ->
                  },
     {ok, {_, _, Json}} = ?json_request(
                             ["/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/activity",
-                             "?cursor=",binary_to_list(?CURSOR_ENCODE(GetCursor))
+                             "?cursor=", binary_to_list(?CURSOR_ENCODE(GetCursor))
                             ]),
     #{ <<"data">> := Data } = Json,
     ?assertEqual(0, length(Data)),
+    ok.
+
+
+hotspots_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/accounts/13GCcF7oGb6waFBzYDMmydmXx4vNDUZGX4LE3QUh8eSBG53s5bx/hotspots"),
+    #{ <<"data">> := Data } = Json,
+    ?assert(length(Data) > 0),
+
     ok.
