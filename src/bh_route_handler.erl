@@ -123,5 +123,6 @@ cursor_encode(Map) ->
 cache_time_block_aligned(Args) ->
     case lists:keyfind(cursor, 1, Args) of
         false -> block_time;
+        {cursor, undefined} -> block_time;
         _ -> infinity
     end.
