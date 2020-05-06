@@ -68,14 +68,20 @@ handle('POST', [], Req) ->
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
--type supported_txn() :: #blockchain_txn_payment_v1_pb{}
-                         | #blockchain_txn_payment_v2_pb{}
-                         | #blockchain_txn_create_htlc_v1_pb{}
-                         | #blockchain_txn_redeem_htlc_v1_pb{}.
+-type supported_txn() :: #blockchain_txn_add_gateway_v1_pb{}
+                       | #blockchain_txn_assert_location_v1_pb{}
+                       | #blockchain_txn_payment_v1_pb{}
+                       | #blockchain_txn_payment_v2_pb{}
+                       | #blockchain_txn_create_htlc_v1_pb{}
+                       | #blockchain_txn_redeem_htlc_v1_pb{}.
 
 -type nonce_type() :: binary().
 
 -spec insert_pending_txn(supported_txn(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
+insert_pending_txn(#blockchain_txn_add_gateway_v1_pb{}=Txn, Bin) ->
+    insert_pending_txn(Txn, 0, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_assert_location_v1_pb{nonce=Nonce }=Txn, Bin) ->
+    insert_pending_txn(Txn, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_payment_v1_pb{nonce=Nonce }=Txn, Bin) ->
     insert_pending_txn(Txn, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_payment_v2_pb{nonce=Nonce}=Txn, Bin) ->
@@ -171,9 +177,10 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
     Txn.
 
 
--define(TXN_HASH(T),
+-define(TXN_HASH(T), ?TXN_HASH(T, signature)).
+-define(TXN_HASH(T,F),
         txn_hash(#T{}=Txn) ->
-               BaseTxn = Txn#T{signature = <<>>},
+               BaseTxn = Txn#T{F = <<>>},
                EncodedTxn = T:encode_msg(BaseTxn),
                crypto:hash(sha256, EncodedTxn) ).
 
@@ -181,11 +188,15 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
         txn_type(#T{}) ->
                B).
 
+?TXN_HASH(blockchain_txn_add_gateway_v1_pb, owner_signature);
+?TXN_HASH(blockchain_txn_assert_location_v1_pb, owner_signature);
 ?TXN_HASH(blockchain_txn_payment_v1_pb);
 ?TXN_HASH(blockchain_txn_payment_v2_pb);
 ?TXN_HASH(blockchain_txn_create_htlc_v1_pb);
 ?TXN_HASH(blockchain_txn_redeem_htlc_v1_pb).
 
+?TXN_TYPE(blockchain_txn_add_gateway_v1_pb, <<"add_gateway_v1">>);
+?TXN_TYPE(blockchain_txn_assert_location_v1_pb, <<"assert_location_v1">>);
 ?TXN_TYPE(blockchain_txn_payment_v1_pb, <<"payment_v1">>);
 ?TXN_TYPE(blockchain_txn_payment_v2_pb, <<"payment_v2">>);
 ?TXN_TYPE(blockchain_txn_create_htlc_v1_pb, <<"create_htlc_v1">>);
