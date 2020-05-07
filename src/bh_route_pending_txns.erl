@@ -46,8 +46,8 @@ prepare_conn(Conn) ->
 
     {ok, S4} = epgsql:parse(Conn, ?S_INSERT_PENDING_TXN,
                            ["insert into pending_transactions ",
-                            "(hash, type, nonce, nonce_type, status, data) values ",
-                            "($1, $2, $3, $4, $5, $6)"],
+                            "(hash, type, address, nonce, nonce_type, status, data) values ",
+                            "($1, $2, $3, $4, $5, $6, $7)"],
                             []),
 
     #{?S_ACTOR_PENDING_TXN_LIST => S1,
@@ -79,24 +79,29 @@ handle(_, _, _Req) ->
 
 -spec insert_pending_txn(supported_txn(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
 insert_pending_txn(#blockchain_txn_add_gateway_v1_pb{}=Txn, Bin) ->
-    insert_pending_txn(Txn, 0, <<"balance">>, Bin);
+    insert_pending_txn(Txn, undefined, 0, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_assert_location_v1_pb{nonce=Nonce }=Txn, Bin) ->
-    insert_pending_txn(Txn, Nonce, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_payment_v1_pb{nonce=Nonce }=Txn, Bin) ->
-    insert_pending_txn(Txn, Nonce, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_payment_v2_pb{nonce=Nonce}=Txn, Bin) ->
-    insert_pending_txn(Txn, Nonce, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_create_htlc_v1_pb{nonce=Nonce}=Txn, Bin) ->
-    insert_pending_txn(Txn, Nonce, <<"balance">>, Bin);
+    insert_pending_txn(Txn, undefined, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_payment_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
+    insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_payment_v2_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
+    insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_create_htlc_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
+    insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_redeem_htlc_v1_pb{}=Txn, Bin) ->
-    insert_pending_txn(Txn, 0, <<"balance">>, Bin).
+    insert_pending_txn(Txn, undefined, 0, <<"balance">>, Bin).
 
--spec insert_pending_txn(supported_txn(), non_neg_integer(), nonce_type(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
-insert_pending_txn(Txn, Nonce, NonceType, Bin) ->
+-spec insert_pending_txn(supported_txn(), libp2p_crypto:pubkey_bin()| undefined, non_neg_integer(), nonce_type(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
+insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
     TxnHash = ?BIN_TO_B64(txn_hash(Txn)),
+    B58Address = case Address of
+                     undefined -> undefined;
+                     _ -> ?BIN_TO_B58(Address)
+                 end,
     Params = [
               TxnHash,
               txn_type(Txn),
+              B58Address,
               Nonce,
               NonceType,
               <<"received">>,
