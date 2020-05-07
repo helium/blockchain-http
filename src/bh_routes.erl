@@ -11,6 +11,8 @@ handle(Req, _Args) ->
     %% Delegate to our handler function
     handle(Req#req.method, elli_request:path(Req), Req).
 
+handle(Method, [<<"v1">>, <<"stats">> | Tail], Req) ->
+    bh_route_stats:handle(Method, Tail, Req);
 handle(Method, [<<"v1">>, <<"blocks">> | Tail], Req) ->
     bh_route_blocks:handle(Method, Tail, Req);
 handle(Method, [<<"v1">>, <<"accounts">> | Tail], Req) ->
