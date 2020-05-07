@@ -78,10 +78,10 @@ handle(_, _, _Req) ->
 -type nonce_type() :: binary().
 
 -spec insert_pending_txn(supported_txn(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
-insert_pending_txn(#blockchain_txn_add_gateway_v1_pb{}=Txn, Bin) ->
-    insert_pending_txn(Txn, undefined, 0, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_assert_location_v1_pb{nonce=Nonce }=Txn, Bin) ->
-    insert_pending_txn(Txn, undefined, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_add_gateway_v1_pb{payer=Address}=Txn, Bin) ->
+    insert_pending_txn(Txn, Address, 0, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_assert_location_v1_pb{nonce=Nonce, payer=Address }=Txn, Bin) ->
+    insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_payment_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
     insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_payment_v2_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
