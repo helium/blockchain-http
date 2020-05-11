@@ -68,7 +68,8 @@ handle('POST', [], Req) ->
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
--type supported_txn() :: #blockchain_txn_add_gateway_v1_pb{}
+-type supported_txn() :: #blockchain_txn_oui_v1_pb{}
+                       | #blockchain_txn_add_gateway_v1_pb{}
                        | #blockchain_txn_assert_location_v1_pb{}
                        | #blockchain_txn_payment_v1_pb{}
                        | #blockchain_txn_payment_v2_pb{}
@@ -77,11 +78,21 @@ handle(_, _, _Req) ->
 
 -type nonce_type() :: binary().
 
+-spec actual_payer(Payer::undefined | binary(), Owner::binary()) -> binary().
+actual_payer(undefined, Owner) ->
+    Owner;
+actual_payer(<<>>, Owner) ->
+    Owner;
+actual_payer(Payer, _) ->
+    Payer.
+
 -spec insert_pending_txn(supported_txn(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
-insert_pending_txn(#blockchain_txn_add_gateway_v1_pb{payer=Address}=Txn, Bin) ->
-    insert_pending_txn(Txn, Address, 0, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_assert_location_v1_pb{nonce=Nonce, payer=Address }=Txn, Bin) ->
-    insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_oui_v1_pb{payer=Payer, owner=Owner}=Txn, Bin) ->
+    insert_pending_txn(Txn, actual_payer(Payer, Owner), 0, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_add_gateway_v1_pb{payer=Payer, owner=Owner}=Txn, Bin) ->
+    insert_pending_txn(Txn, actual_payer(Payer, Owner), 0, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_assert_location_v1_pb{nonce=Nonce, payer=Payer, owner=Owner}=Txn, Bin) ->
+    insert_pending_txn(Txn, actual_payer(Payer, Owner), Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_payment_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
     insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_payment_v2_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
@@ -182,10 +193,15 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
     Txn.
 
 
--define(TXN_HASH(T), ?TXN_HASH(T, signature)).
--define(TXN_HASH(T,F),
+-define(TXN_SIG_HASH(T),
         txn_hash(#T{}=Txn) ->
-               BaseTxn = Txn#T{F = <<>>},
+               BaseTxn = Txn#T{signature = <<>>},
+               EncodedTxn = T:encode_msg(BaseTxn),
+               crypto:hash(sha256, EncodedTxn) ).
+
+-define(TXN_SOP_HASH(T),
+        txn_hash(#T{}=Txn) ->
+               BaseTxn = Txn#T{owner_signature = <<>>, payer_signature = <<>>},
                EncodedTxn = T:encode_msg(BaseTxn),
                crypto:hash(sha256, EncodedTxn) ).
 
@@ -193,13 +209,15 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
         txn_type(#T{}) ->
                B).
 
-?TXN_HASH(blockchain_txn_add_gateway_v1_pb, owner_signature);
-?TXN_HASH(blockchain_txn_assert_location_v1_pb, owner_signature);
-?TXN_HASH(blockchain_txn_payment_v1_pb);
-?TXN_HASH(blockchain_txn_payment_v2_pb);
-?TXN_HASH(blockchain_txn_create_htlc_v1_pb);
-?TXN_HASH(blockchain_txn_redeem_htlc_v1_pb).
+?TXN_SOP_HASH(blockchain_txn_oui_v1_pb);
+?TXN_SOP_HASH(blockchain_txn_add_gateway_v1_pb);
+?TXN_SOP_HASH(blockchain_txn_assert_location_v1_pb);
+?TXN_SIG_HASH(blockchain_txn_payment_v1_pb);
+?TXN_SIG_HASH(blockchain_txn_payment_v2_pb);
+?TXN_SIG_HASH(blockchain_txn_create_htlc_v1_pb);
+?TXN_SIG_HASH(blockchain_txn_redeem_htlc_v1_pb).
 
+?TXN_TYPE(blockchain_txn_oui_v1_pb, <<"oui_v1">>);
 ?TXN_TYPE(blockchain_txn_add_gateway_v1_pb, <<"add_gateway_v1">>);
 ?TXN_TYPE(blockchain_txn_assert_location_v1_pb, <<"assert_location_v1">>);
 ?TXN_TYPE(blockchain_txn_payment_v1_pb, <<"payment_v1">>);
