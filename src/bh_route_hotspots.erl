@@ -56,9 +56,6 @@ prepare_conn(Conn) ->
       ?S_HOTSPOT => S5}.
 
 
-handle('GET', [], Req) ->
-    Args = ?GET_ARGS([owner, cursor], Req),
-    ?MK_RESPONSE(get_hotspot_list(Args), block_time);
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address), block_time);
 handle('GET', [Address, <<"activity">>], Req) ->
@@ -78,22 +75,22 @@ handle(_, _, _Req) ->
 
 get_hotspot_list([{owner, undefined}, {cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, []),
-    mk_hotspot_list_from_result(undefined, undefined, Result);
+    mk_hotspot_list_from_result(undefined, Result);
 get_hotspot_list([{owner, Owner}, {cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST, [Owner]),
-    mk_hotspot_list_from_result(undefined, Owner, Result);
-get_hotspot_list([{owner, undefined}, {cursor, Cursor}]) ->
+    mk_hotspot_list_from_result(undefined, Result);
+get_hotspot_list([{owner, Owner}, {cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
-        {ok, C=#{ <<"before_address">> := BeforeAddress,
-                  <<"before_block">> := BeforeBlock,
-                  <<"height">> := CursorHeight }} ->
-            case maps:get(<<"owner">>, C, false) of
-                false ->
+        {ok, #{ <<"before_address">> := BeforeAddress,
+                <<"before_block">> := BeforeBlock,
+                <<"height">> := CursorHeight }} ->
+            case Owner of
+                undefined ->
                     Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST_BEFORE, [BeforeAddress, BeforeBlock]),
-                    mk_hotspot_list_from_result(CursorHeight, undefined, Result);
-                Owner ->
+                    mk_hotspot_list_from_result(CursorHeight, Result);
+                _ ->
                     Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [Owner, BeforeAddress, BeforeBlock]),
-                    mk_hotspot_list_from_result(CursorHeight, Owner, Result)
+                    mk_hotspot_list_from_result(CursorHeight, Result)
             end;
         _ ->
             {error, badarg}
@@ -108,10 +105,10 @@ get_hotspot(Address) ->
             {error, not_found}
     end.
 
-mk_hotspot_list_from_result(undefined, Owner, {ok, _, Results}) ->
+mk_hotspot_list_from_result(undefined, {ok, _, Results}) ->
     %% no cursor, return a result
-    {ok, hotspot_list_to_json(Results), mk_cursor(Results, Owner)};
-mk_hotspot_list_from_result(CursorHeight, _Owner,
+    {ok, hotspot_list_to_json(Results), mk_cursor(Results)};
+mk_hotspot_list_from_result(CursorHeight,
                             {ok, _, [{Height, _Block, _FirstBlock,
                                       _Address, _Owner, _Location, _Score,
                                       _ShortStreet, _LongStreet,
@@ -119,7 +116,7 @@ mk_hotspot_list_from_result(CursorHeight, _Owner,
                                       _ShortState, _LongState,
                                       _ShortCountry, _LongCountry} | _]}) when CursorHeight /= Height ->
     {error, badarg};
-mk_hotspot_list_from_result(CursorHeight, Owner,
+mk_hotspot_list_from_result(CursorHeight,
                             {ok, _, [{Height, _Block, _FirstBlock,
                                       _Address, _Owner, _Location, _Score,
                                       _ShortStreet, _LongStreet,
@@ -128,16 +125,15 @@ mk_hotspot_list_from_result(CursorHeight, Owner,
                                       _ShortCountry, _LongCountry} | _] = Results}) when CursorHeight == Height ->
     %% The above head ensures that the given cursor height matches the
     %% height in the results
-    {ok, hotspot_list_to_json(Results), mk_cursor(Results, Owner)};
-mk_hotspot_list_from_result(_Height, Owner,
-                            {ok, _, Results}) ->
+    {ok, hotspot_list_to_json(Results), mk_cursor(Results)};
+mk_hotspot_list_from_result(_Height, {ok, _, Results}) ->
     %% This really only happens when Result = [], which can happen if
     %% the last page is exactly the right height to allow for another
     %% (empty) last page.
-    {ok, hotspot_list_to_json(Results), mk_cursor(Results, Owner)}.
+    {ok, hotspot_list_to_json(Results), mk_cursor(Results)}.
 
 
-mk_cursor(Results, Owner) when is_list(Results) ->
+mk_cursor(Results) when is_list(Results) ->
     case length(Results) < ?HOTSPOT_LIST_LIMIT of
         true -> undefined;
         false ->
@@ -146,13 +142,9 @@ mk_cursor(Results, Owner) when is_list(Results) ->
              _ShortCity, _LongCity,
              _ShortState, _LongState,
              _ShortCountry, _LongCountry} = lists:last(Results),
-            Result0 = #{ before_address => Address,
-                         before_block => FirstBlock,
-                         height => Height},
-            case Owner of
-                undefined -> Result0;
-                _ -> Result0#{ owner => Owner }
-            end
+            #{ before_address => Address,
+               before_block => FirstBlock,
+               height => Height}
     end.
 
 %%
