@@ -68,6 +68,8 @@
         [<<"coinbase_v1">>,
          <<"security_coinbase_v1">>,
          <<"oui_v1">>,
+         <<"state_channel_open_v1">>,
+         <<"state_channel_close_v1">>,
          <<"gen_gateway_v1">>,
          <<"routing_v1">>,
          <<"payment_v1">>,
