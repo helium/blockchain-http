@@ -145,7 +145,7 @@ mk_block_list_cursor(Results) when is_list(Results) ->
 
 get_block_height() ->
     {ok, _, [{Height}]} = ?PREPARED_QUERY(?S_BLOCK_HEIGHT, []),
-    {ok, #{<<"height">> => Height}}.
+    {ok, #{height => Height}}.
 
 get_block({height, Height}) ->
     Result = ?PREPARED_QUERY(?S_BLOCK_BY_HEIGHT, [Height]),
@@ -160,9 +160,19 @@ mk_block_from_result(_) ->
     {error, not_found}.
 
 get_block_txn_list({height, Height}, Args) ->
-    get_block_txn_list(Height, {?S_BLOCK_HEIGHT_TXN_LIST, ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE}, Args);
+    case get_block({height, Height}) of
+        {ok, _} ->
+            get_block_txn_list(Height, {?S_BLOCK_HEIGHT_TXN_LIST, ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE}, Args);
+        Error ->
+            Error
+    end;
 get_block_txn_list({hash, Hash}, Args) ->
-    get_block_txn_list(Hash, {?S_BLOCK_HASH_TXN_LIST, ?S_BLOCK_HASH_TXN_LIST_BEFORE}, Args).
+    case get_block({hash, Hash}) of
+        {ok, _} ->
+            get_block_txn_list(Hash, {?S_BLOCK_HASH_TXN_LIST, ?S_BLOCK_HASH_TXN_LIST_BEFORE}, Args);
+        Error ->
+            Error
+    end.
 
 get_block_txn_list(Block, {StartQuery, _CursorQuery}, [{cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(StartQuery, [Block]),
