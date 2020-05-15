@@ -7,8 +7,10 @@ all() -> [
           height_test,
           block_for_height_test,
           block_for_height_txns_test,
+          block_for_invalid_height_txns_test,
           block_for_hash_test,
-          block_for_hash_txns_test
+          block_for_hash_txns_test,
+          block_for_invalid_hash_txns_test
          ].
 
 init_per_suite(Config) ->
@@ -35,6 +37,11 @@ block_for_height_txns_test(_Config) ->
     #{ <<"data">> := Txns, <<"cursor">> := _ } = Json,
     ?assertEqual(50, length(Txns)).
 
+
+block_for_invalid_height_txns_test(_Config) ->
+    ?assertMatch({error, {_, 404, _}}, ?json_request("/v1/blocks/0/transactions")),
+    ok.
+
 block_for_hash_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/blocks/hash/La6PuV80Ps9qTP0339Pwm64q3_deMTkv6JOo1251EJI"),
     ?assertMatch(#{ <<"data">> :=
@@ -46,3 +53,7 @@ block_for_hash_txns_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/blocks/hash/La6PuV80Ps9qTP0339Pwm64q3_deMTkv6JOo1251EJI/transactions"),
     #{ <<"data">> := Txns, <<"cursor">> := _ } = Json,
     ?assertEqual(50, length(Txns)).
+
+block_for_invalid_hash_txns_test(_Config) ->
+    ?assertMatch({error, {_, 404, _}}, ?json_request("/v1/blocks/hash/no_such_hash/transactions")),
+    ok.

@@ -149,7 +149,7 @@ get_activity_list({hotspot, Address}, Args) ->
     get_txn_list([Address], ?S_HOTSPOT_ACTIVITY_LIST, ?ACTIVITY_LIST_BLOCK_LIMIT, Args).
 
 get_txn_list(Args, Query, BlockLimit, [{cursor, undefined}, {filter_types, Types}]) ->
-    {ok, #{<<"height">> := CurrentBlock}} = bh_route_blocks:get_block_height(),
+    {ok, #{height := CurrentBlock}} = bh_route_blocks:get_block_height(),
     %% High block is exclusive so start past the tip
     HighBlock = CurrentBlock + 1,
     %% Ensure block alignment for the lower end
