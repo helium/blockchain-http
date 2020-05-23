@@ -56,6 +56,9 @@ prepare_conn(Conn) ->
       ?S_HOTSPOT => S5}.
 
 
+handle('GET', [], Req) ->
+    Args = ?GET_ARGS([cursor], Req),
+    ?MK_RESPONSE(get_hotspot_list([{owner, undefined} | Args]), block_time);
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address), block_time);
 handle('GET', [Address, <<"activity">>], Req) ->
