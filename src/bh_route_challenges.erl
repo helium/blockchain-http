@@ -14,7 +14,10 @@ prepare_conn(_Conn) ->
 handle('GET', [], Req) ->
     Args = add_filter_types(?GET_ARGS([cursor], Req)),
     ?MK_RESPONSE(bh_route_txns:get_txn_list(?CHALLENGE_LIST_BLOCK_LIMIT, Args),
-                 ?CACHE_TIME_BLOCK_ALIGNED(Args)).
+                 ?CACHE_TIME_BLOCK_ALIGNED(Args));
+
+handle(_Method, _Path, _Req) ->
+    ?RESPONSE_404.
 
 
 add_filter_types(Args) ->
