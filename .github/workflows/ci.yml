@@ -28,8 +28,10 @@ jobs:
         path: build.tar.gz
 
   typecheck:
-    - needs: build
-
+    runs-on: ubuntu-latest
+    container: madninja/builder-erlang:1
+    needs: build
+    steps:
     - name: Download Build Artifact
       uses: actions/download-artifact@v1
       with:
@@ -42,8 +44,10 @@ jobs:
       run: rebar3 dialyzer
 
   tests:
-    - needs: build
-
+    runs-on: ubuntu-latest
+    container: madninja/builder-erlang:1
+    needs: build
+    steps:
     - name: Download Build Artifact
       uses: actions/download-artifact@v1
       with:
