@@ -10,7 +10,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    container: madninja/builder-erlang:1
+    container: madninja/builder-erlang:2
 
     steps:
     - uses: actions/checkout@v2
@@ -29,9 +29,12 @@ jobs:
 
   typecheck:
     runs-on: ubuntu-latest
-    container: madninja/builder-erlang:1
+    container: madninja/builder-erlang:2
     needs: build
+
     steps:
+    - uses: actions/checkout@v2
+
     - name: Download Build Artifact
       uses: actions/download-artifact@v1
       with:
@@ -45,9 +48,12 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
-    container: madninja/builder-erlang:1
+    container: madninja/builder-erlang:2
     needs: build
+
     steps:
+    - uses: actions/checkout@v2
+
     - name: Download Build Artifact
       uses: actions/download-artifact@v1
       with:
