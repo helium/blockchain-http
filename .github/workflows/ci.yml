@@ -19,7 +19,7 @@ jobs:
       run: rebar3 compile
 
     - name: Gather Artifact
-    - run: tar zcfv build.tar.gz _build
+      run: tar zcfv build.tar.gz _build
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v1
