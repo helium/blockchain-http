@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    container: madninja/builder-erlang:1
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Compile
+      run: rebar3 compile
+
+    - name: Gather Artifact
+    - run: tar zcfv build.tar.gz _build
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: build-artifact
+        path: build.tar.gz
+
+  typecheck:
+    - needs: build
+
+    - name: Download Build Artifact
+      uses: actions/download-artifact@v1
+      with:
+        name: build-artifact
+
+    - name: Unpack Build Artifact
+      run: tar zxvf build-artifact/build.tar.gz
+
+    - name: Dialyzer
+      run: rebar3 dialyzer
+
+  tests:
+    - needs: build
+
+    - name: Download Build Artifact
+      uses: actions/download-artifact@v1
+      with:
+        name: build-artifact
+
+    - name: Unpack Build Artifact
+      run: tar zxvf build-artifact/build.tar.gz
+
+    - name: Run tests
+      run: rebar3 do eunit, ct
