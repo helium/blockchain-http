@@ -10,10 +10,16 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    container: madninja/builder-erlang:2
+    container: madninja/builder-erlang:3
 
     steps:
     - uses: actions/checkout@v2
+
+    - uses: actions/cache@v1
+      name: Restore cache
+      with:
+        path: ~/.cache/rebar3
+        key: ${{ runner.os }}-rebar3-${{ hashFiles(format('{0}{1}', github.workspace, '/rebar.lock')) }}
 
     - name: Compile
       run: rebar3 compile
@@ -29,7 +35,7 @@ jobs:
 
   typecheck:
     runs-on: ubuntu-latest
-    container: madninja/builder-erlang:2
+    container: madninja/builder-erlang:3
     needs: build
 
     steps:
@@ -48,7 +54,7 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
-    container: madninja/builder-erlang:2
+    container: madninja/builder-erlang:3
     needs: build
 
     steps:
