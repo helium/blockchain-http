@@ -14,7 +14,7 @@
 -define(S_ACCOUNT_LIST, "account_list").
 -define(S_ACCOUNT, "account").
 
--define(SELECT_ACCOUNT_BASE(A), "select (select max(height) from blocks) as height, l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce, l.first_block" A " from account_ledger l ").
+-define(SELECT_ACCOUNT_BASE(A), "select (select max(height) from blocks) as height, l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce, l.first_block" A " from account_inventory l ").
 -define(SELECT_ACCOUNT_BASE, ?SELECT_ACCOUNT_BASE("")).
 
 -define(ACCOUNT_LIST_LIMIT, 100).
