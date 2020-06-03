@@ -75,7 +75,7 @@ prepare_conn(Conn) ->
                             ], []),
 
     {ok, S3} = epgsql:parse(Conn, ?S_TOKEN_SUPPLY,
-                            "select (sum(balance) / 100000000) as token_supply from account_ledger",
+                            "select (sum(balance) / 100000000) as token_supply from account_inventory",
                             []),
 
     #{
