@@ -222,7 +222,7 @@ txn_to_json({<<"poc_request_v1">>,
              #{ <<"location">> := Location } = Fields}) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json({<<"poc_receipts_v1">>,
-             #{ <<"challenger_loc">> := ChallengerLoc } = Fields}) ->
+             #{ <<"challenger_location">> := ChallengerLoc } = Fields}) ->
     ?INSERT_LAT_LON(ChallengerLoc, {<<"challenger_lat">>, <<"challenger_lon">>}, Fields);
 txn_to_json({<<"gen_gateway_v1">>, Fields}) ->
     txn_to_json({<<"add_gateway_v1">>, Fields});
@@ -237,29 +237,7 @@ txn_to_json({<<"assert_location_v1">>,
                <<"location">> := Location
               } = Fields}) ->
     ?INSERT_LAT_LON(Location, Fields);
-txn_to_json({<<"security_coinbase_v1">>, Fields}) ->
-    Fields;
-txn_to_json({<<"dc_coinbase_v1">>, Fields}) ->
-    Fields;
-txn_to_json({<<"consensus_group_v1">>, Fields}) ->
-    Fields;
-txn_to_json({<<"vars_v1">>, Fields}) ->
-    Fields;
-txn_to_json({<<"oui_v1">>, Fields}) ->
-    Fields;
-txn_to_json({<<"rewards_v1">>, Fields}) ->
-    Fields;
-txn_to_json({<<"payment_v1">>, Fields}) ->
-    Fields;
-txn_to_json({<<"payment_v2">>, Fields}) ->
-    Fields;
-txn_to_json({<<"create_htlc_v1">>, Fields}) ->
-    Fields;
-txn_to_json({<<"redeem_htlc_v1">>, Fields}) ->
-    Fields;
-txn_to_json({<<"state_channel_open_v1">>, Fields}) ->
-    Fields;
-txn_to_json({<<"state_channel_close_v1">>, Fields}) ->
+txn_to_json({_, Fields}) ->
     Fields.
 
 %% txn_to_json({Type, _Fields}) ->
