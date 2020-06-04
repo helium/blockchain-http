@@ -36,10 +36,12 @@ prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT,
                            "select max(height) from blocks", []),
 
+    BlockListLimitStr = integer_to_list(?BLOCK_LIST_LIMIT),
     {ok, S2} = epgsql:parse(Conn, ?S_BLOCK_LIST,
                            [?SELECT_BLOCK_BASE,
-                            "order by height DESC limit (select max(height) % ", integer_to_list(?BLOCK_LIST_LIMIT), " from blocks)"],
-                            []),
+                            "order by height DESC limit ",
+                            "(select coalesce(nullif(max(height) % ", BlockListLimitStr, ", 0), ", BlockListLimitStr, ") from blocks)"
+                           ],[]),
 
     {ok, S3} = epgsql:parse(Conn, ?S_BLOCK_LIST_BEFORE,
                            [?SELECT_BLOCK_BASE,
