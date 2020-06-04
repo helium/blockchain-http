@@ -12,6 +12,7 @@
 
 -define(S_STATS_BLOCK_TIMES, "stats_block_times").
 -define(S_STATS_ELECTION_TIMES, "stats_election_times").
+-define(S_STATS_STATE_CHANNELS, "stats_state_channels").
 -define(S_TOKEN_SUPPLY, "stats_token_supply").
 
 prepare_conn(Conn) ->
@@ -78,10 +79,34 @@ prepare_conn(Conn) ->
                             "select (sum(balance) / 100000000) as token_supply from account_inventory",
                             []),
 
+    {ok, S4} = epgsql:parse(Conn, ?S_STATS_STATE_CHANNELS,
+                            [" with month_interval as (",
+                             "     select to_timestamp(b.time) as timestamp, ",
+                             "        state_channel_counts(t.type, t.fields) as counts",
+                             "     from blocks b inner join transactions t on b.height = t.block",
+                             "     where to_timestamp(b.time) > (now() - '1 month'::interval)",
+                             "         and t.type = 'state_channel_close_v1'",
+                             " ),",
+                             " week_interval as (",
+                             "     select * from month_interval where timestamp > (now() - '1 week'::interval)",
+                             " ),",
+                             " day_interval as (",
+                             "     select * from week_interval where timestamp > (now() - '24 hour'::interval)",
+                             " )",
+                             " select",
+                             "     (select sum((t.counts).num_dcs) as num_dcs from day_interval t) as last_day_dcs,",
+                             "     (select sum((t.counts).num_packets) as num_dcs from day_interval t) as last_day_packets,",
+                             "     (select sum((t.counts).num_dcs) as num_dcs from week_interval t) as last_week_dcs,",
+                             "     (select sum((t.counts).num_packets) as num_dcs from week_interval t) as last_week_packets,",
+                             "     (select sum((t.counts).num_dcs) as num_dcs from month_interval t) as last_month_dcs,",
+                             "     (select sum((t.counts).num_packets) as num_dcs from month_interval t) as last_month_packets;"
+                             ], []),
+
     #{
       ?S_STATS_BLOCK_TIMES => S1,
       ?S_STATS_ELECTION_TIMES => S2,
-      ?S_TOKEN_SUPPLY => S3
+      ?S_TOKEN_SUPPLY => S3,
+      ?S_STATS_STATE_CHANNELS => S4
      }.
 
 handle('GET', [], _Req) ->
@@ -93,12 +118,14 @@ handle(_, _, _Req) ->
 get_stats()  ->
     BlockResult = ?PREPARED_QUERY(?S_STATS_BLOCK_TIMES, []),
     ElectionResult = ?PREPARED_QUERY(?S_STATS_ELECTION_TIMES, []),
+    StateChannelResults = ?PREPARED_QUERY(?S_STATS_STATE_CHANNELS, []),
     SupplyResult = ?PREPARED_QUERY(?S_TOKEN_SUPPLY, []),
 
     {ok, #{
            block_times => mk_stats_from_result(BlockResult),
            election_times => mk_stats_from_result(ElectionResult),
-           token_supply => mk_token_supply_from_result(SupplyResult)
+           token_supply => mk_token_supply_from_result(SupplyResult),
+           state_channel_counts => mk_stats_from_state_channel_results(StateChannelResults)
           }
     }.
 
@@ -111,10 +138,24 @@ mk_stats_from_result({ok, _, [{LastHrAvg, LastDayAvg, LastWeekAvg, LastMonthAvg,
       last_month => #{ avg => mk_float(LastMonthAvg), stddev => mk_float(LastMonthStddev)}
      }.
 
+mk_stats_from_state_channel_results({ok, _, [{LastDayDCs, LastDayPackets,
+                                             LastWeekDCs, LastWeekPackets,
+                                             LastMonthDCs, LastMonthPackets}]}) ->
+    #{
+      last_day => #{ num_packets => mk_int(LastDayPackets), num_dcs => mk_int(LastDayDCs)},
+      last_week => #{ num_packets => mk_int(LastWeekPackets), num_dcs => mk_int(LastWeekDCs)},
+      last_month => #{ num_packets => mk_int(LastMonthPackets), num_dcs => mk_int(LastMonthDCs)}
+     }.
+
 mk_float(null) ->
     null;
 mk_float(Bin) ->
     binary_to_float(Bin).
+
+mk_int(null) ->
+    null;
+mk_int(Bin) ->
+    binary_to_integer(Bin).
 
 
 mk_token_supply_from_result({ok, _, [{TokenSupply}]}) ->
