@@ -97,7 +97,7 @@ mk_account_list_from_result(CursorHeight, {ok, _, [{Height, _Address,
                                                     _FirstBlock} | _]}) when Height /= CursorHeight ->
     %% For a mismatched height we return a bad argument so the
     %% requester can re-start
-    {error, badarg};
+    {error, cursor_expired};
 mk_account_list_from_result(CursorHeight, {ok, _, [{Height, _Address,
                                                     _DCBalance, _DCNonce,
                                                     _SecBalance, _SecNonce,

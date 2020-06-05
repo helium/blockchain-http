@@ -66,6 +66,8 @@ mk_response({ok, Json, Cursor}, CacheTime) ->
     mk_response({ok, Json, Cursor, undefined}, CacheTime);
 mk_response({error, badarg}, _) ->
     ?RESPONSE_400;
+mk_response({error, cursor_expired}, _) ->
+    ?RESPONSE_400("Cursor Expired");
 mk_response({error, conflict}, _) ->
     ?RESPONSE_409;
 mk_response({error, not_found}, _) ->
