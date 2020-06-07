@@ -13,6 +13,7 @@
 -define(S_STATS_BLOCK_TIMES, "stats_block_times").
 -define(S_STATS_ELECTION_TIMES, "stats_election_times").
 -define(S_STATS_STATE_CHANNELS, "stats_state_channels").
+-define(S_STATS_HOTSPOTS, "stats_hotspots").
 -define(S_TOKEN_SUPPLY, "stats_token_supply").
 
 prepare_conn(Conn) ->
@@ -102,11 +103,17 @@ prepare_conn(Conn) ->
                              "     (select sum((t.counts).num_packets) as num_dcs from month_interval t) as last_month_packets;"
                              ], []),
 
+    {ok, S5} = epgsql:parse(Conn, ?S_STATS_HOTSPOTS,
+                            "select count(*) from gateway_inventory",
+                            []),
+
+
     #{
       ?S_STATS_BLOCK_TIMES => S1,
       ?S_STATS_ELECTION_TIMES => S2,
       ?S_TOKEN_SUPPLY => S3,
-      ?S_STATS_STATE_CHANNELS => S4
+      ?S_STATS_STATE_CHANNELS => S4,
+      ?S_STATS_HOTSPOTS => S5
      }.
 
 handle('GET', [], _Req) ->
@@ -116,21 +123,23 @@ handle(_, _, _Req) ->
     ?RESPONSE_404.
 
 get_stats()  ->
-    BlockResult = ?PREPARED_QUERY(?S_STATS_BLOCK_TIMES, []),
-    ElectionResult = ?PREPARED_QUERY(?S_STATS_ELECTION_TIMES, []),
+    BlockTimeResults = ?PREPARED_QUERY(?S_STATS_BLOCK_TIMES, []),
+    ElectionTimeResults = ?PREPARED_QUERY(?S_STATS_ELECTION_TIMES, []),
     StateChannelResults = ?PREPARED_QUERY(?S_STATS_STATE_CHANNELS, []),
     SupplyResult = ?PREPARED_QUERY(?S_TOKEN_SUPPLY, []),
+    HotSpotResults = ?PREPARED_QUERY(?S_STATS_HOTSPOTS, []),
 
     {ok, #{
-           block_times => mk_stats_from_result(BlockResult),
-           election_times => mk_stats_from_result(ElectionResult),
+           block_times => mk_stats_from_time_results(BlockTimeResults),
+           election_times => mk_stats_from_time_results(ElectionTimeResults),
            token_supply => mk_token_supply_from_result(SupplyResult),
-           state_channel_counts => mk_stats_from_state_channel_results(StateChannelResults)
+           state_channel_counts => mk_stats_from_state_channel_results(StateChannelResults),
+           hotspots => mk_status_from_hotspot_results(HotSpotResults)
           }
     }.
 
-mk_stats_from_result({ok, _, [{LastHrAvg, LastDayAvg, LastWeekAvg, LastMonthAvg,
-                               LastHrStddev, LastDayStddev, LastWeekStddev, LastMonthStddev}]}) ->
+mk_stats_from_time_results({ok, _, [{LastHrAvg, LastDayAvg, LastWeekAvg, LastMonthAvg,
+                                     LastHrStddev, LastDayStddev, LastWeekStddev, LastMonthStddev}]}) ->
     #{
       last_hour => #{ avg => mk_float(LastHrAvg), stddev => mk_float(LastHrStddev)},
       last_day => #{ avg => mk_float(LastDayAvg), stddev => mk_float(LastDayStddev)},
@@ -146,6 +155,9 @@ mk_stats_from_state_channel_results({ok, _, [{LastDayDCs, LastDayPackets,
       last_week => #{ num_packets => mk_int(LastWeekPackets), num_dcs => mk_int(LastWeekDCs)},
       last_month => #{ num_packets => mk_int(LastMonthPackets), num_dcs => mk_int(LastMonthDCs)}
      }.
+
+mk_status_from_hotspot_results({ok, _, [{HotspotCount}]}) ->
+    #{ count => HotspotCount }.
 
 mk_float(null) ->
     null;
