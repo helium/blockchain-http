@@ -195,13 +195,13 @@ hotspot_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
 
 
-hotspot_to_json({Height, ScoreBlock, _FirstBlock, Address, Owner, Location, Score,
+hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score,
                  ShortStreet, LongStreet,
                  ShortCity, LongCity,
                  ShortState, LongState,
                  ShortCountry, LongCountry,
                  OnlineStatus, GPSStatus, BlockStatus}) ->
-    Json = hotspot_to_json({Height, ScoreBlock, _FirstBlock, Address, Owner, Location, Score,
+    Json = hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score,
                             ShortStreet, LongStreet,
                             ShortCity, LongCity,
                             ShortState, LongState,
@@ -213,7 +213,7 @@ hotspot_to_json({Height, ScoreBlock, _FirstBlock, Address, Owner, Location, Scor
                   height => BlockStatus
                 }
          };
-hotspot_to_json({Height, ScoreBlock, _FirstBlock, Address, Owner, Location, Score,
+hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score,
                  ShortStreet, LongStreet,
                  ShortCity, LongCity,
                  ShortState, LongState,
@@ -238,5 +238,6 @@ hotspot_to_json({Height, ScoreBlock, _FirstBlock, Address, Owner, Location, Scor
                            },
                       score_update_height => ScoreBlock,
                       score => Score,
+                      block_added => FirstBlock,
                       block => Height
                      }).
