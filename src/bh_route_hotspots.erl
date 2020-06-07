@@ -120,7 +120,7 @@ mk_hotspot_list_from_result(CursorHeight,
                                       _ShortCity, _LongCity,
                                       _ShortState, _LongState,
                                       _ShortCountry, _LongCountry} | _]}) when CursorHeight /= Height ->
-    {error, badarg};
+    {error, cursor_expired};
 mk_hotspot_list_from_result(CursorHeight,
                             {ok, _, [{Height, _Block, _FirstBlock,
                                       _Address, _Owner, _Location, _Score,

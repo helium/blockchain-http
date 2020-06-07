@@ -1,10 +1,11 @@
 -include("bh_db_worker.hrl").
 
--define(RESPONSE_404, {404, [], <<"Not Found">>}).
--define(RESPONSE_409, {409, [], <<"Conflict">>}).
--define(RESPONSE_503, {503, [], <<"Too Busy">>}).
--define(RESPONSE_503_SHUTDOWN, {503, [], <<"Stopping">>}).
--define(RESPONSE_400, {400, [], <<"Bad Request">>}).
+-define(RESPONSE_404, {404, [], jiffy:encode(#{error => <<"Not Found">>})}).
+-define(RESPONSE_409, {409, [], jiffy:encode(#{error => <<"Conflict">>})}).
+-define(RESPONSE_503, {503, [], jiffy:encode(#{ error => <<"Too Busy">>})}).
+-define(RESPONSE_503_SHUTDOWN, {503, [], jiffy:encode(#{ error => <<"Stopping">>})}).
+-define(RESPONSE_400, ?RESPONSE_400("Bad Request")).
+-define(RESPONSE_400(S), {400, [], jiffy:encode(#{error => list_to_binary((S))})}).
 
 -define(MAX_LIMIT, 1000).
 -define(DEFAULT_ARG_LIMIT, <<"100">>).
