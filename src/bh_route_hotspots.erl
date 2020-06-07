@@ -20,10 +20,14 @@
 -define(SELECT_HOTSPOT_BASE(G),
         ["select (select max(height) from blocks) as height, g.last_block, g.first_block, g.address, g.owner, g.location, g.score, ",
          "l.short_street, l.long_street, l.short_city, l.long_city, l.short_state, l.long_state, l.short_country, l.long_country ",
-         G, " inner join locations l on g.location = l.location "
+         G, " left join locations l on g.location = l.location "
         ]).
 -define(SELECT_HOTSPOT_BASE, ?SELECT_HOTSPOT_BASE("from gateway_inventory g")).
--define(SELECT_OWNER_HOTSPOT, ?SELECT_HOTSPOT_BASE("from (select * from gateway_inventory where owner = $1 order by first_block desc, address) as g")).
+-define(SELECT_OWNER_HOTSPOT,
+        ?SELECT_HOTSPOT_BASE([", g.online as online_status, g.gps as gps_status, g.block as block_status ",
+                              "from (select i.*, s.online, s.gps, s.block",
+                              "      from gateway_inventory i left join gateway_status s on s.address = i.address "
+                              "      where i.owner = $1 order by i.first_block desc, i.address) as g"])).
 
 -define(HOTSPOT_LIST_LIMIT, 100).
 
@@ -127,7 +131,27 @@ mk_hotspot_list_from_result(CursorHeight,
                                       _ShortStreet, _LongStreet,
                                       _ShortCity, _LongCity,
                                       _ShortState, _LongState,
+                                      _ShortCountry, _LongCountry,
+                                     _OnlineStatus, _GPSStatus, _BlockStatus} | _]}) when CursorHeight /= Height ->
+    {error, cursor_expired};
+mk_hotspot_list_from_result(CursorHeight,
+                            {ok, _, [{Height, _Block, _FirstBlock,
+                                      _Address, _Owner, _Location, _Score,
+                                      _ShortStreet, _LongStreet,
+                                      _ShortCity, _LongCity,
+                                      _ShortState, _LongState,
                                       _ShortCountry, _LongCountry} | _] = Results}) when CursorHeight == Height ->
+    %% The above head ensures that the given cursor height matches the
+    %% height in the results
+    {ok, hotspot_list_to_json(Results), mk_cursor(Results)};
+mk_hotspot_list_from_result(CursorHeight,
+                            {ok, _, [{Height, _Block, _FirstBlock,
+                                      _Address, _Owner, _Location, _Score,
+                                      _ShortStreet, _LongStreet,
+                                      _ShortCity, _LongCity,
+                                      _ShortState, _LongState,
+                                      _ShortCountry, _LongCountry,
+                                      _OnlineStatus, _GPSStatus, _BlockStatus} | _] = Results}) when CursorHeight == Height ->
     %% The above head ensures that the given cursor height matches the
     %% height in the results
     {ok, hotspot_list_to_json(Results), mk_cursor(Results)};
@@ -142,14 +166,25 @@ mk_cursor(Results) when is_list(Results) ->
     case length(Results) < ?HOTSPOT_LIST_LIMIT of
         true -> undefined;
         false ->
-            {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location, _Score,
-             _ShortStreet, _LongStreet,
-             _ShortCity, _LongCity,
-             _ShortState, _LongState,
-             _ShortCountry, _LongCountry} = lists:last(Results),
-            #{ before_address => Address,
-               before_block => FirstBlock,
-               height => Height}
+            case lists:last(Results) of
+                {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location, _Score,
+                 _ShortStreet, _LongStreet,
+                 _ShortCity, _LongCity,
+                 _ShortState, _LongState,
+                 _ShortCountry, _LongCountry} ->
+                    #{ before_address => Address,
+                       before_block => FirstBlock,
+                       height => Height};
+                {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location, _Score,
+                 _ShortStreet, _LongStreet,
+                 _ShortCity, _LongCity,
+                 _ShortState, _LongState,
+                 _ShortCountry, _LongCountry,
+                 _OnlineStatus, _GPSStatus, _BlockStatus} ->
+                    #{ before_address => Address,
+                       before_block => FirstBlock,
+                       height => Height}
+            end
     end.
 
 %%
@@ -159,6 +194,25 @@ mk_cursor(Results) when is_list(Results) ->
 hotspot_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
 
+
+hotspot_to_json({Height, ScoreBlock, _FirstBlock, Address, Owner, Location, Score,
+                 ShortStreet, LongStreet,
+                 ShortCity, LongCity,
+                 ShortState, LongState,
+                 ShortCountry, LongCountry,
+                 OnlineStatus, GPSStatus, BlockStatus}) ->
+    Json = hotspot_to_json({Height, ScoreBlock, _FirstBlock, Address, Owner, Location, Score,
+                            ShortStreet, LongStreet,
+                            ShortCity, LongCity,
+                            ShortState, LongState,
+                            ShortCountry, LongCountry}),
+    Json#{ status =>
+               #{
+                  online => OnlineStatus,
+                  gps => GPSStatus,
+                  height => BlockStatus
+                }
+         };
 hotspot_to_json({Height, ScoreBlock, _FirstBlock, Address, Owner, Location, Score,
                  ShortStreet, LongStreet,
                  ShortCity, LongCity,
@@ -167,22 +221,22 @@ hotspot_to_json({Height, ScoreBlock, _FirstBlock, Address, Owner, Location, Scor
     {ok, Name} = erl_angry_purple_tiger:animal_name(Address),
     ?INSERT_LAT_LON(Location,
                     #{
-                      <<"address">> => Address,
-                      <<"name">> => list_to_binary(Name),
-                      <<"owner">> => Owner,
-                      <<"location">> => Location,
-                      <<"geocode">> =>
+                      address => Address,
+                      name => list_to_binary(Name),
+                      owner => Owner,
+                      location => Location,
+                      geocode =>
                           #{
-                            <<"short_street">> => ShortStreet,
-                            <<"long_street">> => LongStreet,
-                            <<"short_city">> => ShortCity,
-                            <<"long_city">> => LongCity,
-                            <<"short_state">> => ShortState,
-                            <<"long_state">> => LongState,
-                            <<"short_country">> => ShortCountry,
-                            <<"long_country">> => LongCountry
+                            short_street => ShortStreet,
+                            long_street => LongStreet,
+                            short_city => ShortCity,
+                            long_city => LongCity,
+                            short_state => ShortState,
+                            long_state => LongState,
+                            short_country => ShortCountry,
+                            long_country => LongCountry
                            },
-                      <<"score_update_height">> => ScoreBlock,
-                      <<"score">> => Score,
-                      <<"block">> => Height
+                      score_update_height => ScoreBlock,
+                      score => Score,
+                      block => Height
                      }).
