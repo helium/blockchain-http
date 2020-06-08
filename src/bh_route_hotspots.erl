@@ -18,16 +18,18 @@
 -define(S_HOTSPOT, "hotspot").
 
 -define(SELECT_HOTSPOT_BASE(G),
-        ["select (select max(height) from blocks) as height, g.last_block, g.first_block, g.address, g.owner, g.location, g.score, ",
+        ["select (select max(height) from blocks) as height, ",
+         "g.last_block, g.first_block, g.address, g.owner, g.location, g.score, g.nonce, ",
+         "s.online as online_status, s.gps as gps_status, s.block as block_status, "
          "l.short_street, l.long_street, l.short_city, l.long_city, l.short_state, l.long_state, l.short_country, l.long_country ",
-         G, " left join locations l on g.location = l.location "
+         G,
+         " left join locations l on g.location = l.location ",
+         " left join gateway_status s on s.address = g.address "
         ]).
 -define(SELECT_HOTSPOT_BASE, ?SELECT_HOTSPOT_BASE("from gateway_inventory g")).
 -define(SELECT_OWNER_HOTSPOT,
-        ?SELECT_HOTSPOT_BASE([", g.online as online_status, g.gps as gps_status, g.block as block_status, g.nonce ",
-                              "from (select i.*, s.online, s.gps, s.block",
-                              "      from gateway_inventory i left join gateway_status s on s.address = i.address "
-                              "      where i.owner = $1 order by i.first_block desc, i.address) as g"])).
+        ?SELECT_HOTSPOT_BASE(["from (select * from gateway_inventory"
+                              "      where owner = $1 order by first_block desc, address) as g"])).
 
 -define(HOTSPOT_LIST_LIMIT, 100).
 
@@ -118,46 +120,26 @@ mk_hotspot_list_from_result(undefined, {ok, _, Results}) ->
     %% no cursor, return a result
     {ok, hotspot_list_to_json(Results), mk_cursor(Results)};
 mk_hotspot_list_from_result(CursorHeight,
-                            {ok, _, [{Height, _Block, _FirstBlock,
-                                      _Address, _Owner, _Location, _Score,
-                                      _ShortStreet, _LongStreet,
-                                      _ShortCity, _LongCity,
-                                      _ShortState, _LongState,
-                                      _ShortCountry, _LongCountry
-                                     } | _]}) when CursorHeight /= Height ->
-    {error, cursor_expired};
-mk_hotspot_list_from_result(CursorHeight,
                             {ok, _, [
                                      {Height, _Block, _FirstBlock,
-                                      _Address, _Owner, _Location, _Score,
-                                      _ShortStreet, _LongStreet,
-                                      _ShortCity, _LongCity,
-                                      _ShortState, _LongState,
-                                      _ShortCountry, _LongCountry,
-                                     _OnlineStatus, _GPSStatus, _BlockStatus,
-                                     _Nonce
-                                     } | _]}) when CursorHeight /= Height ->
-    {error, cursor_expired};
-mk_hotspot_list_from_result(CursorHeight,
-                            {ok, _, [{Height, _Block, _FirstBlock,
-                                      _Address, _Owner, _Location, _Score,
+                                      _Address, _Owner, _Location,
+                                      _Score, _Nonce,
+                                      _OnlineStatus, _GPSStatus, _BlockStatus,
                                       _ShortStreet, _LongStreet,
                                       _ShortCity, _LongCity,
                                       _ShortState, _LongState,
                                       _ShortCountry, _LongCountry
-                                     } | _] = Results}) when CursorHeight == Height ->
-    %% The above head ensures that the given cursor height matches the
-    %% height in the results
-    {ok, hotspot_list_to_json(Results), mk_cursor(Results)};
+                                     } | _]}) when CursorHeight /= Height ->
+    {error, cursor_expired};
 mk_hotspot_list_from_result(CursorHeight,
                             {ok, _, [{Height, _Block, _FirstBlock,
-                                      _Address, _Owner, _Location, _Score,
+                                      _Address, _Owner, _Location,
+                                      _Score, _Nonce,
                                       _ShortStreet, _LongStreet,
+                                      _OnlineStatus, _GPSStatus, _BlockStatus,
                                       _ShortCity, _LongCity,
                                       _ShortState, _LongState,
-                                      _ShortCountry, _LongCountry,
-                                      _OnlineStatus, _GPSStatus, _BlockStatus,
-                                      _Nonce
+                                      _ShortCountry, _LongCountry
                                      } | _] = Results}) when CursorHeight == Height ->
     %% The above head ensures that the given cursor height matches the
     %% height in the results
@@ -174,21 +156,14 @@ mk_cursor(Results) when is_list(Results) ->
         true -> undefined;
         false ->
             case lists:last(Results) of
-                {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location, _Score,
-                 _ShortStreet, _LongStreet,
-                 _ShortCity, _LongCity,
-                 _ShortState, _LongState,
-                 _ShortCountry, _LongCountry} ->
-                    #{ before_address => Address,
-                       before_block => FirstBlock,
-                       height => Height};
-                {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location, _Score,
-                 _ShortStreet, _LongStreet,
-                 _ShortCity, _LongCity,
-                 _ShortState, _LongState,
-                 _ShortCountry, _LongCountry,
+                {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location,
+                 _Score, _Nonce,
                  _OnlineStatus, _GPSStatus, _BlockStatus,
-                 _Nonce } ->
+                 _ShortStreet, _LongStreet,
+                 _ShortCity, _LongCity,
+                 _ShortState, _LongState,
+                 _ShortCountry, _LongCountry
+                } ->
                     #{ before_address => Address,
                        before_block => FirstBlock,
                        height => Height}
@@ -203,34 +178,18 @@ hotspot_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
 
 
-hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score,
+hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location,
+                 Score, Nonce,
+                 OnlineStatus, GPSStatus, BlockStatus,
                  ShortStreet, LongStreet,
                  ShortCity, LongCity,
                  ShortState, LongState,
-                 ShortCountry, LongCountry,
-                 OnlineStatus, GPSStatus, BlockStatus,
-                 Nonce}) ->
-    Json = hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score,
-                            ShortStreet, LongStreet,
-                            ShortCity, LongCity,
-                            ShortState, LongState,
-                            ShortCountry, LongCountry}),
+                 ShortCountry, LongCountry
+                }) ->
+
     MaybeZero = fun(null) -> 0;
                    (V) -> V
                 end,
-    Json#{ status =>
-               #{
-                  online => OnlineStatus,
-                  gps => GPSStatus,
-                  height => BlockStatus
-                },
-           nonce => MaybeZero(Nonce)
-         };
-hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score,
-                 ShortStreet, LongStreet,
-                 ShortCity, LongCity,
-                 ShortState, LongState,
-                 ShortCountry, LongCountry}) ->
     {ok, Name} = erl_angry_purple_tiger:animal_name(Address),
     ?INSERT_LAT_LON(Location,
                     #{
@@ -252,5 +211,12 @@ hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score
                       score_update_height => ScoreBlock,
                       score => Score,
                       block_added => FirstBlock,
-                      block => Height
+                      block => Height,
+                      status =>
+                          #{
+                            online => OnlineStatus,
+                            gps => GPSStatus,
+                            height => BlockStatus
+                           },
+                      nonce => MaybeZero(Nonce)
                      }).
