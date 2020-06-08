@@ -86,7 +86,9 @@
          <<"token_burn_v1">>,
          <<"dc_coinbase_v1">>,
          <<"token_burn_exchange_rate_v1">>,
-         <<"payment_v2">>]).
+         <<"payment_v2">>,
+         <<"price_oracle_v1">>
+        ]).
 
 prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_TXN,
