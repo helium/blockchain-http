@@ -204,9 +204,9 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
                EncodedTxn = T:encode_msg(BaseTxn),
                crypto:hash(sha256, EncodedTxn) ).
 
--define(TXN_SOPG_HASH(T),
+-define(TXN_SOG_HASH(T),
         txn_hash(#T{}=Txn) ->
-               BaseTxn = Txn#T{owner_signature = <<>>, payer_signature = <<>>, gateway_signature = <<>>},
+               BaseTxn = Txn#T{owner_signature = <<>>, gateway_signature = <<>>},
                EncodedTxn = T:encode_msg(BaseTxn),
                crypto:hash(sha256, EncodedTxn) ).
 
@@ -215,8 +215,8 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
                B).
 
 ?TXN_SOP_HASH(blockchain_txn_oui_v1_pb);
-?TXN_SOPG_HASH(blockchain_txn_add_gateway_v1_pb);
-?TXN_SOPG_HASH(blockchain_txn_assert_location_v1_pb);
+?TXN_SOG_HASH(blockchain_txn_add_gateway_v1_pb);
+?TXN_SOG_HASH(blockchain_txn_assert_location_v1_pb);
 ?TXN_SIG_HASH(blockchain_txn_payment_v1_pb);
 ?TXN_SIG_HASH(blockchain_txn_payment_v2_pb);
 ?TXN_SIG_HASH(blockchain_txn_create_htlc_v1_pb);
