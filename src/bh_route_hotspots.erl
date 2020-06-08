@@ -24,7 +24,7 @@
         ]).
 -define(SELECT_HOTSPOT_BASE, ?SELECT_HOTSPOT_BASE("from gateway_inventory g")).
 -define(SELECT_OWNER_HOTSPOT,
-        ?SELECT_HOTSPOT_BASE([", g.online as online_status, g.gps as gps_status, g.block as block_status ",
+        ?SELECT_HOTSPOT_BASE([", g.online as online_status, g.gps as gps_status, g.block as block_status, g.nonce ",
                               "from (select i.*, s.online, s.gps, s.block",
                               "      from gateway_inventory i left join gateway_status s on s.address = i.address "
                               "      where i.owner = $1 order by i.first_block desc, i.address) as g"])).
@@ -123,16 +123,20 @@ mk_hotspot_list_from_result(CursorHeight,
                                       _ShortStreet, _LongStreet,
                                       _ShortCity, _LongCity,
                                       _ShortState, _LongState,
-                                      _ShortCountry, _LongCountry} | _]}) when CursorHeight /= Height ->
+                                      _ShortCountry, _LongCountry
+                                     } | _]}) when CursorHeight /= Height ->
     {error, cursor_expired};
 mk_hotspot_list_from_result(CursorHeight,
-                            {ok, _, [{Height, _Block, _FirstBlock,
+                            {ok, _, [
+                                     {Height, _Block, _FirstBlock,
                                       _Address, _Owner, _Location, _Score,
                                       _ShortStreet, _LongStreet,
                                       _ShortCity, _LongCity,
                                       _ShortState, _LongState,
                                       _ShortCountry, _LongCountry,
-                                     _OnlineStatus, _GPSStatus, _BlockStatus} | _]}) when CursorHeight /= Height ->
+                                     _OnlineStatus, _GPSStatus, _BlockStatus,
+                                     _Nonce
+                                     } | _]}) when CursorHeight /= Height ->
     {error, cursor_expired};
 mk_hotspot_list_from_result(CursorHeight,
                             {ok, _, [{Height, _Block, _FirstBlock,
@@ -140,7 +144,8 @@ mk_hotspot_list_from_result(CursorHeight,
                                       _ShortStreet, _LongStreet,
                                       _ShortCity, _LongCity,
                                       _ShortState, _LongState,
-                                      _ShortCountry, _LongCountry} | _] = Results}) when CursorHeight == Height ->
+                                      _ShortCountry, _LongCountry
+                                     } | _] = Results}) when CursorHeight == Height ->
     %% The above head ensures that the given cursor height matches the
     %% height in the results
     {ok, hotspot_list_to_json(Results), mk_cursor(Results)};
@@ -151,7 +156,9 @@ mk_hotspot_list_from_result(CursorHeight,
                                       _ShortCity, _LongCity,
                                       _ShortState, _LongState,
                                       _ShortCountry, _LongCountry,
-                                      _OnlineStatus, _GPSStatus, _BlockStatus} | _] = Results}) when CursorHeight == Height ->
+                                      _OnlineStatus, _GPSStatus, _BlockStatus,
+                                      _Nonce
+                                     } | _] = Results}) when CursorHeight == Height ->
     %% The above head ensures that the given cursor height matches the
     %% height in the results
     {ok, hotspot_list_to_json(Results), mk_cursor(Results)};
@@ -180,7 +187,8 @@ mk_cursor(Results) when is_list(Results) ->
                  _ShortCity, _LongCity,
                  _ShortState, _LongState,
                  _ShortCountry, _LongCountry,
-                 _OnlineStatus, _GPSStatus, _BlockStatus} ->
+                 _OnlineStatus, _GPSStatus, _BlockStatus,
+                 _Nonce } ->
                     #{ before_address => Address,
                        before_block => FirstBlock,
                        height => Height}
@@ -200,18 +208,23 @@ hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score
                  ShortCity, LongCity,
                  ShortState, LongState,
                  ShortCountry, LongCountry,
-                 OnlineStatus, GPSStatus, BlockStatus}) ->
+                 OnlineStatus, GPSStatus, BlockStatus,
+                 Nonce}) ->
     Json = hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score,
                             ShortStreet, LongStreet,
                             ShortCity, LongCity,
                             ShortState, LongState,
                             ShortCountry, LongCountry}),
+    MaybeZero = fun(null) -> 0;
+                   (V) -> V
+                end,
     Json#{ status =>
                #{
                   online => OnlineStatus,
                   gps => GPSStatus,
                   height => BlockStatus
-                }
+                },
+           nonce => MaybeZero(Nonce)
          };
 hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score,
                  ShortStreet, LongStreet,
