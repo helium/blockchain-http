@@ -203,11 +203,14 @@ block_list_to_json(Results) ->
     lists:map(fun block_to_json/1, Results).
 
 block_to_json({Height, Time, Hash, PrevHash, TxnCount, SnapshotHash}) ->
+    NullToStr = fun(null) -> <<"">>;
+                   (Bin) -> Bin
+                end,
     #{
       height => Height,
       time => Time,
       hash => Hash,
       prev_hash => PrevHash,
       transaction_count => TxnCount,
-      snapshot_hash => SnapshotHash
+      snapshot_hash => NullToStr(SnapshotHash)
      }.
