@@ -24,7 +24,7 @@
 -define(S_BLOCK_HASH_TXN_LIST, "block_hash_txn_list_list").
 -define(S_BLOCK_HASH_TXN_LIST_BEFORE, "block_hash_txn_list_before").
 
--define(SELECT_BLOCK_BASE, "select b.height, b.time, b.block_hash, b.prev_hash, b.transaction_count from blocks b ").
+-define(SELECT_BLOCK_BASE, "select b.height, b.time, b.block_hash, b.prev_hash, b.transaction_count, b.snapshot_hash from blocks b ").
 -define(SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
         [?SELECT_TXN_BASE, "from (select * from transactions where block = $1 order by hash) t "]).
 
@@ -140,8 +140,8 @@ mk_block_list_cursor(Results) when is_list(Results) ->
     case length(Results) of
         0 -> undefined;
         _ -> case lists:last(Results) of
-                 {Height, _Time, _Hash, _PrevHash, _TxnCount} when Height == 1 -> undefined;
-                 {Height, _Time, _Hash, _PrevHash, _TxnCount}  -> #{ before => Height}
+                 {Height, _Time, _Hash, _PrevHash, _TxnCount, _SnapshotHash} when Height == 1 -> undefined;
+                 {Height, _Time, _Hash, _PrevHash, _TxnCount, _SnapshotHash}  -> #{ before => Height}
              end
     end.
 
@@ -202,11 +202,12 @@ mk_txn_list_cursor(Results) ->
 block_list_to_json(Results) ->
     lists:map(fun block_to_json/1, Results).
 
-block_to_json({Height, Time, Hash, PrevHash, TxnCount}) ->
+block_to_json({Height, Time, Hash, PrevHash, TxnCount, SnapshotHash}) ->
     #{
       height => Height,
       time => Time,
       hash => Hash,
       prev_hash => PrevHash,
-      transaction_count => TxnCount
+      transaction_count => TxnCount,
+      snapshot_hash => SnapshotHash
      }.
