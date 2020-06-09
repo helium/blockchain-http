@@ -98,8 +98,8 @@ insert_pending_txn(#blockchain_txn_create_htlc_v1_pb{nonce=Nonce, payer=Address}
     insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_redeem_htlc_v1_pb{}=Txn, Bin) ->
     insert_pending_txn(Txn, undefined, 0, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_price_oracle_v1_pb{}=Txn, Bin) ->
-    insert_pending_txn(Txn, undefined, 0, <<"none">>, Bin).
+insert_pending_txn(#blockchain_txn_price_oracle_v1_pb{public_key=Address}=Txn, Bin) ->
+    insert_pending_txn(Txn, Address, 0, <<"none">>, Bin).
 
 -spec insert_pending_txn(supported_txn(), libp2p_crypto:pubkey_bin()| undefined, non_neg_integer(), nonce_type(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
 insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
