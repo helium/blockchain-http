@@ -27,6 +27,8 @@
 -define(TXN_LIST_TO_JSON(R), bh_route_txns:txn_list_to_json((R))).
 
 -define(CACHE_TIME_BLOCK_ALIGNED(A), bh_route_handler:cache_time_block_aligned((A))).
+-define(LIMIT_BLOCK_ALIGNED(L),
+        "(select coalesce(nullif(max(height) % ", integer_to_list(L), ", 0), ", integer_to_list(L), ") from blocks)").
 
 -define(BLOCK_LIST_LIMIT, 100).
 -define(BLOCK_TXN_LIST_LIMIT, 50).

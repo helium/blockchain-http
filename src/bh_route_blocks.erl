@@ -36,16 +36,14 @@ prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT,
                            "select max(height) from blocks", []),
 
-    BlockListLimitStr = integer_to_list(?BLOCK_LIST_LIMIT),
     {ok, S2} = epgsql:parse(Conn, ?S_BLOCK_LIST,
                            [?SELECT_BLOCK_BASE,
-                            "order by height DESC limit ",
-                            "(select coalesce(nullif(max(height) % ", BlockListLimitStr, ", 0), ", BlockListLimitStr, ") from blocks)"
+                            "order by height DESC limit ", ?LIMIT_BLOCK_ALIGNED(?BLOCK_LIST_LIMIT)
                            ],[]),
 
     {ok, S3} = epgsql:parse(Conn, ?S_BLOCK_LIST_BEFORE,
                            [?SELECT_BLOCK_BASE,
-                            "where b.height < $1 order by height DESC limit ", integer_to_list(?BLOCK_LIST_LIMIT)],
+                            "where b.height < $1 order by height DESC limit ", integer_to_list(?BLOCK_TXN_LIST_LIMIT)],
                             []),
 
     {ok, S4} = epgsql:parse(Conn, ?S_BLOCK_BY_HEIGHT,
@@ -203,11 +201,14 @@ block_list_to_json(Results) ->
     lists:map(fun block_to_json/1, Results).
 
 block_to_json({Height, Time, Hash, PrevHash, TxnCount, SnapshotHash}) ->
+    NullToStr = fun(null) -> <<"">>;
+                   (Bin) -> Bin
+                end,
     #{
       height => Height,
       time => Time,
       hash => Hash,
       prev_hash => PrevHash,
       transaction_count => TxnCount,
-      snapshot_hash => SnapshotHash
+      snapshot_hash => NullToStr(SnapshotHash)
      }.
