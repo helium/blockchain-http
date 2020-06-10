@@ -49,23 +49,26 @@ handle(_, _, _Req) ->
 
 get_price_list([{cursor, undefined}])  ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_PRICE_LIST, []),
-    {ok, price_list_to_json(Results), mk_price_list_cursor(Results)};
+    {ok, price_list_to_json(Results), mk_price_list_cursor(undefined, Results)};
 get_price_list([{cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, #{ <<"before">> := Before}} ->
             {ok, _, Results} = ?PREPARED_QUERY(?S_PRICE_LIST_BEFORE, [Before - (Before rem ?PRICE_LIST_LIMIT)]),
-            {ok, price_list_to_json(Results), mk_price_list_cursor(Results)};
+            {ok, price_list_to_json(Results), mk_price_list_cursor(Cursor, Results)};
         _ ->
             {error, badarg}
     end.
 
-mk_price_list_cursor(Results) when is_list(Results) ->
+mk_price_list_cursor(PrevCursor, Results) when is_list(Results) ->
     case length(Results) of
         0 -> undefined;
-        _ -> case lists:last(Results) of
-                 {Block, _Price} when Block == 1 -> undefined;
-                 {Block, _Price}  -> #{ before => Block}
-             end
+        N when (N < ?PRICE_LIST_LIMIT) and not (PrevCursor == undefined) ->
+            %% We have a cursor and we didn't get the full length. We
+            %% must have reached the end of available data.
+            undefined;
+        _ ->
+            {Block, _Price} = lists:last(Results),
+            #{ before => Block }
     end.
 
 get_current_price() ->
