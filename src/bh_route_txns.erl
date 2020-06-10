@@ -8,8 +8,9 @@
 -export([prepare_conn/1, handle/3]).
 %% Utilities
 -export([get_txn/1,
-         get_txn_list/2,
-         get_actor_txn_list/3,
+         get_txn_list/1,
+         get_txn_list_cache_time/1,
+         get_actor_txn_list/2,
          get_activity_list/2,
          txn_to_json/1,
          txn_list_to_json/1,
@@ -17,6 +18,7 @@
 
 -define(S_TXN, "txn").
 -define(S_TXN_LIST, "txn_list").
+-define(S_BLOCK_REM_TXN_LIST, "block_rem_txn_list").
 -define(S_ACTOR_TXN_LIST, "actor_txn_list").
 -define(S_OWNED_ACTOR_TXN_LIST, "owned_actor_txn_list").
 -define(S_ACCOUNT_ACTIVITY_LIST, "account_activity_list").
@@ -32,12 +34,21 @@
         " order by t.block desc, t.hash"
        ]).
 
+-define(SELECT_BLOCK_REM_TXN_LIST,
+        [?SELECT_TXN_BASE,
+         "from (select * from transactions tr",
+         "      where tr.type = ANY($1)",
+         "      and tr.block = $2 order by tr.hash) t ",
+         "where t.hash > $3"
+        ]
+       ).
+
 -define(SELECT_ACTOR_TXN_LIST_BASE(F, E),
         [?SELECT_TXN_FIELDS(F),
          "from (select tr.*, a.actor ",
          "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
          " where a.block >= $3 and a.block < $4 and a.actor = $1 ", (E),
-         " and tr.type = ANY($2) order by tr.block desc) as t "
+         " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
         ]).
 
 -define(SELECT_OWNED_ACTOR_TXN_LIST_BASE(F, E),
@@ -46,7 +57,7 @@
          "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
          " where a.block >= $3 and a.block < $4",
          " and a.actor in (select address from gateway_inventory where owner = $1) ", (E),
-         " and tr.type = ANY($2) order by tr.block desc) as t "
+         " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
         ]).
 
 -define(SELECT_ACTOR_TXN_LIST, ?SELECT_ACTOR_TXN_LIST_BASE("t.fields", "")).
@@ -112,6 +123,8 @@ prepare_conn(Conn) ->
     {ok, S6} = epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_LIST, ?SELECT_HOTSPOT_ACTIVITY_LIST,
                             []),
 
+    {ok, S7} = epgsql:parse(Conn, ?S_BLOCK_REM_TXN_LIST, ?SELECT_BLOCK_REM_TXN_LIST,
+                            []),
 
     #{
       ?S_TXN => S1,
@@ -119,7 +132,8 @@ prepare_conn(Conn) ->
       ?S_ACTOR_TXN_LIST => S3,
       ?S_OWNED_ACTOR_TXN_LIST => S4,
       ?S_ACCOUNT_ACTIVITY_LIST => S5,
-      ?S_HOTSPOT_ACTIVITY_LIST => S6
+      ?S_HOTSPOT_ACTIVITY_LIST => S6,
+      ?S_BLOCK_REM_TXN_LIST => S7
      }.
 
 handle('GET', [TxnHash], _Req) ->
@@ -137,70 +151,150 @@ get_txn(Key) ->
             {error, not_found}
     end.
 
-get_txn_list(BlockLimit, Args=[{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([], ?S_TXN_LIST, BlockLimit, Args).
+get_txn_list(Args=[{cursor, _}, {filter_types, _}]) ->
+    get_txn_list([], ?S_TXN_LIST, Args).
 
-get_actor_txn_list({actor, Address}, BlockLimit, Args=[{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([Address], ?S_ACTOR_TXN_LIST, BlockLimit, Args);
-get_actor_txn_list({owned, Address}, BlockLimit, Args=[{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([Address], ?S_OWNED_ACTOR_TXN_LIST, BlockLimit, Args).
+get_actor_txn_list({actor, Address}, Args=[{cursor, _}, {filter_types, _}]) ->
+    get_txn_list([Address], ?S_ACTOR_TXN_LIST, Args);
+get_actor_txn_list({owned, Address}, Args=[{cursor, _}, {filter_types, _}]) ->
+    get_txn_list([Address], ?S_OWNED_ACTOR_TXN_LIST, Args).
 
 get_activity_list({account, Account}, Args) ->
-    get_txn_list([Account], ?S_ACCOUNT_ACTIVITY_LIST, ?ACTIVITY_LIST_BLOCK_LIMIT, Args);
+    get_txn_list([Account], ?S_ACCOUNT_ACTIVITY_LIST, Args);
 get_activity_list({hotspot, Address}, Args) ->
-    get_txn_list([Address], ?S_HOTSPOT_ACTIVITY_LIST, ?ACTIVITY_LIST_BLOCK_LIMIT, Args).
+    get_txn_list([Address], ?S_HOTSPOT_ACTIVITY_LIST, Args).
 
-get_txn_list(Args, Query, BlockLimit, [{cursor, undefined}, {filter_types, Types}]) ->
+
+-define(TXN_LIST_BLOCK_ALIGN, 100).
+
+-record(state, {
+                anchor_block=undefined :: pos_integer() | undefined,
+
+                high_block :: pos_integer(),
+                low_block :: pos_integer(),
+
+                args :: list(term()),
+                types :: iolist(),
+                results=[] :: list(term())
+               }).
+
+%% Grows a txn list with the given queru until it's the txn list limit
+%% size. We 10x the search space every time we find we don't have
+%% enough transactions.
+grow_txn_list(_Query, State=#state{results=Results}) when length(Results) >= ?TXN_LIST_LIMIT ->
+    State;
+grow_txn_list(_Query, State=#state{low_block = 1}) ->
+    State;
+grow_txn_list(_Query, #state{low_block=LowBlock, high_block=HighBlock}) when LowBlock == HighBlock ->
+    error(bad_arg);
+grow_txn_list(Query, State=#state{low_block=LowBlock, high_block=HighBlock}) ->
+    NewState = execute_query(Query, State#state{
+                                      high_block = LowBlock,
+                                      low_block = max(1, LowBlock - (HighBlock - LowBlock) * 10)
+                                     }),
+    grow_txn_list(Query, NewState).
+
+calc_low_block(HighBlock) ->
+    case HighBlock - (HighBlock rem ?TXN_LIST_BLOCK_ALIGN) of
+        HighBlock -> max(1, HighBlock - ?TXN_LIST_BLOCK_ALIGN);
+        Other -> max(1, Other)
+    end.
+
+execute_query(Query, State) ->
+    AddedArgs = [filter_types(State#state.types), State#state.low_block, State#state.high_block],
+    {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
+    State#state{results = State#state.results ++ Results}.
+
+
+get_txn_list(Args, Query, [{cursor, undefined}, {filter_types, Types}]) ->
     {ok, #{height := CurrentBlock}} = bh_route_blocks:get_block_height(),
     %% High block is exclusive so start past the tip
     HighBlock = CurrentBlock + 1,
-    %% Ensure block alignment for the lower end
-    LowBlock = HighBlock - (HighBlock rem BlockLimit),
-    Result = ?PREPARED_QUERY(Query, Args ++ [filter_types(Types), LowBlock, HighBlock]),
-    mk_txn_list_from_result({LowBlock, HighBlock}, BlockLimit, Types, Result);
-get_txn_list(Args, Query, BlockLimit, [{cursor, Cursor}, {filter_types, _}]) ->
+    State = #state {
+               high_block = HighBlock,
+               %% Aim for block alignment
+               low_block = calc_low_block(HighBlock),
+
+               args = Args,
+               types = Types
+              },
+    mk_txn_list_result(execute_query(Query, State));
+get_txn_list(Args, Query, [{cursor, Cursor}, {filter_types, _}]) ->
     case ?CURSOR_DECODE(Cursor) of
-        {ok, C=#{ <<"block">> := Before }} ->
+        {ok, C=#{ <<"block">> := HighBlock}} ->
             Types = maps:get(<<"types">>, C, undefined),
-            %% Before was the low block and is now the high
-            %% block. Bound at block 2 since high block is exclusive
-            HighBlock = max(2, Before - (Before rem BlockLimit)),
-            %% Low block is inclusive, lower bound at block 1
-            LowBlock = max(1, HighBlock - BlockLimit),
-            Result = ?PREPARED_QUERY(Query, Args ++ [filter_types(Types), LowBlock, HighBlock]),
-            mk_txn_list_from_result({LowBlock, HighBlock}, BlockLimit, Types, Result);
+            %% Construct the a partial list of results if we were
+            %% partway into the block
+            StartList = case maps:get(<<"address">>, C, undefined) of
+                            undefind -> [];
+                            BeforeAddr ->
+                                {ok, _, L} = ?PREPARED_QUERY(?S_BLOCK_REM_TXN_LIST,
+                                                             [filter_types(Types), HighBlock, BeforeAddr]),
+                                L
+                        end,
+            State = #state {
+                       high_block = HighBlock,
+                       anchor_block = maps:get(<<"anchor_block">>, C, undefined),
+                       low_block = calc_low_block(HighBlock),
+
+                       args = Args,
+                       types = Types,
+                       results = StartList
+                      },
+            %% Collect the initial set of results before the highblock
+            %% annd start growing from there
+            mk_txn_list_result(grow_txn_list(Query, execute_query(Query, State)));
         _ ->
             {error, badarg}
     end.
 
-
-
-mk_txn_list_from_result({LowBlock, HighBlock}, BlockLimit, Types, {ok, _, Results}) ->
+mk_txn_list_result(State=#state{results=Results}) when length(Results) > ?TXN_LIST_LIMIT ->
+    {Trimmed, _Remainder} = lists:split(?TXN_LIST_LIMIT, Results),
+    {Height, _Time, Hash, _Type, _Fields} = lists:last(Trimmed),
+    {ok,
+     txn_list_to_json(Trimmed),
+     mk_txn_list_cursor(Height, Hash, State)
+    };
+mk_txn_list_result(State=#state{results=Results}) ->
     {ok,
      txn_list_to_json(Results),
-     mk_txn_list_cursor(LowBlock, BlockLimit, Types),
-     mk_txn_list_meta({LowBlock, HighBlock})}.
+     mk_txn_list_cursor(State#state.low_block, undefined, State)
+    }.
 
-mk_txn_list_cursor(1, _BlockLimit, _Types) ->
+
+mk_txn_list_cursor(1, undefined, #state{}) ->
     undefined;
-mk_txn_list_cursor(LowBlock, BlockLimit, Types) ->
-    Cursor0 = #{
-                 block => LowBlock,
-                %% include the block range size to have it be used as
-                %% part of any cache key strategy. This not actually
-                %% used as part of queries.
-                range => BlockLimit
-               },
-    case Types of
-        undefined -> Cursor0;
-        _ -> Cursor0#{ types => Types}
-    end.
+mk_txn_list_cursor(BeforeBlock, BeforeAddr, State=#state{}) ->
+    %% Check if we didn't have an anchor block before and we've reached an anchor point
+    AnchorBlock =
+        case (State#state.anchor_block == undefined) and ((BeforeBlock rem ?TXN_LIST_BLOCK_ALIGN) == 0) of
+            true -> BeforeBlock;
+            false -> State#state.anchor_block
+        end,
+    lists:foldl(fun({_Key, undefined}, Acc) -> Acc;
+                   ({Key, Value}, Acc) -> Acc#{Key => Value}
+                end, #{},
+                [{block, BeforeBlock},
+                 {address, BeforeAddr},
+                 {anchor_block, AnchorBlock},
+                 {types, State#state.types}]).
 
-mk_txn_list_meta({LowBlock, HighBlock}) ->
-    #{
-       start_block => HighBlock,
-       end_block => LowBlock
-     }.
+get_txn_list_cache_time({ok, _,  undefined}) ->
+    %% Undefined cursor means we're at block 1. Technically we could
+    %% store these for a longer time since head realignment would
+    %% create new cache entries, but we try to be nice to the cache.
+    {block_time, ?TXN_LIST_BLOCK_ALIGN};
+get_txn_list_cache_time({ok, _, Cursor}) ->
+    %% If we're on an aligned block we can cache for a longer time
+    %% since it's likely to be more stable (at least for the next
+    %% ?TXN_LIST_BLOCK_ALIGN blocks).
+    %% If not we cache for one block time
+    case maps:get(anchor_block, Cursor, undefined) of
+        undefined -> block_time;
+        _ -> {block_time, ?TXN_LIST_BLOCK_ALIGN}
+    end;
+get_txn_list_cache_time(_) ->
+    never.
 
 
 

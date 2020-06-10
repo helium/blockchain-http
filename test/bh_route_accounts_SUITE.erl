@@ -43,20 +43,13 @@ activity_result_test(_Config) ->
     %% and a cursor to a next block range
     {ok, {_, _, Json}} = ?json_request("/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/activity"),
     #{ <<"data">> := Data,
-       <<"meta">> := #{ <<"start_block">> := StartBlock,
-                        <<"end_block">> := EndBlock
-                      },
        <<"cursor">> := Cursor
      } = Json,
     {ok,
-     #{ <<"block">> := CursorBlock,
-        <<"range">> := Range
+     #{ <<"block">> := _
       }
     } = ?CURSOR_DECODE(Cursor),
-    ?assert(length(Data) >= 0),
-    ?assert(StartBlock - EndBlock =< ?ACTIVITY_LIST_BLOCK_LIMIT),
-    ?assertEqual(EndBlock, CursorBlock),
-    ?assertEqual(?ACTIVITY_LIST_BLOCK_LIMIT, Range).
+    ?assert(length(Data) =< ?TXN_LIST_LIMIT).
 
 activity_low_block_test(_Config) ->
     GetCursor = #{ block => 50 },
@@ -64,16 +57,11 @@ activity_low_block_test(_Config) ->
                             ["/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/activity",
                              "?cursor=", binary_to_list(?CURSOR_ENCODE(GetCursor))
                             ]),
-    #{ <<"data">> := Data,
-       <<"meta">> := #{ <<"start_block">> := StartBlock,
-                        <<"end_block">> := EndBlock
-                      }
+    #{ <<"data">> := Data
      } = Json,
     %% This account has just one coinebase transaction in block 1
     ?assertEqual(1, length(Data)),
-    ?assertEqual(undefined, maps:get(<<"cursor">>, Json, undefined)),
-    ?assertEqual(2, StartBlock),
-    ?assertEqual(1, EndBlock).
+    ?assertEqual(undefined, maps:get(<<"cursor">>, Json, undefined)).
 
 activity_filter_no_result_test(_Config) ->
     %% We know this account has only a coinbase transaction in block 1 over that block range

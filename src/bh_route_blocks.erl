@@ -9,6 +9,7 @@
 %% Utilities
 -export([get_block_height/0,
          get_block_list/1,
+         get_block_list_cache_time/1,
          get_block/1,
          get_block_txn_list/2]).
 
@@ -36,14 +37,17 @@ prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT,
                            "select max(height) from blocks", []),
 
+    BlockListLimit = integer_to_list(?BLOCK_TXN_LIST_LIMIT),
     {ok, S2} = epgsql:parse(Conn, ?S_BLOCK_LIST,
                            [?SELECT_BLOCK_BASE,
-                            "order by height DESC limit ", ?LIMIT_BLOCK_ALIGNED(?BLOCK_LIST_LIMIT)
+                            "order by height DESC limit ",
+                            "(select coalesce(nullif(max(height) % ", BlockListLimit, ", 0), ", BlockListLimit, ") from blocks)"
+
                            ],[]),
 
     {ok, S3} = epgsql:parse(Conn, ?S_BLOCK_LIST_BEFORE,
                            [?SELECT_BLOCK_BASE,
-                            "where b.height < $1 order by height DESC limit ", integer_to_list(?BLOCK_TXN_LIST_LIMIT)],
+                            "where b.height < $1 order by height DESC limit ", BlockListLimit],
                             []),
 
     {ok, S4} = epgsql:parse(Conn, ?S_BLOCK_BY_HEIGHT,
@@ -96,7 +100,9 @@ prepare_conn(Conn) ->
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(get_block_list(Args), ?CACHE_TIME_BLOCK_ALIGNED(Args));
+    Result = get_block_list(Args),
+    CacheTime = get_block_list_cache_time(Result),
+    ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [<<"height">>], _Req) ->
     ?MK_RESPONSE(get_block_height(), block_time);
 handle('GET', [<<"hash">>, BlockHash], _Req) ->
@@ -133,6 +139,16 @@ get_block_list([{cursor, Cursor}]) ->
         _ ->
             {error, badarg}
     end.
+
+get_block_list_cache_time({ok, _, undefined}) ->
+    infinity;
+get_block_list_cache_time({ok, _, #{before := Height}}) ->
+    case (Height rem ?BLOCK_LIST_LIMIT) == 0 of
+        true -> infinity;
+        false -> block_time
+    end;
+get_block_list_cache_time(_) ->
+    never.
 
 mk_block_list_cursor(Results) when is_list(Results) ->
     case length(Results) of

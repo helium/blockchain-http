@@ -17,16 +17,18 @@
 -define(SELECT_PRICE_BASE, "select p.block, p.price from oracle_prices p ").
 
 -define(PRICE_LIST_LIMIT, 100).
+-define(PRICE_LIST_BLOCK_ALIGN, 100).
 
 prepare_conn(Conn) ->
+    PriceListLimit = integer_to_list(?PRICE_LIST_LIMIT),
     {ok, S1} = epgsql:parse(Conn, ?S_PRICE_LIST,
                             [?SELECT_PRICE_BASE,
-                            "order by block DESC limit ", ?LIMIT_BLOCK_ALIGNED(?PRICE_LIST_LIMIT)
+                             "order by block DESC limit ", PriceListLimit
                             ], []),
 
     {ok, S2} = epgsql:parse(Conn, ?S_PRICE_LIST_BEFORE,
                              [?SELECT_PRICE_BASE,
-                              "where p.block < $1 order by block DESC limit ", integer_to_list(?PRICE_LIST_LIMIT)
+                              "where p.block < $1 order by block DESC limit ", PriceListLimit
                              ], []),
 
     {ok, S3} = epgsql:parse(Conn, ?S_PRICE_CURRENT,
@@ -40,7 +42,7 @@ prepare_conn(Conn) ->
 
 handle('GET', [<<"prices">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(get_price_list(Args), ?CACHE_TIME_BLOCK_ALIGNED(Args));
+    ?MK_RESPONSE(get_price_list(Args), block_time);
 handle('GET', [<<"prices">>, <<"current">>], _Req) ->
     ?MK_RESPONSE(get_current_price(), block_time);
 
