@@ -56,20 +56,13 @@ activity_result_test(_Config) ->
     %% and a cursor to a next block range
     {ok, {_, _, Json}} = ?json_request("/v1/hotspots/112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK/activity"),
     #{ <<"data">> := Data,
-       <<"meta">> := #{ <<"start_block">> := StartBlock,
-                        <<"end_block">> := EndBlock
-                      },
        <<"cursor">> := Cursor
      } = Json,
     {ok,
-     #{ <<"block">> := CursorBlock,
-        <<"range">> := Range
+     #{ <<"block">> := _
       }
     } = ?CURSOR_DECODE(Cursor),
-    ?assert(length(Data) >= 0),
-    ?assert(StartBlock - EndBlock =< ?ACTIVITY_LIST_BLOCK_LIMIT),
-    ?assertEqual(EndBlock, CursorBlock),
-    ?assertEqual(?ACTIVITY_LIST_BLOCK_LIMIT, Range).
+    ?assert(length(Data) =< ?TXN_LIST_LIMIT).
 
 activity_low_block_test(_Config) ->
     GetCursor = #{ block => 50 },
@@ -77,16 +70,11 @@ activity_low_block_test(_Config) ->
                             ["/v1/hotspots/112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK/activity",
                              "?cursor=", binary_to_list(?CURSOR_ENCODE(GetCursor))
                             ]),
-    #{ <<"data">> := Data,
-       <<"meta">> := #{ <<"start_block">> := StartBlock,
-                        <<"end_block">> := EndBlock
-                      }
+    #{ <<"data">> := Data
      } = Json,
     %% This hotspot has no activity in the low blocks
     ?assertEqual(0, length(Data)),
-    ?assertEqual(undefined, maps:get(<<"cursor">>, Json, undefined)),
-    ?assertEqual(2, StartBlock),
-    ?assertEqual(1, EndBlock).
+    ?assertEqual(undefined, maps:get(<<"cursor">>, Json, undefined)).
 
 activity_filter_no_result_test(_Config) ->
     %% Filter for no rewards, which the given hotspot should not have
