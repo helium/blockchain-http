@@ -14,7 +14,9 @@
 -define(S_ACCOUNT_LIST, "account_list").
 -define(S_ACCOUNT, "account").
 
--define(SELECT_ACCOUNT_BASE(A), "select (select max(height) from blocks) as height, l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce, l.first_block" A " from account_inventory l ").
+-define(SELECT_ACCOUNT_BASE(A),
+        ["select (select max(height) from blocks) as height, l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce, l.first_block",
+         A, " from account_inventory l "]).
 -define(SELECT_ACCOUNT_BASE, ?SELECT_ACCOUNT_BASE("")).
 
 -define(ACCOUNT_LIST_LIMIT, 100).
@@ -33,8 +35,9 @@ prepare_conn(Conn) ->
 
     {ok, S3} = epgsql:parse(Conn, ?S_ACCOUNT,
                            [?SELECT_ACCOUNT_BASE(
-                              ", (select coalesce(max(nonce), l.nonce) from pending_transactions p where p.address = l.address and nonce_type='balance' and status != 'failed') as speculative_nonce"
-                             ), "where l.address = $1"],
+                               [", (select coalesce(max(nonce), l.nonce) from pending_transactions p where p.address = l.address and nonce_type='balance' and status != 'failed') as speculative_nonce",
+                                ", (select coalesce(max(nonce), l.security_nonce) from pending_transactions p where p.address = l.address and nonce_type='security' and status != 'failed') as speculative_sec_nonce"
+                               ]), "where l.address = $1"],
                             []),
 
     #{?S_ACCOUNT_LIST_BEFORE => S1,
@@ -144,8 +147,10 @@ account_to_json({Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Bala
       <<"sec_nonce">> => SecNonce,
       <<"block">> => Height
      };
-account_to_json({Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce, FirstBlock, SpecNonce}) ->
+account_to_json({Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce, FirstBlock,
+                 SpecNonce, SpecSecNonce}) ->
     Base = account_to_json({Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce, FirstBlock}),
     Base#{
-          <<"speculative_nonce">> => SpecNonce
+          <<"speculative_nonce">> => SpecNonce,
+          <<"speculative_sec_nonce">> => SpecSecNonce
          }.

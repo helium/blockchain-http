@@ -75,7 +75,8 @@ handle(_, _, _Req) ->
                        | #blockchain_txn_payment_v2_pb{}
                        | #blockchain_txn_create_htlc_v1_pb{}
                        | #blockchain_txn_redeem_htlc_v1_pb{}
-                       | #blockchain_txn_price_oracle_v1_pb{}.
+                       | #blockchain_txn_price_oracle_v1_pb{}
+                       | #blockchain_txn_security_exchange_v1_pb{}.
 
 -type nonce_type() :: binary().
 
@@ -99,7 +100,10 @@ insert_pending_txn(#blockchain_txn_create_htlc_v1_pb{nonce=Nonce, payer=Address}
 insert_pending_txn(#blockchain_txn_redeem_htlc_v1_pb{}=Txn, Bin) ->
     insert_pending_txn(Txn, undefined, 0, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_price_oracle_v1_pb{public_key=Address}=Txn, Bin) ->
-    insert_pending_txn(Txn, Address, 0, <<"none">>, Bin).
+    insert_pending_txn(Txn, Address, 0, <<"none">>, Bin);
+insert_pending_txn(#blockchain_txn_security_exchange_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
+    insert_pending_txn(Txn, Address, Nonce, <<"security">>, Bin).
+
 
 -spec insert_pending_txn(supported_txn(), libp2p_crypto:pubkey_bin()| undefined, non_neg_integer(), nonce_type(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
 insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
@@ -221,7 +225,8 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
 ?TXN_SIG_HASH(blockchain_txn_payment_v2_pb);
 ?TXN_SIG_HASH(blockchain_txn_create_htlc_v1_pb);
 ?TXN_SIG_HASH(blockchain_txn_redeem_htlc_v1_pb);
-?TXN_SIG_HASH(blockchain_txn_price_oracle_v1_pb).
+?TXN_SIG_HASH(blockchain_txn_price_oracle_v1_pb);
+?TXN_SIG_HASH(blockchain_txn_security_exchange_v1_pb).
 
 ?TXN_TYPE(blockchain_txn_oui_v1_pb, <<"oui_v1">>);
 ?TXN_TYPE(blockchain_txn_add_gateway_v1_pb, <<"add_gateway_v1">>);
@@ -230,4 +235,5 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
 ?TXN_TYPE(blockchain_txn_payment_v2_pb, <<"payment_v2">>);
 ?TXN_TYPE(blockchain_txn_create_htlc_v1_pb, <<"create_htlc_v1">>);
 ?TXN_TYPE(blockchain_txn_redeem_htlc_v1_pb, <<"redeem_htlc_v1">>);
-?TXN_TYPE(blockchain_txn_price_oracle_v1_pb, <<"price_oracle_v1">>).
+?TXN_TYPE(blockchain_txn_price_oracle_v1_pb, <<"price_oracle_v1">>);
+?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, <<"security_exchange_v1">>).
