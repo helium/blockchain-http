@@ -45,9 +45,22 @@ handle('GET', [<<"prices">>], Req) ->
     ?MK_RESPONSE(get_price_list(Args), block_time);
 handle('GET', [<<"prices">>, <<"current">>], _Req) ->
     ?MK_RESPONSE(get_current_price(), block_time);
+handle('GET', [<<"activity">>], Req) ->
+    Args = add_filter_types(?GET_ARGS([cursor], Req)),
+    Result = bh_route_txns:get_txn_list(Args),
+    CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
+    ?MK_RESPONSE(Result, CacheTime);
+handle('GET', [Address, <<"activity">>], Req) ->
+    Args = add_filter_types(?GET_ARGS([cursor], Req)),
+    Result = bh_route_txns:get_actor_txn_list({actor, Address}, Args),
+    CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
+    ?MK_RESPONSE(Result, CacheTime);
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
+
+add_filter_types(Args) ->
+    Args ++ [{filter_types, <<"price_oracle_v1">>}].
 
 get_price_list([{cursor, undefined}])  ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_PRICE_LIST, []),
