@@ -284,14 +284,15 @@ get_txn_list_cache_time({ok, _,  undefined}) ->
     %% store these for a longer time since head realignment would
     %% create new cache entries, but we try to be nice to the cache.
     {block_time, ?TXN_LIST_BLOCK_ALIGN};
-get_txn_list_cache_time({ok, _, Cursor}) ->
+get_txn_list_cache_time({ok, _, Cursor=#{ block := BeforeBlock }}) ->
     %% If we're on an aligned block we can cache for a longer time
     %% since it's likely to be more stable (at least for the next
     %% ?TXN_LIST_BLOCK_ALIGN blocks).
     %% If not we cache for one block time
     case maps:get(anchor_block, Cursor, undefined) of
         undefined -> block_time;
-        _ -> {block_time, ?TXN_LIST_BLOCK_ALIGN}
+        AnchorBlock when BeforeBlock == AnchorBlock -> block_time;
+        _AnchorBlock -> {block_time, ?TXN_LIST_BLOCK_ALIGN}
     end;
 get_txn_list_cache_time(_) ->
     never.
