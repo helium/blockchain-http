@@ -33,12 +33,12 @@ list_test(_Config) ->
     ok.
 
 activity_list_test(_Config) ->
-    {ok, {_, _, Json}} = ?json_request("/v1/oracle/activity"),
+    {ok, {_, _, AllJson}} = ?json_request("/v1/oracle/activity"),
     #{ <<"data">> := AllData } = Json,
     ?assert(length(AllData) >= 0),
 
-    {ok, {_, _, Json}} = ?json_request("/v1/oracle/13CFFcmPtMvNQCpWQRXCTqXPnXtcsibDWVwiQRKpUCt4nqtF7RE/activity"),
-    #{ <<"data">> := AllData } = Json,
-    ?assert(length(AllData) >= 0),
+    {ok, {_, _, OneJson}} = ?json_request("/v1/oracle/13CFFcmPtMvNQCpWQRXCTqXPnXtcsibDWVwiQRKpUCt4nqtF7RE/activity"),
+    #{ <<"data">> := OneData } = OneJson,
+    ?assert(length(OneData) >= 0),
 
     ok.
