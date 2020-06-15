@@ -34,7 +34,7 @@ list_test(_Config) ->
 
 activity_list_test(_Config) ->
     {ok, {_, _, AllJson}} = ?json_request("/v1/oracle/activity"),
-    #{ <<"data">> := AllData } = Json,
+    #{ <<"data">> := AllData } = AllJson,
     ?assert(length(AllData) >= 0),
 
     {ok, {_, _, OneJson}} = ?json_request("/v1/oracle/13CFFcmPtMvNQCpWQRXCTqXPnXtcsibDWVwiQRKpUCt4nqtF7RE/activity"),
