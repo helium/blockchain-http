@@ -5,7 +5,8 @@
 
 all() -> [
           name_test,
-          list_test
+          list_test,
+          activity_list_test
          ].
 
 init_per_suite(Config) ->
@@ -30,5 +31,12 @@ list_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/vars"),
     #{ <<"data">> := Data } = Json,
     ?assert(map_size(Data) >= 0),
+
+    ok.
+
+activity_list_test(_Config) ->
+    {ok, {_, _, AllJson}} = ?json_request("/v1/vars/activity"),
+    #{ <<"data">> := AllData } = AllJson,
+    ?assert(length(AllData) >= 0),
 
     ok.
