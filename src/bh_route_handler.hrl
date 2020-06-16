@@ -20,6 +20,7 @@
 -define(CURSOR_DECODE(B), bh_route_handler:cursor_decode(B)).
 
 -define (BIN_TO_B64(B), base64url:encode((B))).
+-define (B64_TO_BIN(B), base64url:decode((B))).
 -define (BIN_TO_B58(B), list_to_binary(libp2p_crypto:bin_to_b58((B)))).
 
 -define(SELECT_TXN_FIELDS(F), ["select t.block, t.time, t.hash, t.type, ", (F), " "]).

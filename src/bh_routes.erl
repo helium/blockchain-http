@@ -29,6 +29,8 @@ handle(Method, [<<"v1">>, <<"challenges">> | Tail], Req) ->
     bh_route_challenges:handle(Method, Tail, Req);
 handle(Method, [<<"v1">>, <<"oracle">> | Tail], Req) ->
     bh_route_oracle:handle(Method, Tail, Req);
+handle(Method, [<<"v1">>, <<"vars">> | Tail], Req) ->
+    bh_route_vars:handle(Method, Tail, Req);
 handle('GET', [], _Req) ->
     {200, [], <<>>};
 
