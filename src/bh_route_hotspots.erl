@@ -8,7 +8,8 @@
 -export([prepare_conn/1, handle/3]).
 %% Utilities
 -export([get_hotspot_list/1,
-         get_hotspot/1]).
+         get_hotspot/1,
+         hotspot_to_geo_json/1]).
 
 
 -define(S_HOTSPOT_LIST_BEFORE, "hotspot_list_before").
@@ -179,6 +180,21 @@ hotspot_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
 
 
+hotspot_to_geo_json({ShortStreet, LongStreet,
+                     ShortCity, LongCity,
+                     ShortState, LongState,
+                     ShortCountry, LongCountry}) ->
+    #{
+      short_street => ShortStreet,
+      long_street => LongStreet,
+      short_city => ShortCity,
+      long_city => LongCity,
+      short_state => ShortState,
+      long_state => LongState,
+      short_country => ShortCountry,
+      long_country => LongCountry
+     }.
+
 hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location,
                  Score, Nonce,
                  OnlineStatus, GPSStatus, BlockStatus,
@@ -198,17 +214,10 @@ hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location,
                       name => list_to_binary(Name),
                       owner => Owner,
                       location => Location,
-                      geocode =>
-                          #{
-                            short_street => ShortStreet,
-                            long_street => LongStreet,
-                            short_city => ShortCity,
-                            long_city => LongCity,
-                            short_state => ShortState,
-                            long_state => LongState,
-                            short_country => ShortCountry,
-                            long_country => LongCountry
-                           },
+                      geocode => hotspot_to_geo_json({ShortStreet, LongStreet,
+                                                      ShortCity, LongCity,
+                                                      ShortState, LongState,
+                                                      ShortCountry, LongCountry}),
                       score_update_height => ScoreBlock,
                       score => Score,
                       block_added => FirstBlock,

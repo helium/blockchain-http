@@ -25,6 +25,7 @@
 -define(S_ACCOUNT_ACTIVITY_LIST_BEFORE, "account_activity_list_before").
 -define(S_HOTSPOT_ACTIVITY_LIST, "hotspot_activity_list").
 -define(S_HOTSPOT_ACTIVITY_LIST_BEFORE, "hotspot_activity_list_before").
+-define(S_LOC, "txn_geocode").
 
 -define(SELECT_TXN_LIST,
        [?SELECT_TXN_BASE,
@@ -126,6 +127,12 @@ prepare_conn(Conn) ->
     {ok, S7} = epgsql:parse(Conn, ?S_BLOCK_REM_TXN_LIST, ?SELECT_BLOCK_REM_TXN_LIST,
                             []),
 
+    {ok, S8} = epgsql:parse(Conn, ?S_LOC,
+                            ["select l.short_street, l.long_street, l.short_city, l.long_city, l.short_state, l.long_state, l.short_country, l.long_country ",
+                            "from locations l ",
+                             "where location = $1"
+                            ], []),
+
     #{
       ?S_TXN => S1,
       ?S_TXN_LIST => S2,
@@ -133,7 +140,8 @@ prepare_conn(Conn) ->
       ?S_OWNED_ACTOR_TXN_LIST => S4,
       ?S_ACCOUNT_ACTIVITY_LIST => S5,
       ?S_HOTSPOT_ACTIVITY_LIST => S6,
-      ?S_BLOCK_REM_TXN_LIST => S7
+      ?S_BLOCK_REM_TXN_LIST => S7,
+      ?S_LOC => S8
      }.
 
 handle('GET', [TxnHash], _Req) ->
@@ -319,8 +327,34 @@ txn_to_json({<<"poc_request_v1">>,
              #{ <<"location">> := Location } = Fields}) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json({<<"poc_receipts_v1">>,
-             #{ <<"challenger_location">> := ChallengerLoc } = Fields}) ->
-    ?INSERT_LAT_LON(ChallengerLoc, {<<"challenger_lat">>, <<"challenger_lon">>}, Fields);
+             #{ <<"challenger_location">> := ChallengerLoc,
+                <<"path">> := Path } = Fields}) ->
+    %% update challengee lat/lon in a path element
+    LatLon = fun(PathElem = #{ <<"challengee_location">> := ChallengeeLoc}) ->
+                            ?INSERT_LAT_LON(ChallengeeLoc,
+                                            {<<"challengee_lat">>, <<"challengee_lon">>},
+                                            PathElem)
+                    end,
+    %% Insert geo code infomration for a challengee location in a path element
+    Geocode = fun(PathElem = #{ <<"challengee_location">> := ChallengeeLoc}) ->
+                      case ?PREPARED_QUERY(?S_LOC, [ChallengeeLoc]) of
+                          {ok, _, [Result]} ->
+                              PathElem#{<<"geocode">> => bh_route_hotspots:hotspot_to_geo_json(Result)};
+                          _ ->
+                              PathElem
+                      end
+                    end,
+    %% Insert lat lon for all path entries. Insert geocode information
+    %% for just the first challengee
+    NewPath = lists:map(fun({1, PathElem}) ->
+                                LatLon(Geocode(PathElem));
+                           ({_, PathElem}) ->
+                                LatLon(PathElem)
+                        end, lists:zip(lists:seq(1, length(Path)), Path)),
+    ?INSERT_LAT_LON(ChallengerLoc, {<<"challenger_lat">>, <<"challenger_lon">>},
+                    Fields#{
+                             <<"path">> => NewPath
+                           });
 txn_to_json({<<"gen_gateway_v1">>, Fields}) ->
     txn_to_json({<<"add_gateway_v1">>, Fields});
 txn_to_json({<<"add_gateway_v1">>, Fields}) ->
