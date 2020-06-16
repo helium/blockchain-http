@@ -12,7 +12,8 @@ all() -> [
           activity_result_test,
           activity_low_block_test,
           activity_filter_no_result_test,
-          hotspots_test
+          hotspots_test,
+          stats_test
          ].
 
 init_per_suite(Config) ->
@@ -90,3 +91,15 @@ hotspots_test(_Config) ->
     ?assert(length(NextData) >= 0),
 
     ok.
+
+stats_test(_Config) ->
+    Account = "13YuCz3mZ55HZ6hJJvQHCZXGgE8ooe2CSvbtSHQR3m5vZ1EVCNZ",
+    {ok, {_, _, Json}} = ?json_request(["/v1/accounts/", Account, "/stats"]),
+    #{ <<"data">> := Data } = Json,
+    lists:foreach(fun(Key) ->
+                          Entry = maps:get(Key, Data),
+                          ?assert(length(Entry) > 0)
+                  end,
+                  [<<"last_day">>,
+                   <<"last_week">>,
+                   <<"last_month">>]).

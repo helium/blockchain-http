@@ -13,11 +13,23 @@
 -define(S_ACCOUNT_LIST_BEFORE, "account_list_before").
 -define(S_ACCOUNT_LIST, "account_list").
 -define(S_ACCOUNT, "account").
+-define(S_ACCOUNT_BAL_HOURLY, "account_bal_hourly").
+-define(S_ACCOUNT_BAL_MONTHLY, "account_bal_monthly").
+-define(S_ACCOUNT_BAL_WEEKLY, "account_bal_weekly").
 
 -define(SELECT_ACCOUNT_BASE(A),
         ["select (select max(height) from blocks) as height, l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce, l.first_block",
          A, " from account_inventory l "]).
 -define(SELECT_ACCOUNT_BASE, ?SELECT_ACCOUNT_BASE("")).
+
+-define(SELECT_ACCOUNT_STATS(TS),
+       ["with ts as ( ", TS, " order by timestamp desc),",
+        "accounts_ts as (",
+        " select accounts.*, blocks.timestamp  from accounts inner join blocks on blocks.height = accounts.block",
+        " where address = $1 ",
+        ")",
+        "select ts.timestamp, (select max(accounts_ts.balance) from accounts_ts where timestamp < ts.timestamp) from ts"
+       ]).
 
 -define(ACCOUNT_LIST_LIMIT, 100).
 
@@ -40,9 +52,25 @@ prepare_conn(Conn) ->
                                ]), "where l.address = $1"],
                             []),
 
+    {ok, S4} = epgsql:parse(Conn, ?S_ACCOUNT_BAL_HOURLY,
+                            ?SELECT_ACCOUNT_STATS("select generate_series(date_trunc('hour', now()) - '24 hour'::interval, date_trunc('hour', now()), '1 hour') as timestamp")
+                           , []),
+
+    {ok, S5} = epgsql:parse(Conn, ?S_ACCOUNT_BAL_MONTHLY,
+                            ?SELECT_ACCOUNT_STATS("select generate_series(date_trunc('day', now()) - '30 day'::interval, date_trunc('day', now()), '1 day') as timestamp")
+                           , []),
+
+    {ok, S6} = epgsql:parse(Conn, ?S_ACCOUNT_BAL_WEEKLY,
+                            ?SELECT_ACCOUNT_STATS("select generate_series(date_trunc('day', now()) - '1 week'::interval, date_trunc('day', now()), '8 hour') as timestamp")
+                           , []),
+
     #{?S_ACCOUNT_LIST_BEFORE => S1,
       ?S_ACCOUNT_LIST => S2,
-      ?S_ACCOUNT => S3 }.
+      ?S_ACCOUNT => S3,
+      ?S_ACCOUNT_BAL_HOURLY => S4,
+      ?S_ACCOUNT_BAL_MONTHLY => S5,
+      ?S_ACCOUNT_BAL_WEEKLY => S6
+     }.
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
@@ -66,6 +94,11 @@ handle('GET', [Account, <<"challenges">>], Req) ->
 handle('GET', [Account, <<"pending_transactions">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(bh_route_pending_txns:get_pending_txn_list(Account, Args), never);
+handle('GET', [Account, <<"stats">>], _Req) ->
+    %% Shortest stats period is every hour. To try to keep the stats
+    %% as fresh as possible we cache for shorter than an
+    %% hour. Starting with 10 block times for now.
+    ?MK_RESPONSE(get_stats(Account), {block_time, 10});
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
@@ -128,6 +161,43 @@ mk_cursor(Results) when is_list(Results) ->
              }
     end.
 
+%%
+%% Stats
+%%
+
+get_stats(Account) ->
+    case lists:foldl(fun(_Query, {error, Error}) ->
+                             {error, Error};
+                        (Query, {ok, Acc}) ->
+                             case ?PREPARED_QUERY(Query, [Account]) of
+                                 {ok, _, Results} ->
+                                     {ok, [Results | Acc]};
+                                 _ ->
+                                     {error, not_found}
+                             end
+                     end,
+                     {ok, []},
+                     [?S_ACCOUNT_BAL_HOURLY,
+                      ?S_ACCOUNT_BAL_WEEKLY,
+                      ?S_ACCOUNT_BAL_MONTHLY]
+                    ) of
+        {ok, [BalanceMonthlyResults, BalanceWeeklyResults, BalanceHourlyResults]} ->
+            {ok, #{
+                   last_day => mk_balance_stats(BalanceHourlyResults),
+                   last_week => mk_balance_stats(BalanceWeeklyResults),
+                   last_month => mk_balance_stats(BalanceMonthlyResults)
+                  }};
+        {error, Error} ->
+            {error, Error}
+    end.
+
+
+mk_balance_stats(Results) ->
+    lists:map(fun({Timestamp, Value}) ->
+                      #{ timestamp => iso8601:format(Timestamp),
+                         balance => Value
+                       }
+              end, Results).
 
 %%
 %% json
