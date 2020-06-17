@@ -41,7 +41,9 @@ prepare_conn(Conn) ->
     {ok, S3} = epgsql:parse(Conn, ?S_PENDING_TXN,
                            [?SELECT_PENDING_TXN_FIELDS,
                             "from pending_transactions t ",
-                            "where hash = $1"],
+                            "where hash = $1",
+                            "order by created_at desc ",
+                            "limit 1"],
                             []),
 
     {ok, S4} = epgsql:parse(Conn, ?S_INSERT_PENDING_TXN,
