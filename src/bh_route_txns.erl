@@ -48,7 +48,7 @@
         [?SELECT_TXN_FIELDS(F),
          "from (select tr.*, a.actor ",
          "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-         " where a.block >= $3 and a.block < $4 and a.actor = $1 ", (E),
+         " where tr.block >= $3 and tr.block < $4 and a.actor = $1 ", (E),
          " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
         ]).
 
@@ -56,7 +56,7 @@
         [?SELECT_TXN_FIELDS(F),
          "from (select tr.*, a.actor ",
          "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-         " where a.block >= $3 and a.block < $4",
+         " where tr.block >= $3 and tr.block < $4",
          " and a.actor in (select address from gateway_inventory where owner = $1) ", (E),
          " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
         ]).
