@@ -13,8 +13,8 @@
 -define(S_STATS_BLOCK_TIMES, "stats_block_times").
 -define(S_STATS_ELECTION_TIMES, "stats_election_times").
 -define(S_STATS_STATE_CHANNELS, "stats_state_channels").
--define(S_STATS_HOTSPOTS, "stats_hotspots").
 -define(S_TOKEN_SUPPLY, "stats_token_supply").
+-define(S_STATS_COUNTS, "stats_counts").
 
 prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_STATS_BLOCK_TIMES,
@@ -103,8 +103,8 @@ prepare_conn(Conn) ->
                              "     (select sum((t.counts).num_packets) as num_dcs from month_interval t) as last_month_packets;"
                              ], []),
 
-    {ok, S5} = epgsql:parse(Conn, ?S_STATS_HOTSPOTS,
-                            "select count(*) from gateway_inventory",
+    {ok, S5} = epgsql:parse(Conn, ?S_STATS_COUNTS,
+                            "select name, value from stats_inventory",
                             []),
 
 
@@ -113,7 +113,7 @@ prepare_conn(Conn) ->
       ?S_STATS_ELECTION_TIMES => S2,
       ?S_TOKEN_SUPPLY => S3,
       ?S_STATS_STATE_CHANNELS => S4,
-      ?S_STATS_HOTSPOTS => S5
+      ?S_STATS_COUNTS => S5
      }.
 
 handle('GET', [], _Req) ->
@@ -127,14 +127,14 @@ get_stats()  ->
     ElectionTimeResults = ?PREPARED_QUERY(?S_STATS_ELECTION_TIMES, []),
     StateChannelResults = ?PREPARED_QUERY(?S_STATS_STATE_CHANNELS, []),
     SupplyResult = ?PREPARED_QUERY(?S_TOKEN_SUPPLY, []),
-    HotSpotResults = ?PREPARED_QUERY(?S_STATS_HOTSPOTS, []),
+    CountsResults = ?PREPARED_QUERY(?S_STATS_COUNTS, []),
 
     {ok, #{
            block_times => mk_stats_from_time_results(BlockTimeResults),
            election_times => mk_stats_from_time_results(ElectionTimeResults),
            token_supply => mk_token_supply_from_result(SupplyResult),
            state_channel_counts => mk_stats_from_state_channel_results(StateChannelResults),
-           hotspots => mk_status_from_hotspot_results(HotSpotResults)
+           counts => mk_stats_from_counts_results(CountsResults)
           }
     }.
 
@@ -156,9 +156,9 @@ mk_stats_from_state_channel_results({ok, _, [{LastDayDCs, LastDayPackets,
       last_month => #{ num_packets => mk_int(LastMonthPackets), num_dcs => mk_int(LastMonthDCs)}
      }.
 
-mk_status_from_hotspot_results({ok, _, [{HotspotCount}]}) ->
-    #{ count => HotspotCount }.
-
+mk_stats_from_counts_results({ok, _, CountsResults}) ->
+    maps:from_list(CountsResults).
+    
 mk_float(null) ->
     null;
 mk_float(Bin) ->
