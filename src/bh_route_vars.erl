@@ -77,10 +77,15 @@ var_to_json({Name, <<"atom">>, <<"false">>}) ->
     {Name, false};
 var_to_json({Name, <<"atom">>, Value}) ->
     {Name, Value};
+var_to_json({<<"staking_keys">>=Name, <<"binary">>, Value}) ->
+    {Name, b64_to_keys(Value)};
 var_to_json({<<"price_oracle_public_keys">>=Name, <<"binary">>, Value}) ->
-    Bin = ?B64_TO_BIN(Value),
-    BinKeys = [ Key || << Len:8/unsigned-integer, Key:Len/binary >> <= Bin ],
-    Keys = [?BIN_TO_B58(Key) || Key <- BinKeys],
-    {Name, Keys};
+    {Name, b64_to_keys(Value)};
 var_to_json({Name, <<"binary">>, Value}) ->
     {Name, Value}.
+
+
+b64_to_keys(Value) ->
+    Bin = ?B64_TO_BIN(Value),
+    BinKeys = [ Key || << Len:8/unsigned-integer, Key:Len/binary >> <= Bin ],
+    [?BIN_TO_B58(Key) || Key <- BinKeys].
