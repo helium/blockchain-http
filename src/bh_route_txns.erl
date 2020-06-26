@@ -17,14 +17,22 @@
          filter_types/1]).
 
 -define(S_TXN, "txn").
+
 -define(S_TXN_LIST, "txn_list").
--define(S_BLOCK_REM_TXN_LIST, "block_rem_txn_list").
+-define(S_TXN_LIST_REM, "txn_list_rem").
+
 -define(S_ACTOR_TXN_LIST, "actor_txn_list").
+-define(S_ACTOR_TXN_LIST_REM, "actor_txn_list_rem").
+
 -define(S_OWNED_ACTOR_TXN_LIST, "owned_actor_txn_list").
+-define(S_OWNED_ACTOR_TXN_LIST_REM, "owned_actor_txn_list_rem").
+
 -define(S_ACCOUNT_ACTIVITY_LIST, "account_activity_list").
--define(S_ACCOUNT_ACTIVITY_LIST_BEFORE, "account_activity_list_before").
+-define(S_ACCOUNT_ACTIVITY_LIST_REM, "account_activity_list_rem").
+
 -define(S_HOTSPOT_ACTIVITY_LIST, "hotspot_activity_list").
--define(S_HOTSPOT_ACTIVITY_LIST_BEFORE, "hotspot_activity_list_before").
+-define(S_HOTSPOT_ACTIVITY_LIST_REM, "hotspot_activity_list_rem").
+
 -define(S_LOC, "txn_geocode").
 
 -define(SELECT_TXN_LIST,
@@ -35,7 +43,7 @@
         " order by t.block desc, t.hash"
        ]).
 
--define(SELECT_BLOCK_REM_TXN_LIST,
+-define(SELECT_TXN_LIST_REM,
         [?SELECT_TXN_BASE,
          "from (select * from transactions tr",
          "      where tr.type = ANY($1)",
@@ -52,17 +60,39 @@
          " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
         ]).
 
+-define(SELECT_ACTOR_TXN_LIST_REM_BASE(F, E),
+        [?SELECT_TXN_FIELDS(F),
+         "from (select tr.*, a.actor ",
+         " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
+         " where tr.block = $3 and a.actor = $1 ", (E),
+         "  and tr.type = ANY($2) order by tr.hash) as t ",
+         "where t.hash > $4 "
+        ]).
+
 -define(SELECT_OWNED_ACTOR_TXN_LIST_BASE(F, E),
         [?SELECT_TXN_FIELDS(F),
          "from (select tr.*, a.actor ",
-         "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
+         " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
          " where tr.block >= $3 and tr.block < $4",
-         " and a.actor in (select address from gateway_inventory where owner = $1) ", (E),
-         " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
+         "  and a.actor in (select address from gateway_inventory where owner = $1) ", (E),
+         "  and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
+        ]).
+
+-define(SELECT_OWNED_ACTOR_TXN_LIST_REM_BASE(F, E),
+        [?SELECT_TXN_FIELDS(F),
+         "from (select tr.*, a.actor ",
+         " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
+         " where tr.block = $3",
+         "  and a.actor in (select address from gateway_inventory where owner = $1) ", (E),
+         "  and tr.type = ANY($2) order by tr.hash) as t ",
+         "where t.hash > $4"
         ]).
 
 -define(SELECT_ACTOR_TXN_LIST, ?SELECT_ACTOR_TXN_LIST_BASE("t.fields", "")).
+-define(SELECT_ACTOR_TXN_LIST_REM, ?SELECT_ACTOR_TXN_LIST_REM_BASE("t.fields", "")).
+
 -define(SELECT_OWNED_ACTOR_TXN_LIST, ?SELECT_OWNED_ACTOR_TXN_LIST_BASE("t.fields", "")).
+-define(SELECT_OWNED_ACTOR_TXN_LIST_REM, ?SELECT_OWNED_ACTOR_TXN_LIST_REM_BASE("t.fields", "")).
 
 -define(SELECT_ACCOUNT_ACTIVITY_LIST,
         %% For account activity we limit the actor roles to just a few.
@@ -70,9 +100,21 @@
            "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
            "and a.actor_role in ('payer', 'payee', 'owner')")).
 
+-define(SELECT_ACCOUNT_ACTIVITY_LIST_REM,
+        %% For account activity we limit the actor roles to just a few.
+        ?SELECT_ACTOR_TXN_LIST_REM_BASE(
+           "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
+           "and a.actor_role in ('payer', 'payee', 'owner')")).
+
 -define(SELECT_HOTSPOT_ACTIVITY_LIST,
         %% Filter out gateway roles that should be in accounts
         ?SELECT_ACTOR_TXN_LIST_BASE(
+           "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
+           "and a.actor_role not in ('payer', 'payee', 'owner')")).
+
+-define(SELECT_HOTSPOT_ACTIVITY_LIST_REM,
+        %% Filter out gateway roles that should be in accounts
+        ?SELECT_ACTOR_TXN_LIST_REM_BASE(
            "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
            "and a.actor_role not in ('payer', 'payee', 'owner')")).
 
@@ -112,22 +154,34 @@ prepare_conn(Conn) ->
     {ok, S2} = epgsql:parse(Conn, ?S_TXN_LIST, ?SELECT_TXN_LIST,
                             []),
 
-    {ok, S3} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST, ?SELECT_ACTOR_TXN_LIST,
+    {ok, S3} = epgsql:parse(Conn, ?S_TXN_LIST_REM, ?SELECT_TXN_LIST_REM,
                             []),
 
-    {ok, S4} = epgsql:parse(Conn, ?S_OWNED_ACTOR_TXN_LIST, ?SELECT_OWNED_ACTOR_TXN_LIST,
+    {ok, S4} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST, ?SELECT_ACTOR_TXN_LIST,
                             []),
 
-    {ok, S5} = epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_LIST, ?SELECT_ACCOUNT_ACTIVITY_LIST,
+    {ok, S5} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST_REM, ?SELECT_ACTOR_TXN_LIST_REM,
                             []),
 
-    {ok, S6} = epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_LIST, ?SELECT_HOTSPOT_ACTIVITY_LIST,
+    {ok, S6} = epgsql:parse(Conn, ?S_OWNED_ACTOR_TXN_LIST, ?SELECT_OWNED_ACTOR_TXN_LIST,
                             []),
 
-    {ok, S7} = epgsql:parse(Conn, ?S_BLOCK_REM_TXN_LIST, ?SELECT_BLOCK_REM_TXN_LIST,
+    {ok, S7} = epgsql:parse(Conn, ?S_OWNED_ACTOR_TXN_LIST_REM, ?SELECT_OWNED_ACTOR_TXN_LIST_REM,
                             []),
 
-    {ok, S8} = epgsql:parse(Conn, ?S_LOC,
+    {ok, S8} = epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_LIST, ?SELECT_ACCOUNT_ACTIVITY_LIST,
+                            []),
+
+    {ok, S9} = epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_LIST_REM, ?SELECT_ACCOUNT_ACTIVITY_LIST_REM,
+                            []),
+
+    {ok, S10} = epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_LIST, ?SELECT_HOTSPOT_ACTIVITY_LIST,
+                            []),
+
+   {ok, S11} = epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_LIST_REM, ?SELECT_HOTSPOT_ACTIVITY_LIST_REM,
+                            []),
+
+    {ok, S12} = epgsql:parse(Conn, ?S_LOC,
                             ["select l.short_street, l.long_street, l.short_city, l.long_city, l.short_state, l.long_state, l.short_country, l.long_country ",
                             "from locations l ",
                              "where location = $1"
@@ -135,13 +189,23 @@ prepare_conn(Conn) ->
 
     #{
       ?S_TXN => S1,
+
       ?S_TXN_LIST => S2,
-      ?S_ACTOR_TXN_LIST => S3,
-      ?S_OWNED_ACTOR_TXN_LIST => S4,
-      ?S_ACCOUNT_ACTIVITY_LIST => S5,
-      ?S_HOTSPOT_ACTIVITY_LIST => S6,
-      ?S_BLOCK_REM_TXN_LIST => S7,
-      ?S_LOC => S8
+      ?S_TXN_LIST_REM => S3,
+
+      ?S_ACTOR_TXN_LIST => S4,
+      ?S_ACTOR_TXN_LIST_REM => S5,
+
+      ?S_OWNED_ACTOR_TXN_LIST => S6,
+      ?S_OWNED_ACTOR_TXN_LIST_REM => S7,
+
+      ?S_ACCOUNT_ACTIVITY_LIST => S8,
+      ?S_ACCOUNT_ACTIVITY_LIST_REM => S9,
+
+      ?S_HOTSPOT_ACTIVITY_LIST => S10,
+      ?S_HOTSPOT_ACTIVITY_LIST_REM => S11,
+
+      ?S_LOC => S12
      }.
 
 handle('GET', [TxnHash], _Req) ->
@@ -160,17 +224,17 @@ get_txn(Key) ->
     end.
 
 get_txn_list(Args=[{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([], ?S_TXN_LIST, Args).
+    get_txn_list([], {?S_TXN_LIST, ?S_TXN_LIST_REM}, Args).
 
 get_actor_txn_list({actor, Address}, Args=[{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([Address], ?S_ACTOR_TXN_LIST, Args);
+    get_txn_list([Address], {?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
 get_actor_txn_list({owned, Address}, Args=[{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([Address], ?S_OWNED_ACTOR_TXN_LIST, Args).
+    get_txn_list([Address], {?S_OWNED_ACTOR_TXN_LIST, ?SELECT_OWNED_ACTOR_TXN_LIST_REM}, Args).
 
 get_activity_list({account, Account}, Args) ->
-    get_txn_list([Account], ?S_ACCOUNT_ACTIVITY_LIST, Args);
+    get_txn_list([Account], {?S_ACCOUNT_ACTIVITY_LIST, ?S_ACCOUNT_ACTIVITY_LIST_REM}, Args);
 get_activity_list({hotspot, Address}, Args) ->
-    get_txn_list([Address], ?S_HOTSPOT_ACTIVITY_LIST, Args).
+    get_txn_list([Address], {?S_HOTSPOT_ACTIVITY_LIST, ?S_HOTSPOT_ACTIVITY_LIST_REM}, Args).
 
 
 -define(TXN_LIST_BLOCK_ALIGN, 100).
@@ -213,8 +277,15 @@ execute_query(Query, State) ->
     {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
     State#state{results = State#state.results ++ Results}.
 
+execute_rem_query(_Query, _HighBlock, undefined, State) ->
+    State;
+execute_rem_query(Query, HighBlock, TxnHash, State) ->
+    AddedArgs = [filter_types(State#state.types), HighBlock, TxnHash],
+    {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
+    State#state{results = State#state.results ++ Results}.
 
-get_txn_list(Args, Query, [{cursor, undefined}, {filter_types, Types}]) ->
+
+get_txn_list(Args, {Query, _RemQuery}, [{cursor, undefined}, {filter_types, Types}]) ->
     {ok, #{height := CurrentBlock}} = bh_route_blocks:get_block_height(),
     %% High block is exclusive so start past the tip
     HighBlock = CurrentBlock + 1,
@@ -227,31 +298,22 @@ get_txn_list(Args, Query, [{cursor, undefined}, {filter_types, Types}]) ->
                types = Types
               },
     mk_txn_list_result(execute_query(Query, State));
-get_txn_list(Args, Query, [{cursor, Cursor}, {filter_types, _}]) ->
+get_txn_list(Args, {Query, RemQuery}, [{cursor, Cursor}, {filter_types, _}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, C=#{ <<"block">> := HighBlock}} ->
-            Types = maps:get(<<"types">>, C, undefined),
-            %% Construct the a partial list of results if we were
-            %% partway into the block
-            StartList = case maps:get(<<"address">>, C, undefined) of
-                            undefind -> [];
-                            BeforeAddr ->
-                                {ok, _, L} = ?PREPARED_QUERY(?S_BLOCK_REM_TXN_LIST,
-                                                             [filter_types(Types), HighBlock, BeforeAddr]),
-                                L
-                        end,
-            State = #state {
+            State0 = #state {
                        high_block = HighBlock,
                        anchor_block = maps:get(<<"anchor_block">>, C, undefined),
+                       types = maps:get(<<"types">>, C, undefined),
                        low_block = calc_low_block(HighBlock),
-
-                       args = Args,
-                       types = Types,
-                       results = StartList
+                       args = Args
                       },
+            %% Construct the a partial list of results if we were
+            %% partway into the block
+            State1 = execute_rem_query(RemQuery, HighBlock, maps:get(<<"txn">>, C, undefined), State0),
             %% Collect the initial set of results before the highblock
             %% annd start growing from there
-            mk_txn_list_result(grow_txn_list(Query, execute_query(Query, State)));
+            mk_txn_list_result(grow_txn_list(Query, execute_query(Query, State1)));
         _ ->
             {error, badarg}
     end.
@@ -283,7 +345,7 @@ mk_txn_list_cursor(BeforeBlock, BeforeAddr, State=#state{}) ->
                    ({Key, Value}, Acc) -> Acc#{Key => Value}
                 end, #{},
                 [{block, BeforeBlock},
-                 {address, BeforeAddr},
+                 {txn, BeforeAddr},
                  {anchor_block, AnchorBlock},
                  {types, State#state.types}]).
 
