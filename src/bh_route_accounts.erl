@@ -79,7 +79,7 @@ handle('GET', [Account], _Req) ->
     ?MK_RESPONSE(get_account(Account), never);
 handle('GET', [Account, <<"hotspots">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(bh_route_hotspots:get_hotspot_list([{owner, Account} | Args]), block_time);
+    ?MK_RESPONSE(bh_route_hotspots:get_hotspot_list([{owner, Account}, {city, undefined} | Args]), block_time);
 handle('GET', [Account, <<"activity">>], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
     Result = bh_route_txns:get_activity_list({account, Account}, Args),

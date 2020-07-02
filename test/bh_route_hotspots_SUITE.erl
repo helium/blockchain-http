@@ -14,7 +14,10 @@ all() -> [
           activity_low_block_test,
           activity_filter_no_result_test,
           elections_test,
-          challenges_test
+          challenges_test,
+          list_city_test,
+          list_city_search_test,
+          city_list_test
          ].
 
 init_per_suite(Config) ->
@@ -114,4 +117,37 @@ challenges_test(_Config) ->
     #{ <<"data">> := NextData } = NextJson,
     ?assert(length(NextData) >= 0),
 
+    ok.
+
+list_city_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/cities"]),
+    #{ <<"data">> := Data,
+       <<"cursor">> := Cursor } = Json,
+    ?assert(length(Data) >= 0),
+
+    {ok, {_, _, NextJson}} = ?json_request(["/v1/hotspots/cities?cursor=", Cursor]),
+    #{ <<"data">> := NextData } = NextJson,
+    ?assert(length(NextData) >= 0),
+    ok.
+
+list_city_search_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/cities?search=s"]),
+    #{ <<"data">> := Data,
+       <<"cursor">> := Cursor } = Json,
+    ?assert(length(Data) >= 0),
+
+    {ok, {_, _, NextJson}} = ?json_request(["/v1/hotspots/cities?cursor=", Cursor]),
+    #{ <<"data">> := NextData } = NextJson,
+    ?assert(length(NextData) >= 0),
+    ok.
+
+city_list_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/cities/San%20Francisco"]),
+    #{ <<"data">> := Data,
+       <<"cursor">> := Cursor } = Json,
+    ?assert(length(Data) >= 0),
+
+    {ok, {_, _, NextJson}} = ?json_request(["/v1/hotspots/cities/San%20Francisco?cursor=", Cursor]),
+    #{ <<"data">> := NextData } = NextJson,
+    ?assert(length(NextData) >= 0),
     ok.
