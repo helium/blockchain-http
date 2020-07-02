@@ -401,7 +401,7 @@ txn_to_json({<<"poc_receipts_v1">>,
     Geocode = fun(PathElem = #{ <<"challengee_location">> := ChallengeeLoc}) ->
                       case ?PREPARED_QUERY(?S_LOC, [ChallengeeLoc]) of
                           {ok, _, [Result]} ->
-                              PathElem#{<<"geocode">> => bh_route_hotspots:hotspot_to_geo_json(Result)};
+                              PathElem#{<<"geocode">> => bh_route_hotspots:to_geo_json(Result)};
                           _ ->
                               PathElem
                       end
