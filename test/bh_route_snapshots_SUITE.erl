@@ -24,8 +24,7 @@ list_test(_Config) ->
     ?assert(length(FirstTxns) =< ?SNAPSHOT_LIST_LIMIT),
 
     {ok, {_, _, NextJson}} = ?json_request(["/v1/snapshots?cursor=", Cursor]),
-    #{ <<"data">> := NextTxns,
-       <<"cursor">> := _
+    #{ <<"data">> := NextTxns
      } = NextJson,
     ?assert(length(NextTxns) =< ?SNAPSHOT_LIST_LIMIT).
 
