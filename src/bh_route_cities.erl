@@ -29,7 +29,7 @@
          "     last(l.short_city) as short_city, l.long_city, ",
          "     last(l.short_state) as short_state, l.long_state, ",
          "     last(l.short_country) as short_country, l.long_country, ",
-         "     coalesce(l.long_city, '') || coalesce(l.long_state, '') || coalesce(l.long_country, '') as city_id, "
+         "     last(l.city_id) as city_id, ",
          "     count(*) as hotspot_count, ",
          "     1 as rank ",
          "   from locations l inner join gateway_inventory g on g.location = l.location "
@@ -50,7 +50,7 @@
          "     last(l.short_city) as short_city, l.long_city, ",
          "     last(l.short_state) as short_state, l.long_state, ",
          "     last(l.short_country) as short_country, l.long_country, ",
-         "     coalesce(l.long_city, '') || coalesce(l.long_state, '') || coalesce(l.long_country, '') as city_id, "
+         "     last(l.city_id) as city_id, ",
          "     count(*) as hotspot_count, ",
          "     word_similarity(l.long_city, $1) as rank ",
          "   from locations l inner join gateway_inventory g on g.location = l.location "
@@ -65,8 +65,9 @@
 
 prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_CITY_SEARCH,
-                            ?SELECT_CITY_SEARCH_BASE
-                           , []),
+                            [?SELECT_CITY_SEARCH_BASE,
+                             "limit ", integer_to_list(?CITY_LIST_LIMIT)
+                            ], []),
 
     {ok, S2} = epgsql:parse(Conn, ?S_CITY_SEARCH_BEFORE,
                             [?SELECT_CITY_SEARCH_BASE,
@@ -97,10 +98,10 @@ handle('GET', [], Req) ->
     Args = ?GET_ARGS([search, cursor], Req),
     Result = get_city_list(Args),
     ?MK_RESPONSE(Result, block_time);
-%% handle('GET', [City, <<"hotspots">>], Req) ->
-%%     Args = ?GET_ARGS([cursor], Req),
-%%     Result = get_hotspot_list([{owner, undefined}, {city, City} | Args]),
-%%     ?MK_RESPONSE(Result, block_time);
+handle('GET', [City, <<"hotspots">>], Req) ->
+    Args = ?GET_ARGS([cursor], Req),
+    Result = bh_route_hotspots:get_hotspot_list([{owner, undefined}, {city, ?B64_TO_BIN(City)} | Args]),
+    ?MK_RESPONSE(Result, block_time);
 
 handle(_, _, _Req) ->
     ?RESPONSE_404.
@@ -111,7 +112,7 @@ get_city_list([{search, undefined}, {cursor, undefined}]) ->
     mk_city_list_from_result(undefined, Result);
 get_city_list([{search, Search}, {cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_CITY_SEARCH, [Search]),
-    mk_city_list_from_result(undefined, Result);
+    mk_city_list_from_result(Search, Result);
 get_city_list([{search, _Search}, {cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, #{<<"city_id">> := CityId,
@@ -163,19 +164,11 @@ city_list_to_json(Results) ->
 city_to_json({ShortCity, LongCity,
               ShortState, LongState,
               ShortCountry, LongCountry,
-              _CityId, _Rank, Count}) ->
+              CityId, _Rank, Count}) ->
     Base = bh_route_hotspots:to_geo_json({ShortCity, LongCity,
                                           ShortState, LongState,
                                           ShortCountry, LongCountry}),
     Base#{ hotspot_count => Count,
-           city_id => city_to_b64([LongCountry, LongState, LongCity])
+           city_id => ?BIN_TO_B64(CityId)
          }.
 
-city_to_b64(CityFields) ->
-    Fields = lists:map(fun(null) -> <<>>;
-                          (F) -> F
-                       end, CityFields),
-    ?BIN_TO_B64(<< <<(byte_size(Key)):8/integer, Key/binary>> || Key <- Fields >>).
-
-%% bin_to_city(Data) ->
-%%     [ Key || << Len:8/unsigned-integer, Key:Len/binary >> <= Data ].

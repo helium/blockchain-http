@@ -34,31 +34,35 @@
         ]).
 -define(SELECT_HOTSPOT_BASE, ?SELECT_HOTSPOT_BASE("from gateway_inventory g")).
 -define(SELECT_OWNER_HOTSPOT,
-        ?SELECT_HOTSPOT_BASE(["from (select * from gateway_inventory"
-                              "      where owner = $1 order by first_block desc, address) as g"])).
+        ?SELECT_HOTSPOT_BASE(["from (select * from gateway_inventory where owner = $1) as g"])).
 -define(HOTSPOT_LIST_LIMIT, 100).
 
 prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_HOTSPOT_LIST_BEFORE,
                            [?SELECT_HOTSPOT_BASE,
-                            "where (g.address > $1 and g.first_block = $2) or (g.first_block < $2) ",
-                            "order by g.first_block desc, g.address limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
+                            "where ((g.address > $1 and g.first_block = $2) or (g.first_block < $2)) ",
+                            "order by g.first_block desc, g.address ",
+                            "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
                             []),
 
     {ok, S2} = epgsql:parse(Conn, ?S_HOTSPOT_LIST,
                            [?SELECT_HOTSPOT_BASE,
-                            "order by g.first_block desc, g.address limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
+                            "order by g.first_block desc, g.address ",
+                            "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
                             []),
 
     {ok, S3} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST_BEFORE,
                            [?SELECT_OWNER_HOTSPOT,
-                            "where (g.address > $2 and g.first_block = $3) or (g.first_block < $3) ",
-                            "order by g.address "
-                            "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
-                            []),
+                            "where ((g.address > $2 and g.first_block = $3) or (g.first_block < $3)) ",
+                            "order by g.first_block desc, g.address "
+                            "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)
+                            ], []),
 
     {ok, S4} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST,
-                           ?SELECT_OWNER_HOTSPOT, []),
+                           [?SELECT_OWNER_HOTSPOT,
+                            "order by g.first_block desc, g.address ",
+                            "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)
+                            ], []),
 
     {ok, S5} = epgsql:parse(Conn, ?S_HOTSPOT,
                            [?SELECT_HOTSPOT_BASE,
@@ -66,16 +70,17 @@ prepare_conn(Conn) ->
 
     {ok, S6} = epgsql:parse(Conn, ?S_CITY_HOTSPOT_LIST_BEFORE,
                             [?SELECT_HOTSPOT_BASE,
-                             "where l.long_country = lower($1) and l.long_state = lower($2) and l.long_city = lower($3)",
-                             "and (g.address > $4 and g.first_block = $5) or (g.first_block < $6) ",
-                             "order by g.address "
+                             "where l.city_id = $1 "
+                             "and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3)) ",
+                             "order by g.first_block desc, g.address "
                              "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)
                            ], []),
 
     {ok, S7} = epgsql:parse(Conn, ?S_CITY_HOTSPOT_LIST,
                             [?SELECT_HOTSPOT_BASE,
-                             "where l.long_country = lower($1) and l.long_state = lower($2) and l.long_city = lower($3) ",
-                             "order by g.first_block desc, g.address limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
+                             "where l.city_id = $1 "
+                             "order by g.first_block desc, g.address ",
+                             "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
                             []),
 
 
@@ -133,6 +138,7 @@ get_hotspot_list([{owner, Owner}, {city, City}, {cursor, Cursor}]) ->
                     Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [Owner, BeforeAddress, BeforeBlock]),
                     mk_hotspot_list_from_result(CursorHeight, Result);
                 {undefined, City} ->
+                    lager:info("CITY ~p, BA: ~p, BB: ~p", [City, BeforeAddress, BeforeBlock]),
                     Result = ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST_BEFORE, [City, BeforeAddress, BeforeBlock]),
                     mk_hotspot_list_from_result(CursorHeight, Result);
                 {_, _} ->
