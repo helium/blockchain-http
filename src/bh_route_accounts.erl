@@ -28,7 +28,7 @@
         " select accounts.*, blocks.timestamp  from accounts inner join blocks on blocks.height = accounts.block",
         " where address = $1 ",
         ")",
-        "select ts.timestamp, (select max(accounts_ts.balance) from accounts_ts where timestamp < ts.timestamp) from ts"
+        "select ts.timestamp, (select accounts_ts.balance from accounts_ts where timestamp <= ts.timestamp order by timestamp desc limit 1) from ts"
        ]).
 
 -define(ACCOUNT_LIST_LIMIT, 100).
@@ -53,15 +53,15 @@ prepare_conn(Conn) ->
                             []),
 
     {ok, S4} = epgsql:parse(Conn, ?S_ACCOUNT_BAL_HOURLY,
-                            ?SELECT_ACCOUNT_STATS("select generate_series(date_trunc('hour', now()) - '24 hour'::interval, date_trunc('hour', now()), '1 hour') as timestamp")
+                            ?SELECT_ACCOUNT_STATS("select generate_series(date_trunc('hour', now() + '1 hour') - '24 hour'::interval, date_trunc('hour', now() + '1 hour'), '1 hour') as timestamp")
                            , []),
 
     {ok, S5} = epgsql:parse(Conn, ?S_ACCOUNT_BAL_MONTHLY,
-                            ?SELECT_ACCOUNT_STATS("select generate_series(date_trunc('day', now()) - '30 day'::interval, date_trunc('day', now()), '1 day') as timestamp")
+                            ?SELECT_ACCOUNT_STATS("select generate_series(date_trunc('day', now() + '1 day') - '30 day'::interval, date_trunc('day', now() + '1 day'), '1 day') as timestamp")
                            , []),
 
     {ok, S6} = epgsql:parse(Conn, ?S_ACCOUNT_BAL_WEEKLY,
-                            ?SELECT_ACCOUNT_STATS("select generate_series(date_trunc('day', now()) - '1 week'::interval, date_trunc('day', now()), '8 hour') as timestamp")
+                            ?SELECT_ACCOUNT_STATS("select generate_series(date_trunc('day', now() + '8 hour') - '1 week'::interval, date_trunc('day', now() + '8 hour'), '8 hour') as timestamp")
                            , []),
 
     #{?S_ACCOUNT_LIST_BEFORE => S1,
