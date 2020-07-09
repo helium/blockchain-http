@@ -15,6 +15,7 @@
 -define(S_STATS_STATE_CHANNELS, "stats_state_channels").
 -define(S_TOKEN_SUPPLY, "stats_token_supply").
 -define(S_STATS_COUNTS, "stats_counts").
+-define(S_STATS_CHALLENGES, "stats_challenges").
 
 prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_STATS_BLOCK_TIMES,
@@ -108,12 +109,40 @@ prepare_conn(Conn) ->
                             []),
 
 
+    {ok, S6} = epgsql:parse(Conn, ?S_STATS_CHALLENGES,
+                            ["with block_poc_range as ( ",
+                             "        select greatest(0, max(height) - coalesce((select value::bigint from vars_inventory where name = 'poc_challenge_interval'), 30)) as min, ",
+                             "               max(height) ",
+                             "        from blocks ",
+                             "), ",
+                             "block_last_day_range as ( ",
+                             "    select min(height), max(height) from blocks ",
+                             "    where timestamp between now() - '24 hour'::interval and now() ",
+                             "), ",
+                             "last_day_challenges as ( ",
+                             "    select hash from transactions ",
+                             "    where block between (select min from block_last_day_range) and (select max from block_last_day_range) and type = 'poc_receipts_v1'",
+                             "), ",
+                             "poc_receipts as ( ",
+                             "    select hash, fields->>'onion_key_hash' as challenge_id from transactions ",
+                             "    where block between (select min from block_poc_range) and (select max from block_poc_range) and type = 'poc_receipts_v1' ",
+                             "), ",
+                             "poc_requests as ( ",
+                             "    select hash, fields->>'onion_key_hash' as challenge_id from transactions ",
+                             "    where block between (select min from block_poc_range) and (select max from block_poc_range) and type = 'poc_request_v1'",
+                             ") ",
+                             "select * from ",
+                             "    (select count(*) as active_challenges from poc_requests ",
+                             "     where challenge_id not in (select challenge_id from poc_receipts)) as active, ",
+                             "    (select count(*) as last_day_challenges from last_day_challenges) as last_day "
+                            ], []),
     #{
       ?S_STATS_BLOCK_TIMES => S1,
       ?S_STATS_ELECTION_TIMES => S2,
       ?S_TOKEN_SUPPLY => S3,
       ?S_STATS_STATE_CHANNELS => S4,
-      ?S_STATS_COUNTS => S5
+      ?S_STATS_COUNTS => S5,
+      ?S_STATS_CHALLENGES => S6
      }.
 
 handle('GET', [], _Req) ->
@@ -128,13 +157,15 @@ get_stats()  ->
     StateChannelResults = ?PREPARED_QUERY(?S_STATS_STATE_CHANNELS, []),
     SupplyResult = ?PREPARED_QUERY(?S_TOKEN_SUPPLY, []),
     CountsResults = ?PREPARED_QUERY(?S_STATS_COUNTS, []),
+    ChallengeResults = ?PREPARED_QUERY(?S_STATS_CHALLENGES, []),
 
     {ok, #{
            block_times => mk_stats_from_time_results(BlockTimeResults),
            election_times => mk_stats_from_time_results(ElectionTimeResults),
            token_supply => mk_token_supply_from_result(SupplyResult),
            state_channel_counts => mk_stats_from_state_channel_results(StateChannelResults),
-           counts => mk_stats_from_counts_results(CountsResults)
+           counts => mk_stats_from_counts_results(CountsResults),
+           challenge_counts => mk_stats_from_challenge_results(ChallengeResults)
           }
     }.
 
@@ -158,17 +189,45 @@ mk_stats_from_state_channel_results({ok, _, [{LastDayDCs, LastDayPackets,
 
 mk_stats_from_counts_results({ok, _, CountsResults}) ->
     maps:from_list(CountsResults).
+
+mk_stats_from_challenge_results({ok, _, [{ActiveChallenges, LastDayChallenges}]}) ->
+    #{
+      active => mk_int(ActiveChallenges),
+      last_day => mk_int(LastDayChallenges)
+     }.
     
 mk_float(null) ->
     null;
-mk_float(Bin) ->
-    binary_to_float(Bin).
+mk_float(Bin) when is_binary(Bin) ->
+    binary_to_float(Bin);
+mk_float(Num) when is_float(Num) ->
+    Num.
 
 mk_int(null) ->
     null;
-mk_int(Bin) ->
-    binary_to_integer(Bin).
+mk_int(Bin) when is_binary(Bin) ->
+    binary_to_integer(Bin);
+mk_int(Num) when is_integer(Num) ->
+    Num.
+
 
 
 mk_token_supply_from_result({ok, _, [{TokenSupply}]}) ->
     mk_float(TokenSupply).
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+mk_int_test() ->
+    ?assertEqual(null, mk_int(null)),
+    ?assertEqual(22, mk_int(<<"22">>)),
+    ?assertEqual(22, mk_int(22)),
+    ok.
+
+mk_float_test() ->
+    ?assertEqual(null, mk_float(null)),
+    ?assertEqual(22.2, mk_float(<<"22.2">>)),
+    ?assertEqual(22.2, mk_float(22.2)),
+    ok.
+
+-endif.
