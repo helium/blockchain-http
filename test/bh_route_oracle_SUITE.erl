@@ -5,8 +5,10 @@
 
 all() -> [
           price_test,
+          price_at_block_test,
           list_test,
-          activity_list_test
+          activity_list_test,
+          price_predictions_test
          ].
 
 init_per_suite(Config) ->
@@ -25,6 +27,17 @@ price_test(_Config) ->
 
     ok.
 
+price_at_block_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/oracle/prices/366920"),
+    ?assertMatch(#{ <<"data">> :=
+                        #{ <<"block">> :=  _,
+                           <<"price">> := _
+                         }
+                  }, Json),
+
+    ok.
+
+
 list_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/oracle/prices"),
     #{ <<"data">> := Data } = Json,
@@ -40,5 +53,12 @@ activity_list_test(_Config) ->
     {ok, {_, _, OneJson}} = ?json_request("/v1/oracle/13CFFcmPtMvNQCpWQRXCTqXPnXtcsibDWVwiQRKpUCt4nqtF7RE/activity"),
     #{ <<"data">> := OneData } = OneJson,
     ?assert(length(OneData) >= 0),
+
+    ok.
+
+price_predictions_test(_Config) ->
+    {ok, {_, _, AllJson}} = ?json_request("/v1/oracle/predictions"),
+    #{ <<"data">> := AllData } = AllJson,
+    ?assert(length(AllData) >= 0),
 
     ok.
