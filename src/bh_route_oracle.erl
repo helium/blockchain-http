@@ -13,6 +13,7 @@
 -define(S_PRICE_LIST_BEFORE, "oracle_price_list_before").
 -define(S_PRICE_LIST, "oracle_price_list").
 -define(S_PRICE_CURRENT, "oracle_price_current").
+-define(S_PRICE_PREDICTIONS, "oracle_price_predictions").
 
 -define(SELECT_PRICE_BASE, "select p.block, p.price from oracle_prices p ").
 
@@ -36,15 +37,25 @@ prepare_conn(Conn) ->
                             "order by block DESC limit 1"
                            ], []),
 
-    #{?S_PRICE_LIST => S1,
+    {ok, S4} = epgsql:parse(Conn, ?S_PRICE_PREDICTIONS,
+                           ["select time, price from oracle_price_predictions ",
+                            "order by time DESC"
+                           ], []),
+
+    #{
+      ?S_PRICE_LIST => S1,
       ?S_PRICE_LIST_BEFORE => S2,
-      ?S_PRICE_CURRENT => S3 }.
+      ?S_PRICE_CURRENT => S3,
+      ?S_PRICE_PREDICTIONS => S4
+     }.
 
 handle('GET', [<<"prices">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(get_price_list(Args), block_time);
 handle('GET', [<<"prices">>, <<"current">>], _Req) ->
     ?MK_RESPONSE(get_current_price(), block_time);
+handle('GET', [<<"predictions">>], _Req) ->
+    ?MK_RESPONSE(get_price_predictions(), block_time);
 handle('GET', [<<"activity">>], Req) ->
     Args = add_filter_types(?GET_ARGS([cursor], Req)),
     Result = bh_route_txns:get_txn_list(Args),
@@ -94,6 +105,10 @@ get_current_price() ->
             {ok, price_to_json({1, 0})}
     end.
 
+get_price_predictions() ->
+    {ok, _, Results} = ?PREPARED_QUERY(?S_PRICE_PREDICTIONS, []),
+    {ok, price_predictions_to_json(Results)}.
+
 
 %%
 %% json
@@ -105,5 +120,14 @@ price_list_to_json(Results) ->
 price_to_json({Block, Price}) ->
     #{
       block => Block,
+      price => Price
+     }.
+
+price_predictions_to_json(Results) ->
+    lists:map(fun price_prediction_to_json/1, Results).
+
+price_prediction_to_json({Time, Price}) ->
+    #{
+      time => Time,
       price => Price
      }.

@@ -6,7 +6,8 @@
 all() -> [
           price_test,
           list_test,
-          activity_list_test
+          activity_list_test,
+          price_predictions_test
          ].
 
 init_per_suite(Config) ->
@@ -40,5 +41,12 @@ activity_list_test(_Config) ->
     {ok, {_, _, OneJson}} = ?json_request("/v1/oracle/13CFFcmPtMvNQCpWQRXCTqXPnXtcsibDWVwiQRKpUCt4nqtF7RE/activity"),
     #{ <<"data">> := OneData } = OneJson,
     ?assert(length(OneData) >= 0),
+
+    ok.
+
+price_predictions_test(_Config) ->
+    {ok, {_, _, AllJson}} = ?json_request("/v1/oracle/predictions"),
+    #{ <<"data">> := AllData } = AllJson,
+    ?assert(length(AllData) >= 0),
 
     ok.
