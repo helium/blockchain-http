@@ -7,12 +7,12 @@
 
 -export([prepare_conn/1, handle/3]).
 %% Utilities
--export([get_price_list/1, get_current_price/0]).
+-export([get_price_list/1, get_price_at_block/1]).
 
 
 -define(S_PRICE_LIST_BEFORE, "oracle_price_list_before").
 -define(S_PRICE_LIST, "oracle_price_list").
--define(S_PRICE_CURRENT, "oracle_price_current").
+-define(S_PRICE_AT_BLOCK, "oracle_price_at_block").
 -define(S_PRICE_PREDICTIONS, "oracle_price_predictions").
 
 -define(SELECT_PRICE_BASE, "select p.block, p.price from oracle_prices p ").
@@ -32,8 +32,9 @@ prepare_conn(Conn) ->
                               "where p.block < $1 order by block DESC limit ", PriceListLimit
                              ], []),
 
-    {ok, S3} = epgsql:parse(Conn, ?S_PRICE_CURRENT,
+    {ok, S3} = epgsql:parse(Conn, ?S_PRICE_AT_BLOCK,
                            [?SELECT_PRICE_BASE,
+                            "where block <= coalesce($1, (select max(height) from blocks)) "
                             "order by block DESC limit 1"
                            ], []),
 
@@ -45,7 +46,7 @@ prepare_conn(Conn) ->
     #{
       ?S_PRICE_LIST => S1,
       ?S_PRICE_LIST_BEFORE => S2,
-      ?S_PRICE_CURRENT => S3,
+      ?S_PRICE_AT_BLOCK => S3,
       ?S_PRICE_PREDICTIONS => S4
      }.
 
@@ -53,7 +54,13 @@ handle('GET', [<<"prices">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(get_price_list(Args), block_time);
 handle('GET', [<<"prices">>, <<"current">>], _Req) ->
-    ?MK_RESPONSE(get_current_price(), block_time);
+    ?MK_RESPONSE(get_price_at_block(undefined), block_time);
+handle('GET', [<<"prices">>, Block], _Req) ->
+    try binary_to_integer(Block) of
+        Height -> ?MK_RESPONSE(get_price_at_block(Height), infinity)
+    catch _:_ ->
+        ?RESPONSE_400
+    end;
 handle('GET', [<<"predictions">>], _Req) ->
     ?MK_RESPONSE(get_price_predictions(), block_time);
 handle('GET', [<<"activity">>], Req) ->
@@ -97,8 +104,8 @@ mk_price_list_cursor(PrevCursor, Results) when is_list(Results) ->
             #{ before => Block }
     end.
 
-get_current_price() ->
-    case ?PREPARED_QUERY(?S_PRICE_CURRENT, []) of
+get_price_at_block(Height) ->
+    case ?PREPARED_QUERY(?S_PRICE_AT_BLOCK, [Height]) of
         {ok, _, [Result]} ->
             {ok, price_to_json(Result)};
         _ ->

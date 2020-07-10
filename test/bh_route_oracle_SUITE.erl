@@ -5,6 +5,7 @@
 
 all() -> [
           price_test,
+          price_at_block_test,
           list_test,
           activity_list_test,
           price_predictions_test
@@ -25,6 +26,17 @@ price_test(_Config) ->
                   }, Json),
 
     ok.
+
+price_at_block_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/oracle/prices/366920"),
+    ?assertMatch(#{ <<"data">> :=
+                        #{ <<"block">> :=  _,
+                           <<"price">> := _
+                         }
+                  }, Json),
+
+    ok.
+
 
 list_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/oracle/prices"),
