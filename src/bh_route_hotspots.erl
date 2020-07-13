@@ -27,7 +27,8 @@
          "l.short_street, l.long_street, ",
          "l.short_city, l.long_city, ",
          "l.short_state, l.long_state, ",
-         "l.short_country, l.long_country ",
+         "l.short_country, l.long_country, ",
+         "l.city_id ",
          G,
          " left join locations l on g.location = l.location ",
          " left join gateway_status s on s.address = g.address "
@@ -138,7 +139,6 @@ get_hotspot_list([{owner, Owner}, {city, City}, {cursor, Cursor}]) ->
                     Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [Owner, BeforeAddress, BeforeBlock]),
                     mk_hotspot_list_from_result(CursorHeight, Result);
                 {undefined, City} ->
-                    lager:info("CITY ~p, BA: ~p, BB: ~p", [City, BeforeAddress, BeforeBlock]),
                     Result = ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST_BEFORE, [City, BeforeAddress, BeforeBlock]),
                     mk_hotspot_list_from_result(CursorHeight, Result);
                 {_, _} ->
@@ -169,7 +169,8 @@ mk_hotspot_list_from_result(CursorHeight,
                                       _ShortStreet, _LongStreet,
                                       _ShortCity, _LongCity,
                                       _ShortState, _LongState,
-                                      _ShortCountry, _LongCountry
+                                      _ShortCountry, _LongCountry,
+                                      _CityId
                                      } | _]}) when CursorHeight /= Height ->
     {error, cursor_expired};
 mk_hotspot_list_from_result(CursorHeight,
@@ -180,7 +181,8 @@ mk_hotspot_list_from_result(CursorHeight,
                                       _OnlineStatus, _GPSStatus, _BlockStatus,
                                       _ShortCity, _LongCity,
                                       _ShortState, _LongState,
-                                      _ShortCountry, _LongCountry
+                                      _ShortCountry, _LongCountry,
+                                      _CityId
                                      } | _] = Results}) when CursorHeight == Height ->
     %% The above head ensures that the given cursor height matches the
     %% height in the results
@@ -203,7 +205,8 @@ mk_cursor(Results) when is_list(Results) ->
                  _ShortStreet, _LongStreet,
                  _ShortCity, _LongCity,
                  _ShortState, _LongState,
-                 _ShortCountry, _LongCountry
+                 _ShortCountry, _LongCountry,
+                 _CityId
                 } ->
                     #{ before_address => Address,
                        before_block => FirstBlock,
@@ -220,26 +223,34 @@ hotspot_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
 
 to_geo_json({ShortStreet, LongStreet,
-                     ShortCity, LongCity,
-                     ShortState, LongState,
-                     ShortCountry, LongCountry}) ->
+             ShortCity, LongCity,
+             ShortState, LongState,
+             ShortCountry, LongCountry,
+             CityId
+            }) ->
     Base = to_geo_json({ShortCity, LongCity,
                         ShortState, LongState,
-                        ShortCountry, LongCountry}),
+                        ShortCountry, LongCountry,
+                        CityId}),
     Base#{
           short_street => ShortStreet,
           long_street => LongStreet
          };
 to_geo_json({ShortCity, LongCity,
-                     ShortState, LongState,
-                     ShortCountry, LongCountry}) ->
+             ShortState, LongState,
+             ShortCountry, LongCountry,
+             CityId}) ->
+    MaybeB64 = fun(null) -> null;
+                  (Bin) -> ?BIN_TO_B64(Bin)
+               end,
     #{
       short_city => ShortCity,
       long_city => LongCity,
       short_state => ShortState,
       long_state => LongState,
       short_country => ShortCountry,
-      long_country => LongCountry
+      long_country => LongCountry,
+      city_id => MaybeB64(CityId)
      }.
 
 hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location,
@@ -248,7 +259,8 @@ hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location,
                  ShortStreet, LongStreet,
                  ShortCity, LongCity,
                  ShortState, LongState,
-                 ShortCountry, LongCountry
+                 ShortCountry, LongCountry,
+                 CityId
                 }) ->
 
     MaybeZero = fun(null) -> 0;
@@ -264,7 +276,8 @@ hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location,
                       geocode => to_geo_json({ShortStreet, LongStreet,
                                               ShortCity, LongCity,
                                               ShortState, LongState,
-                                              ShortCountry, LongCountry}),
+                                              ShortCountry, LongCountry,
+                                              CityId}),
                       score_update_height => ScoreBlock,
                       score => Score,
                       block_added => FirstBlock,
