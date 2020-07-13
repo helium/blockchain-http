@@ -167,8 +167,8 @@ city_to_json({ShortCity, LongCity,
               CityId, _Rank, Count}) ->
     Base = bh_route_hotspots:to_geo_json({ShortCity, LongCity,
                                           ShortState, LongState,
-                                          ShortCountry, LongCountry}),
-    Base#{ hotspot_count => Count,
-           city_id => ?BIN_TO_B64(CityId)
+                                          ShortCountry, LongCountry,
+                                          CityId}),
+    Base#{
+           hotspot_count => Count
          }.
-
