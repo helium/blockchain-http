@@ -12,7 +12,7 @@
 %% how many times to try to get a worker
 -define(POOL_CHECKOUT_RETRIES, 3).
 %% how long to wait for a query response
--define(POOL_QUERY_TIMEOUT, 10000).
+-define(POOL_QUERY_TIMEOUT, 15000).
 
 -export([init/1, checkout/2, transaction/3, checkin/2, handle_info/2, dead/1,
          terminate/2, code_change/3]).
