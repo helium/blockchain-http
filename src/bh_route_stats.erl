@@ -36,15 +36,15 @@ prepare_conn(Conn) ->
                              "    select * from day_interval where timestamp > (now() - '1 hour'::interval)",
                              ") ",
                              "select ",
-                             "    (select avg(diff_time) from hour_interval) as last_hour_avg,",
-                             "    (select avg(diff_time) from day_interval) as last_day_avg,",
-                             "    (select avg(diff_time) from week_interval) as last_week_avg,",
-                             "    (select avg(diff_time) from month_interval) as last_month_avg,",
+                             "    (select avg(diff_time) from hour_interval)::float as last_hour_avg,",
+                             "    (select avg(diff_time) from day_interval)::float as last_day_avg,",
+                             "    (select avg(diff_time) from week_interval)::float as last_week_avg,",
+                             "    (select avg(diff_time) from month_interval)::float as last_month_avg,",
                              %% Add std deviations
-                             "    (select stddev(diff_time) from hour_interval) as last_hour_stddev,",
-                             "    (select stddev(diff_time) from day_interval) as last_day_stddev,",
-                             "    (select stddev(diff_time) from week_interval) as last_week_stddev,",
-                             "    (select stddev(diff_time) from month_interval) as last_month_stddev"
+                             "    (select stddev(diff_time) from hour_interval)::float as last_hour_stddev,",
+                             "    (select stddev(diff_time) from day_interval)::float as last_day_stddev,",
+                             "    (select stddev(diff_time) from week_interval)::float as last_week_stddev,",
+                             "    (select stddev(diff_time) from month_interval)::float as last_month_stddev"
                             ], []),
 
     {ok, S2} = epgsql:parse(Conn, ?S_STATS_ELECTION_TIMES,
@@ -66,19 +66,19 @@ prepare_conn(Conn) ->
                              "    select * from day_interval where timestamp > (now() - '1 hour'::interval)",
                              ") ",
                              "select ",
-                             "    (select avg(diff_time) from hour_interval) as last_hour_avg,",
-                             "    (select avg(diff_time) from day_interval) as last_day_avg,",
-                             "    (select avg(diff_time) from week_interval) as last_week_avg,",
-                             "    (select avg(diff_time) from month_interval) as last_month_avg,",
+                             "    (select avg(diff_time) from hour_interval)::float as last_hour_avg,",
+                             "    (select avg(diff_time) from day_interval)::float as last_day_avg,",
+                             "    (select avg(diff_time) from week_interval)::float as last_week_avg,",
+                             "    (select avg(diff_time) from month_interval)::float as last_month_avg,",
                              %% Add std deviations
-                             "    (select stddev(diff_time) from hour_interval) as last_hour_stddev,",
-                             "    (select stddev(diff_time) from day_interval) as last_day_stddev,",
-                             "    (select stddev(diff_time) from week_interval) as last_week_stddev,",
-                             "    (select stddev(diff_time) from month_interval) as last_month_stddev"
+                             "    (select stddev(diff_time) from hour_interval)::float as last_hour_stddev,",
+                             "    (select stddev(diff_time) from day_interval)::float as last_day_stddev,",
+                             "    (select stddev(diff_time) from week_interval)::float as last_week_stddev,",
+                             "    (select stddev(diff_time) from month_interval)::float as last_month_stddev"
                             ], []),
 
     {ok, S3} = epgsql:parse(Conn, ?S_TOKEN_SUPPLY,
-                            "select (sum(balance) / 100000000) as token_supply from account_inventory",
+                            "select (sum(balance) / 100000000)::float as token_supply from account_inventory",
                             []),
 
     {ok, S4} = epgsql:parse(Conn, ?S_STATS_STATE_CHANNELS,
@@ -96,12 +96,12 @@ prepare_conn(Conn) ->
                              "     select * from week_interval where timestamp > (now() - '24 hour'::interval)",
                              " )",
                              " select",
-                             "     (select sum((t.counts).num_dcs) as num_dcs from day_interval t) as last_day_dcs,",
-                             "     (select sum((t.counts).num_packets) as num_dcs from day_interval t) as last_day_packets,",
-                             "     (select sum((t.counts).num_dcs) as num_dcs from week_interval t) as last_week_dcs,",
-                             "     (select sum((t.counts).num_packets) as num_dcs from week_interval t) as last_week_packets,",
-                             "     (select sum((t.counts).num_dcs) as num_dcs from month_interval t) as last_month_dcs,",
-                             "     (select sum((t.counts).num_packets) as num_dcs from month_interval t) as last_month_packets;"
+                             "     (select sum((t.counts).num_dcs) as num_dcs from day_interval t)::integer as last_day_dcs,",
+                             "     (select sum((t.counts).num_packets) as num_dcs from day_interval t)::integer as last_day_packets,",
+                             "     (select sum((t.counts).num_dcs) as num_dcs from week_interval t)::integer as last_week_dcs,",
+                             "     (select sum((t.counts).num_packets) as num_dcs from week_interval t)::integer as last_week_packets,",
+                             "     (select sum((t.counts).num_dcs) as num_dcs from month_interval t)::integer as last_month_dcs,",
+                             "     (select sum((t.counts).num_packets) as num_dcs from month_interval t)::integer as last_month_packets;"
                              ], []),
 
     {ok, S5} = epgsql:parse(Conn, ?S_STATS_COUNTS,
