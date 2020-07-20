@@ -234,7 +234,7 @@ get_txn_list(Args=[{cursor, _}, {filter_types, _}]) ->
 get_actor_txn_list({actor, Address}, Args=[{cursor, _}, {filter_types, _}]) ->
     get_txn_list([Address], {?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
 get_actor_txn_list({owned, Address}, Args=[{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([Address], {?S_OWNED_ACTOR_TXN_LIST, ?SELECT_OWNED_ACTOR_TXN_LIST_REM}, Args).
+    get_txn_list([Address], {?S_OWNED_ACTOR_TXN_LIST, ?S_OWNED_ACTOR_TXN_LIST_REM}, Args).
 
 get_activity_list({account, Account}, Args) ->
     get_txn_list([Account], {?S_ACCOUNT_ACTIVITY_LIST, ?S_ACCOUNT_ACTIVITY_LIST_REM}, Args);
