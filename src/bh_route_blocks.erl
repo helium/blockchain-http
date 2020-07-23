@@ -134,7 +134,7 @@ get_block_list([{cursor, undefined}]) ->
 get_block_list([{cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, #{ <<"before">> := Before}} ->
-            {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [Before - (Before rem ?BLOCK_LIST_LIMIT)]),
+            {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [max(1, Before)]),
             {ok, block_list_to_json(Results), mk_block_list_cursor(Results)};
         _ ->
             {error, badarg}
