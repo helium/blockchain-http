@@ -54,7 +54,7 @@
 
 -define(SELECT_ACTOR_TXN_LIST_BASE(F, E),
         [?SELECT_TXN_FIELDS(F),
-         "from (select tr.*, a.actor ",
+         "from (select distinct on (tr.block, tr.hash) tr.*, a.actor ",
          "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
          " where tr.block >= $3 and tr.block < $4 and a.actor = $1 ", (E),
          " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
@@ -62,7 +62,7 @@
 
 -define(SELECT_ACTOR_TXN_LIST_REM_BASE(F, E),
         [?SELECT_TXN_FIELDS(F),
-         "from (select tr.*, a.actor ",
+         "from (select distinct on (tr.hash) tr.*, a.actor ",
          " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
          " where tr.block = $3 and a.actor = $1 ", (E),
          "  and tr.type = ANY($2) order by tr.hash) as t ",
@@ -71,7 +71,7 @@
 
 -define(SELECT_OWNED_ACTOR_TXN_LIST_BASE(F, E),
         [?SELECT_TXN_FIELDS(F),
-         "from (select tr.*, a.actor ",
+         "from (select distinct on (tr.block, tr.hash) tr.*, a.actor ",
          " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
          " where tr.block >= $3 and tr.block < $4",
          "  and a.actor in (select address from gateway_inventory where owner = $1) ", (E),
@@ -80,7 +80,7 @@
 
 -define(SELECT_OWNED_ACTOR_TXN_LIST_REM_BASE(F, E),
         [?SELECT_TXN_FIELDS(F),
-         "from (select tr.*, a.actor ",
+         "from (select distinct on (tr.hash) tr.*, a.actor ",
          " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
          " where tr.block = $3",
          "  and a.actor in (select address from gateway_inventory where owner = $1) ", (E),
@@ -159,8 +159,8 @@ prepare_conn(Conn) ->
 
     {ok, S4} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST, ?SELECT_ACTOR_TXN_LIST,
                             []),
-
     {ok, S5} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST_REM, ?SELECT_ACTOR_TXN_LIST_REM,
+
                             []),
 
     {ok, S6} = epgsql:parse(Conn, ?S_OWNED_ACTOR_TXN_LIST, ?SELECT_OWNED_ACTOR_TXN_LIST,
