@@ -21,9 +21,7 @@ prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_SNAPSHOT_LIST,
                             [?SELECT_SNAPSHOT_BASE
                              "where b.snapshot_hash is not null and b.snapshot_hash != '' ",
-                             "order by height desc limit ",
-                            "(select coalesce(nullif(max(height) % ", SnapshotListLimit, ", 0), ", SnapshotListLimit, ") from blocks)"
-
+                             "order by height desc limit ", SnapshotListLimit
                             ], []),
 
     {ok, S2} = epgsql:parse(Conn, ?S_SNAPSHOT_LIST_BEFORE,
@@ -64,7 +62,7 @@ get_snapshot_list([{cursor, undefined}]) ->
 get_snapshot_list([{cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, #{ <<"before">> := Before}} ->
-            {ok, _, Results} = ?PREPARED_QUERY(?S_SNAPSHOT_LIST_BEFORE, [Before - (Before rem ?SNAPSHOT_LIST_LIMIT)]),
+            {ok, _, Results} = ?PREPARED_QUERY(?S_SNAPSHOT_LIST_BEFORE, [Before]),
             {ok, snapshot_list_to_json(Results), mk_snapshot_list_cursor(Results)};
         _ ->
             {error, badarg}
@@ -88,12 +86,10 @@ mk_snapshot_list_cursor(Results) when is_list(Results) ->
     end.
 
 get_snapshot_list_cache_time({ok, _, undefined}) ->
+    %% End of cursor data
     infinity;
-get_snapshot_list_cache_time({ok, _, #{before := Height}}) ->
-    case (Height rem ?SNAPSHOT_LIST_LIMIT) == 0 of
-        true -> infinity;
-        false -> block_time
-    end;
+get_snapshot_list_cache_time({ok, _, _}) ->
+    block_time;
 get_snapshot_list_cache_time(_) ->
     never.
 
