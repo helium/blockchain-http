@@ -37,7 +37,7 @@ prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT,
                            "select max(height) from blocks", []),
 
-    BlockListLimit = integer_to_list(?BLOCK_TXN_LIST_LIMIT),
+    BlockListLimit = integer_to_list(?BLOCK_LIST_LIMIT),
     {ok, S2} = epgsql:parse(Conn, ?S_BLOCK_LIST,
                            [?SELECT_BLOCK_BASE,
                             "order by height DESC limit ",
@@ -141,8 +141,10 @@ get_block_list([{cursor, Cursor}]) ->
     end.
 
 get_block_list_cache_time({ok, _, undefined}) ->
+    %% No cursor means this was the last page.. cache a long time
     infinity;
-get_block_list_cache_time({ok, _, #{before := Height}}) ->
+get_block_list_cache_time({ok, Results, _}) when length(Results) > 0 ->
+    #{ height := Height } = hd(Results),
     case (Height rem ?BLOCK_LIST_LIMIT) == 0 of
         true -> infinity;
         false -> block_time
