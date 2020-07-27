@@ -41,7 +41,7 @@ prepare_conn(Conn) ->
     {ok, S2} = epgsql:parse(Conn, ?S_BLOCK_LIST,
                            [?SELECT_BLOCK_BASE,
                             "order by height DESC limit ",
-                            "(select coalesce(nullif(max(height) % ", BlockListLimit, ", 0), ", BlockListLimit, ") from blocks)"
+                            "(select max(height) % ", BlockListLimit, " from blocks)"
 
                            ],[]),
 
@@ -141,14 +141,14 @@ get_block_list([{cursor, Cursor}]) ->
     end.
 
 get_block_list_cache_time({ok, _, undefined}) ->
-    %% No cursor means this was the last page.. cache a long time
+    %% No next cursor means this was the last page.. cache a long time
     infinity;
-get_block_list_cache_time({ok, Results, _}) when length(Results) > 0 ->
-    #{ height := Height } = hd(Results),
-    case (Height rem ?BLOCK_LIST_LIMIT) == 0 of
-        true -> infinity;
-        false -> block_time
-    end;
+get_block_list_cache_time({ok, Results, _}) when length(Results) == ?BLOCK_LIST_LIMIT ->
+    %% This is a proper page, cursor and a full list of entries
+    infinity;
+get_block_list_cache_time({ok, Results, _}) when length(Results) < ?BLOCK_LIST_LIMIT ->
+    %% This is a partial result. Shoudl only happen on the first result
+    block_time;
 get_block_list_cache_time(_) ->
     never.
 
