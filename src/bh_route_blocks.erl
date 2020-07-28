@@ -15,7 +15,6 @@
 
 -define(S_BLOCK_HEIGHT, "block_height").
 
--define(S_BLOCK_LIST, "block_list").
 -define(S_BLOCK_LIST_BEFORE, "block_list_before").
 
 -define(S_BLOCK_BY_HASH, "block_by_hash").
@@ -37,17 +36,9 @@ prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_BLOCK_HEIGHT,
                            "select max(height) from blocks", []),
 
-    BlockListLimit = integer_to_list(?BLOCK_LIST_LIMIT),
-    {ok, S2} = epgsql:parse(Conn, ?S_BLOCK_LIST,
-                           [?SELECT_BLOCK_BASE,
-                            "order by height DESC limit ",
-                            "(select max(height) % ", BlockListLimit, " from blocks)"
-
-                           ],[]),
-
     {ok, S3} = epgsql:parse(Conn, ?S_BLOCK_LIST_BEFORE,
                            [?SELECT_BLOCK_BASE,
-                            "where b.height < $1 order by height DESC limit ", BlockListLimit],
+                            "where b.height < $1 order by height DESC limit $2"],
                             []),
 
     {ok, S4} = epgsql:parse(Conn, ?S_BLOCK_BY_HEIGHT,
@@ -87,7 +78,6 @@ prepare_conn(Conn) ->
                             []),
 
     #{?S_BLOCK_HEIGHT => S1,
-      ?S_BLOCK_LIST => S2,
       ?S_BLOCK_LIST_BEFORE => S3,
       ?S_BLOCK_BY_HEIGHT => S4,
       ?S_BLOCK_BY_HASH => S5,
@@ -129,22 +119,28 @@ handle(_Method, _Path, _Req) ->
 
 
 get_block_list([{cursor, undefined}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST, []),
-    {ok, block_list_to_json(Results), mk_block_list_cursor(Results)};
+    {ok, #{ height := Height }} = get_block_height(),
+    case Height rem ?BLOCK_LIST_LIMIT of
+        0 ->
+            %% Handle the perfect block aligned height by returning an empty
+            %% response with a cursor that can be used as the cache key.
+            {ok, [], mk_block_list_cursor(Height + 1)};
+        Limit ->
+            {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [Height + 1, Limit]),
+            {ok, block_list_to_json(Results), mk_block_list_cursor(Height + 1 - length(Results))}
+    end;
 get_block_list([{cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, #{ <<"before">> := Before}} ->
-            {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [max(1, Before)]),
-            {ok, block_list_to_json(Results), mk_block_list_cursor(Results)};
+            {ok, _, Results} = ?PREPARED_QUERY(?S_BLOCK_LIST_BEFORE, [Before, ?BLOCK_LIST_LIMIT]),
+            {ok, block_list_to_json(Results), mk_block_list_cursor(Before - length(Results))};
         _ ->
             {error, badarg}
     end.
 
-get_block_list_cache_time({ok, _, undefined}) ->
-    %% No next cursor means this was the last page.. cache a long time
-    infinity;
 get_block_list_cache_time({ok, Results, _}) when length(Results) == ?BLOCK_LIST_LIMIT ->
-    %% This is a proper page, cursor and a full list of entries
+    %% This is a proper page, cursor and a full list of entries. This reliies on
+    %% the result of a block list aligned height to have 0 results.
     infinity;
 get_block_list_cache_time({ok, Results, _}) when length(Results) < ?BLOCK_LIST_LIMIT ->
     %% This is a partial result. Shoudl only happen on the first result
@@ -152,14 +148,11 @@ get_block_list_cache_time({ok, Results, _}) when length(Results) < ?BLOCK_LIST_L
 get_block_list_cache_time(_) ->
     never.
 
-mk_block_list_cursor(Results) when is_list(Results) ->
-    case length(Results) of
-        0 -> undefined;
-        _ -> case lists:last(Results) of
-                 {Height, _Time, _Hash, _PrevHash, _TxnCount, _SnapshotHash} when Height == 1 -> undefined;
-                 {Height, _Time, _Hash, _PrevHash, _TxnCount, _SnapshotHash}  -> #{ before => Height}
-             end
-    end.
+mk_block_list_cursor(Before) when Before =< 1 ->
+    undefined;
+mk_block_list_cursor(Before) ->
+    #{ before => Before}.
+
 
 get_block_height() ->
     {ok, _, [{Height}]} = ?PREPARED_QUERY(?S_BLOCK_HEIGHT, []),
