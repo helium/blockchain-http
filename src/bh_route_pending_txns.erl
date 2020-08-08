@@ -23,7 +23,7 @@
 
 -define(SELECT_ACTOR_PENDING_TXN_LIST_BASE(E),
         [?SELECT_PENDING_TXN_FIELDS,
-         "from pending_transaction_actors a inner join pending_transactions t on a.transaction_hash = t.hash ",
+         "from pending_transaction_actors a inner join pending_transactions t on a.created_at = t.created_at ",
          "where a.actor = $1", (E), " ",
          "order by created_at desc ",
          "limit ", integer_to_list(?PENDING_TXN_LIST_LIMIT)
