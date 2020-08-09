@@ -82,13 +82,8 @@ activity_filter_no_result_test(_Config) ->
 hotspots_test(_Config) ->
     Account = "13YuCz3mZ55HZ6hJJvQHCZXGgE8ooe2CSvbtSHQR3m5vZ1EVCNZ",
     {ok, {_, _, Json}} = ?json_request(["/v1/accounts/", Account, "/hotspots"]),
-    #{ <<"data">> := Data,
-       <<"cursor">> := Cursor } = Json,
+    #{ <<"data">> := Data } = Json,
     ?assert(length(Data) > 0),
-
-    {ok, {_, _, NextJson}} = ?json_request(["/v1/accounts/", Account, "/hotspots?cursor=", Cursor]),
-    #{ <<"data">> := NextData } = NextJson,
-    ?assert(length(NextData) >= 0),
 
     ok.
 

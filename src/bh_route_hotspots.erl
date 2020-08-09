@@ -36,7 +36,7 @@
 -define(SELECT_HOTSPOT_BASE, ?SELECT_HOTSPOT_BASE("from gateway_inventory g")).
 -define(SELECT_OWNER_HOTSPOT,
         ?SELECT_HOTSPOT_BASE(["from (select * from gateway_inventory where owner = $1) as g"])).
--define(HOTSPOT_LIST_LIMIT, 100).
+-define(HOTSPOT_LIST_LIMIT, 1000).
 
 prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(Conn, ?S_HOTSPOT_LIST_BEFORE,
