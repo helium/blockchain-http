@@ -44,11 +44,7 @@ city_search_test(_Config) ->
 
 city_hotspots_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request(["/v1/cities/c2FuIGZyYW5jaXNjb2NhbGlmb3JuaWF1bml0ZWQgc3RhdGVz/hotspots"]),
-    #{ <<"data">> := Data,
-       <<"cursor">> := Cursor } = Json,
+    #{ <<"data">> := Data } = Json,
     ?assert(length(Data) >= 0),
 
-    {ok, {_, _, NextJson}} = ?json_request(["/v1/cities/c2FuIGZyYW5jaXNjb2NhbGlmb3JuaWF1bml0ZWQgc3RhdGVz/hotspots?cursor=", Cursor]),
-    #{ <<"data">> := NextData } = NextJson,
-    ?assert(length(NextData) >= 0),
     ok.
