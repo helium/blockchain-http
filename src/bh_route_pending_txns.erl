@@ -9,13 +9,13 @@
 -export([prepare_conn/1, handle/3]).
 %% Utilities
 -export([get_pending_txn_list/2,
-         get_pending_txn/1,
          insert_pending_txn/2]).
 
 
--define(S_ACTOR_PENDING_TXN_LIST, "pending_txn_list").
--define(S_ACTOR_PENDING_TXN_LIST_BEFORE, "pending_txn_list_before").
--define(S_PENDING_TXN, "pending_txn").
+-define(S_ACTOR_PENDING_TXN_LIST, "actor_pending_txn_list").
+-define(S_ACTOR_PENDING_TXN_LIST_BEFORE, "actor_pending_txn_list_before").
+-define(S_PENDING_TXN_LIST, "pending_txn_list").
+-define(S_PENDING_TXN_LIST_BEFORE, "pending_txn_list_before").
 -define(S_INSERT_PENDING_TXN, "insert_pending_txn").
 
 -define(SELECT_PENDING_TXN_FIELDS,
@@ -24,7 +24,15 @@
 -define(SELECT_ACTOR_PENDING_TXN_LIST_BASE(E),
         [?SELECT_PENDING_TXN_FIELDS,
          "from pending_transaction_actors a inner join pending_transactions t on a.created_at = t.created_at ",
-         "where a.actor = $1", (E), " ",
+         "where a.actor = $1 ", (E), " ",
+         "order by created_at desc ",
+         "limit ", integer_to_list(?PENDING_TXN_LIST_LIMIT)
+        ]).
+
+-define(SELECT_PENDING_TXN_LIST_BASE(E),
+        [?SELECT_PENDING_TXN_FIELDS,
+         "from pending_transactions t ",
+         "where hash = $1 ", (E), " ",
          "order by created_at desc ",
          "limit ", integer_to_list(?PENDING_TXN_LIST_LIMIT)
         ]).
@@ -35,18 +43,18 @@ prepare_conn(Conn) ->
                             []),
 
     {ok, S2} = epgsql:parse(Conn, ?S_ACTOR_PENDING_TXN_LIST_BEFORE,
-                            ?SELECT_ACTOR_PENDING_TXN_LIST_BASE(" and t.created_at < $2"),
+                            ?SELECT_ACTOR_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
                             []),
 
-    {ok, S3} = epgsql:parse(Conn, ?S_PENDING_TXN,
-                           [?SELECT_PENDING_TXN_FIELDS,
-                            "from pending_transactions t ",
-                            "where hash = $1",
-                            "order by created_at desc ",
-                            "limit 1"],
+    {ok, S3} = epgsql:parse(Conn, ?S_PENDING_TXN_LIST,
+                            ?SELECT_PENDING_TXN_LIST_BASE(""),
                             []),
 
-    {ok, S4} = epgsql:parse(Conn, ?S_INSERT_PENDING_TXN,
+    {ok, S4} = epgsql:parse(Conn, ?S_PENDING_TXN_LIST_BEFORE,
+                            ?SELECT_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
+                            []),
+
+    {ok, S5} = epgsql:parse(Conn, ?S_INSERT_PENDING_TXN,
                            ["insert into pending_transactions ",
                             "(hash, type, address, nonce, nonce_type, status, data) values ",
                             "($1, $2, $3, $4, $5, $6, $7)"],
@@ -54,12 +62,14 @@ prepare_conn(Conn) ->
 
     #{?S_ACTOR_PENDING_TXN_LIST => S1,
       ?S_ACTOR_PENDING_TXN_LIST_BEFORE => S2,
-      ?S_PENDING_TXN => S3,
-      ?S_INSERT_PENDING_TXN => S4
+      ?S_PENDING_TXN_LIST => S3,
+      ?S_PENDING_TXN_LIST_BEFORE => S4,
+      ?S_INSERT_PENDING_TXN => S5
      }.
 
-handle('GET', [TxnHash], _Req) ->
-    ?MK_RESPONSE(get_pending_txn(TxnHash), block_time);
+handle('GET', [TxnHash], Req) ->
+    Args = ?GET_ARGS([cursor], Req),
+    ?MK_RESPONSE(get_pending_txn_list({hash, TxnHash}, Args), block_time);
 handle('POST', [], Req) ->
     #{ <<"txn">> := EncodedTxn } = jiffy:decode(elli_request:body(Req), [return_maps]),
     BinTxn = base64:decode(EncodedTxn),
@@ -133,15 +143,20 @@ insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
             {error, conflict}
     end.
 
+get_pending_txn_list({hash, TxnHash}, Args=[{cursor, _}]) ->
+    get_pending_txn_list([TxnHash], {?S_PENDING_TXN_LIST, ?S_PENDING_TXN_LIST_BEFORE}, Args);
+get_pending_txn_list({actor, Actor}, Args=[{cursor, _}]) ->
+    get_pending_txn_list([Actor], {?S_ACTOR_PENDING_TXN_LIST, ?S_ACTOR_PENDING_TXN_LIST_BEFORE}, Args).
 
-get_pending_txn_list(Actor, [{cursor, undefined}]) ->
-    Result = ?PREPARED_QUERY(?S_ACTOR_PENDING_TXN_LIST, [Actor]),
+
+get_pending_txn_list(Args, {InitQuery, _CursorQuery}, [{cursor, undefined}]) ->
+    Result = ?PREPARED_QUERY(InitQuery, Args),
     mk_pending_txn_list_from_result(Result);
-get_pending_txn_list(Actor, [{cursor, Cursor}]) ->
+get_pending_txn_list(Args, {_InitQuery, CursorQuery}, [{cursor, Cursor}]) ->
     try ?CURSOR_DECODE(Cursor) of
         {ok, #{ <<"before">> := Before}} ->
             BeforeDate = iso8601:parse(Before),
-            Result = ?PREPARED_QUERY(?S_ACTOR_PENDING_TXN_LIST_BEFORE, [Actor, BeforeDate]),
+            Result = ?PREPARED_QUERY(CursorQuery, Args ++ [BeforeDate]),
             mk_pending_txn_list_from_result(Result);
         _ ->
             {error, badarg}
@@ -163,15 +178,6 @@ mk_pending_txn_cursor(Results) ->
             #{ before => iso8601:format(CreatedAt)}
     end.
 
-
--spec get_pending_txn(Key::binary()) -> {ok, jiffy:json_object()} | {error, term()}.
-get_pending_txn(Key) ->
-    case ?PREPARED_QUERY(?S_PENDING_TXN, [Key]) of
-        {ok, _, [Result]} ->
-            {ok, pending_txn_to_json(Result)};
-        _ ->
-            {error, not_found}
-    end.
 
 %%
 %% to_jaon
