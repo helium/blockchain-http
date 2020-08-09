@@ -93,7 +93,7 @@ handle('GET', [Account, <<"challenges">>], Req) ->
     ?MK_RESPONSE(bh_route_challenges:get_challenge_list({account, Account}, Args), block_time);
 handle('GET', [Account, <<"pending_transactions">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(bh_route_pending_txns:get_pending_txn_list(Account, Args), never);
+    ?MK_RESPONSE(bh_route_pending_txns:get_pending_txn_list({actor, Account}, Args), never);
 handle('GET', [Account, <<"stats">>], _Req) ->
     %% Shortest stats period is every hour. To try to keep the stats
     %% as fresh as possible we cache for shorter than an
