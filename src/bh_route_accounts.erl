@@ -47,8 +47,8 @@ prepare_conn(Conn) ->
 
     {ok, S3} = epgsql:parse(Conn, ?S_ACCOUNT,
                            [?SELECT_ACCOUNT_BASE(
-                               [", (select coalesce(max(nonce), l.nonce) from pending_transactions p where p.address = l.address and nonce_type='balance' and status != 'failed') as speculative_nonce",
-                                ", (select coalesce(max(nonce), l.security_nonce) from pending_transactions p where p.address = l.address and nonce_type='security' and status != 'failed') as speculative_sec_nonce"
+                               [", (select greatest(l.nonce, coalesce(max(p.nonce), l.nonce)) from pending_transactions p where p.address = l.address and nonce_type='balance' and status != 'failed') as speculative_nonce",
+                                ", (select greatest(l.security_nonce, coalesce(max(p.nonce)), l.security_nonce) from pending_transactions p where p.address = l.address and nonce_type='security' and status != 'failed') as speculative_sec_nonce"
                                ]), "where l.address = $1"],
                             []),
 
