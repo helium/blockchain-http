@@ -435,6 +435,18 @@ txn_to_json({<<"assert_location_v1">>,
                <<"location">> := Location
               } = Fields}) ->
     ?INSERT_LAT_LON(Location, Fields);
+txn_to_json({<<"token_burn_v1">>,
+           #{
+             <<"memo">> := Memo
+            } = Fields}) ->
+    %% Adjust for some memos being base64 and others still integers
+    MemoStr = case is_integer(Memo) of
+                  true -> base64:encode(<<Memo:64/unsigned-little-integer>>);
+                  _ -> Memo
+              end,
+    Fields#{
+            <<"memo">> => MemoStr
+           };
 txn_to_json({_, Fields}) ->
     Fields.
 
