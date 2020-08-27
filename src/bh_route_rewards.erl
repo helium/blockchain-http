@@ -187,10 +187,14 @@ calc_low_block(HighBlock, EndBlock) ->
 get_min_max_height(MaxTime, MinTime) when MaxTime == undefined orelse MinTime == undefined ->
     {error, badarg};
 get_min_max_height(MaxTime0, MinTime0) ->
-    MaxTime = iso8601:parse(MaxTime0),
-    MinTime = iso8601:parse(MinTime0),
-    {ok, _, [{HighBlock, LowBlock}]} = ?PREPARED_QUERY(?S_BLOCK_RANGE, [MaxTime, MinTime]),
-    {ok, {{MaxTime, HighBlock}, {MinTime, LowBlock}}}.
+    try
+        MaxTime = iso8601:parse(MaxTime0),
+        MinTime = iso8601:parse(MinTime0),
+        {ok, _, [{HighBlock, LowBlock}]} = ?PREPARED_QUERY(?S_BLOCK_RANGE, [MaxTime, MinTime]),
+        {ok, {{MaxTime, HighBlock}, {MinTime, LowBlock}}}
+    catch
+        error:badarg:_ -> {error, badarg}
+    end.
 
 get_reward_list(Args, {Query, _RemQuery}, [
     {cursor, undefined},
