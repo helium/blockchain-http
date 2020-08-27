@@ -7,10 +7,11 @@
 
 -export([prepare_conn/1, handle/3]).
 %% Utilities
--export([get_hotspot_list/1,
-         get_hotspot/1,
-         to_geo_json/1]).
-
+-export([
+    get_hotspot_list/1,
+    get_hotspot/1,
+    to_geo_json/1
+]).
 
 -define(S_HOTSPOT_LIST_BEFORE, "hotspot_list_before").
 -define(S_HOTSPOT_LIST, "hotspot_list").
@@ -20,80 +21,124 @@
 -define(S_CITY_HOTSPOT_LIST, "hotspot_city_list").
 -define(S_CITY_HOTSPOT_LIST_BEFORE, "hotspot_city_list_before").
 
--define(SELECT_HOTSPOT_BASE(G),
-        ["select (select max(height) from blocks) as height, ",
-         "g.last_block, g.first_block, g.address, g.owner, g.location, g.score, g.nonce, ",
-         "s.online as online_status, s.gps as gps_status, s.block as block_status, "
-         "l.short_street, l.long_street, ",
-         "l.short_city, l.long_city, ",
-         "l.short_state, l.long_state, ",
-         "l.short_country, l.long_country, ",
-         "l.city_id ",
-         G,
-         " left join locations l on g.location = l.location ",
-         " left join gateway_status s on s.address = g.address "
-        ]).
+-define(SELECT_HOTSPOT_BASE(G), [
+    "select (select max(height) from blocks) as height, ",
+    "g.last_block, g.first_block, g.address, g.owner, g.location, g.score, g.nonce, ",
+    "s.online as online_status, s.gps as gps_status, s.block as block_status, "
+    "l.short_street, l.long_street, ",
+    "l.short_city, l.long_city, ",
+    "l.short_state, l.long_state, ",
+    "l.short_country, l.long_country, ",
+    "l.city_id ",
+    G,
+    " left join locations l on g.location = l.location ",
+    " left join gateway_status s on s.address = g.address "
+]).
+
 -define(SELECT_HOTSPOT_BASE, ?SELECT_HOTSPOT_BASE("from gateway_inventory g")).
 -define(SELECT_OWNER_HOTSPOT,
-        ?SELECT_HOTSPOT_BASE(["from (select * from gateway_inventory where owner = $1) as g"])).
+    ?SELECT_HOTSPOT_BASE(["from (select * from gateway_inventory where owner = $1) as g"])
+).
+
 -define(HOTSPOT_LIST_LIMIT, 1000).
 
 prepare_conn(Conn) ->
-    {ok, S1} = epgsql:parse(Conn, ?S_HOTSPOT_LIST_BEFORE,
-                           [?SELECT_HOTSPOT_BASE,
-                            "where ((g.address > $1 and g.first_block = $2) or (g.first_block < $2)) ",
-                            "order by g.first_block desc, g.address ",
-                            "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
-                            []),
+    {ok, S1} = epgsql:parse(
+        Conn,
+        ?S_HOTSPOT_LIST_BEFORE,
+        [
+            ?SELECT_HOTSPOT_BASE,
+            "where ((g.address > $1 and g.first_block = $2) or (g.first_block < $2)) ",
+            "order by g.first_block desc, g.address ",
+            "limit ",
+            integer_to_list(?HOTSPOT_LIST_LIMIT)
+        ],
+        []
+    ),
 
-    {ok, S2} = epgsql:parse(Conn, ?S_HOTSPOT_LIST,
-                           [?SELECT_HOTSPOT_BASE,
-                            "order by g.first_block desc, g.address ",
-                            "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
-                            []),
+    {ok, S2} = epgsql:parse(
+        Conn,
+        ?S_HOTSPOT_LIST,
+        [
+            ?SELECT_HOTSPOT_BASE,
+            "order by g.first_block desc, g.address ",
+            "limit ",
+            integer_to_list(?HOTSPOT_LIST_LIMIT)
+        ],
+        []
+    ),
 
-    {ok, S3} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST_BEFORE,
-                           [?SELECT_OWNER_HOTSPOT,
-                            "where ((g.address > $2 and g.first_block = $3) or (g.first_block < $3)) ",
-                            "order by g.first_block desc, g.address "
-                            "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)
-                            ], []),
+    {ok, S3} = epgsql:parse(
+        Conn,
+        ?S_OWNER_HOTSPOT_LIST_BEFORE,
+        [
+            ?SELECT_OWNER_HOTSPOT,
+            "where ((g.address > $2 and g.first_block = $3) or (g.first_block < $3)) ",
+            "order by g.first_block desc, g.address "
+            "limit ",
+            integer_to_list(?HOTSPOT_LIST_LIMIT)
+        ],
+        []
+    ),
 
-    {ok, S4} = epgsql:parse(Conn, ?S_OWNER_HOTSPOT_LIST,
-                           [?SELECT_OWNER_HOTSPOT,
-                            "order by g.first_block desc, g.address ",
-                            "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)
-                            ], []),
+    {ok, S4} = epgsql:parse(
+        Conn,
+        ?S_OWNER_HOTSPOT_LIST,
+        [
+            ?SELECT_OWNER_HOTSPOT,
+            "order by g.first_block desc, g.address ",
+            "limit ",
+            integer_to_list(?HOTSPOT_LIST_LIMIT)
+        ],
+        []
+    ),
 
-    {ok, S5} = epgsql:parse(Conn, ?S_HOTSPOT,
-                           [?SELECT_HOTSPOT_BASE,
-                            "where g.address = $1"], []),
+    {ok, S5} = epgsql:parse(
+        Conn,
+        ?S_HOTSPOT,
+        [
+            ?SELECT_HOTSPOT_BASE,
+            "where g.address = $1"
+        ],
+        []
+    ),
 
-    {ok, S6} = epgsql:parse(Conn, ?S_CITY_HOTSPOT_LIST_BEFORE,
-                            [?SELECT_HOTSPOT_BASE,
-                             "where l.city_id = $1 "
-                             "and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3)) ",
-                             "order by g.first_block desc, g.address "
-                             "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)
-                           ], []),
+    {ok, S6} = epgsql:parse(
+        Conn,
+        ?S_CITY_HOTSPOT_LIST_BEFORE,
+        [
+            ?SELECT_HOTSPOT_BASE,
+            "where l.city_id = $1 "
+            "and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3)) ",
+            "order by g.first_block desc, g.address "
+            "limit ",
+            integer_to_list(?HOTSPOT_LIST_LIMIT)
+        ],
+        []
+    ),
 
-    {ok, S7} = epgsql:parse(Conn, ?S_CITY_HOTSPOT_LIST,
-                            [?SELECT_HOTSPOT_BASE,
-                             "where l.city_id = $1 "
-                             "order by g.first_block desc, g.address ",
-                             "limit ", integer_to_list(?HOTSPOT_LIST_LIMIT)],
-                            []),
+    {ok, S7} = epgsql:parse(
+        Conn,
+        ?S_CITY_HOTSPOT_LIST,
+        [
+            ?SELECT_HOTSPOT_BASE,
+            "where l.city_id = $1 "
+            "order by g.first_block desc, g.address ",
+            "limit ",
+            integer_to_list(?HOTSPOT_LIST_LIMIT)
+        ],
+        []
+    ),
 
-
-    #{?S_HOTSPOT_LIST_BEFORE => S1,
-      ?S_HOTSPOT_LIST => S2,
-      ?S_OWNER_HOTSPOT_LIST_BEFORE => S3,
-      ?S_OWNER_HOTSPOT_LIST => S4,
-      ?S_HOTSPOT => S5,
-      ?S_CITY_HOTSPOT_LIST_BEFORE => S6,
-      ?S_CITY_HOTSPOT_LIST => S7
-     }.
-
+    #{
+        ?S_HOTSPOT_LIST_BEFORE => S1,
+        ?S_HOTSPOT_LIST => S2,
+        ?S_OWNER_HOTSPOT_LIST_BEFORE => S3,
+        ?S_OWNER_HOTSPOT_LIST => S4,
+        ?S_HOTSPOT => S5,
+        ?S_CITY_HOTSPOT_LIST_BEFORE => S6,
+        ?S_CITY_HOTSPOT_LIST => S7
+    }.
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
@@ -111,10 +156,14 @@ handle('GET', [Address, <<"elections">>], Req) ->
 handle('GET', [Address, <<"challenges">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(bh_route_challenges:get_challenge_list({hotspot, Address}, Args), block_time);
-
+handle('GET', [Address, <<"rewards">>], Req) ->
+    Args = ?GET_ARGS([cursor, max_time, min_time], Req),
+    ?MK_RESPONSE(bh_route_rewards:get_reward_list({hotspot, Address}, Args), block_time);
+handle('GET', [Address, <<"rewards">>, <<"sum">>], Req) ->
+    Args = ?GET_ARGS([max_time, min_time], Req),
+    ?MK_RESPONSE(bh_route_rewards:get_reward_sum({hotspot, Address}, Args), block_time);
 handle(_, _, _Req) ->
     ?RESPONSE_404.
-
 
 get_hotspot_list([{owner, undefined}, {city, undefined}, {cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, []),
@@ -125,21 +174,30 @@ get_hotspot_list([{owner, Owner}, {city, undefined}, {cursor, undefined}]) ->
 get_hotspot_list([{owner, undefined}, {city, City}, {cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST, [City]),
     mk_hotspot_list_from_result(Result);
-
 get_hotspot_list([{owner, Owner}, {city, City}, {cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
-        {ok, #{ <<"before_address">> := BeforeAddress,
-                <<"before_block">> := BeforeBlock,
-                <<"height">> := _Height }} ->
-            case {Owner, City}of
+        {ok, #{
+            <<"before_address">> := BeforeAddress,
+            <<"before_block">> := BeforeBlock,
+            <<"height">> := _Height
+        }} ->
+            case {Owner, City} of
                 {undefined, undefined} ->
                     Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST_BEFORE, [BeforeAddress, BeforeBlock]),
                     mk_hotspot_list_from_result(Result);
                 {Owner, undefined} ->
-                    Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [Owner, BeforeAddress, BeforeBlock]),
+                    Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [
+                        Owner,
+                        BeforeAddress,
+                        BeforeBlock
+                    ]),
                     mk_hotspot_list_from_result(Result);
                 {undefined, City} ->
-                    Result = ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST_BEFORE, [City, BeforeAddress, BeforeBlock]),
+                    Result = ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST_BEFORE, [
+                        City,
+                        BeforeAddress,
+                        BeforeBlock
+                    ]),
                     mk_hotspot_list_from_result(Result);
                 {_, _} ->
                     {error, badarg}
@@ -147,7 +205,6 @@ get_hotspot_list([{owner, Owner}, {city, City}, {cursor, Cursor}]) ->
         _ ->
             {error, badarg}
     end.
-
 
 get_hotspot(Address) ->
     case ?PREPARED_QUERY(?S_HOTSPOT, [Address]) of
@@ -160,28 +217,23 @@ get_hotspot(Address) ->
 mk_hotspot_list_from_result({ok, _, Results}) ->
     {ok, hotspot_list_to_json(Results), mk_cursor(Results)}.
 
-
 mk_cursor(Results) when is_list(Results) ->
     case length(Results) < ?HOTSPOT_LIST_LIMIT of
-        true -> undefined;
+        true ->
+            undefined;
         false ->
             case lists:last(Results) of
-                {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location,
-                 _Score, _Nonce,
-                 _OnlineStatus, _GPSStatus, _BlockStatus,
-                 _ShortStreet, _LongStreet,
-                 _ShortCity, _LongCity,
-                 _ShortState, _LongState,
-                 _ShortCountry, _LongCountry,
-                 _CityId
-                } ->
-                    #{ before_address => Address,
-                       before_block => FirstBlock,
-                       %% Add height to the cursor to avoid overlap between the
-                       %% same address/block and a page of hotspot data at a
-                       %% different height
-                       height => Height
-                     }
+                {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location, _Score, _Nonce,
+                    _OnlineStatus, _GPSStatus, _BlockStatus, _ShortStreet, _LongStreet, _ShortCity,
+                    _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry, _CityId} ->
+                    #{
+                        before_address => Address,
+                        before_block => FirstBlock,
+                        %% Add height to the cursor to avoid overlap between the
+                        %% same address/block and a page of hotspot data at a
+                        %% different height
+                        height => Height
+                    }
             end
     end.
 
@@ -192,72 +244,62 @@ mk_cursor(Results) when is_list(Results) ->
 hotspot_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
 
-to_geo_json({ShortStreet, LongStreet,
-             ShortCity, LongCity,
-             ShortState, LongState,
-             ShortCountry, LongCountry,
-             CityId
-            }) ->
-    Base = to_geo_json({ShortCity, LongCity,
-                        ShortState, LongState,
-                        ShortCountry, LongCountry,
-                        CityId}),
+to_geo_json(
+    {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry,
+        CityId}
+) ->
+    Base = to_geo_json(
+        {ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}
+    ),
     Base#{
-          short_street => ShortStreet,
-          long_street => LongStreet
-         };
-to_geo_json({ShortCity, LongCity,
-             ShortState, LongState,
-             ShortCountry, LongCountry,
-             CityId}) ->
-    MaybeB64 = fun(null) -> null;
-                  (Bin) -> ?BIN_TO_B64(Bin)
-               end,
+        short_street => ShortStreet,
+        long_street => LongStreet
+    };
+to_geo_json({ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}) ->
+    MaybeB64 = fun
+        (null) -> null;
+        (Bin) -> ?BIN_TO_B64(Bin)
+    end,
     #{
-      short_city => ShortCity,
-      long_city => LongCity,
-      short_state => ShortState,
-      long_state => LongState,
-      short_country => ShortCountry,
-      long_country => LongCountry,
-      city_id => MaybeB64(CityId)
-     }.
+        short_city => ShortCity,
+        long_city => LongCity,
+        short_state => ShortState,
+        long_state => LongState,
+        short_country => ShortCountry,
+        long_country => LongCountry,
+        city_id => MaybeB64(CityId)
+    }.
 
-hotspot_to_json({Height, ScoreBlock, FirstBlock, Address, Owner, Location,
-                 Score, Nonce,
-                 OnlineStatus, GPSStatus, BlockStatus,
-                 ShortStreet, LongStreet,
-                 ShortCity, LongCity,
-                 ShortState, LongState,
-                 ShortCountry, LongCountry,
-                 CityId
-                }) ->
-
-    MaybeZero = fun(null) -> 0;
-                   (V) -> V
-                end,
+hotspot_to_json(
+    {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, OnlineStatus,
+        GPSStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
+        ShortCountry, LongCountry, CityId}
+) ->
+    MaybeZero = fun
+        (null) -> 0;
+        (V) -> V
+    end,
     {ok, Name} = erl_angry_purple_tiger:animal_name(Address),
-    ?INSERT_LAT_LON(Location,
-                    #{
-                      address => Address,
-                      name => list_to_binary(Name),
-                      owner => Owner,
-                      location => Location,
-                      geocode => to_geo_json({ShortStreet, LongStreet,
-                                              ShortCity, LongCity,
-                                              ShortState, LongState,
-                                              ShortCountry, LongCountry,
-                                              CityId}),
-                      score_update_height => ScoreBlock,
-                      score => Score,
-                      block_added => FirstBlock,
-                      block => Height,
-                      status =>
-                          #{
-                            online => OnlineStatus,
-                            gps => GPSStatus,
-                            height => BlockStatus
-                           },
-                      nonce => MaybeZero(Nonce)
-                     }).
-
+    ?INSERT_LAT_LON(
+        Location,
+        #{
+            address => Address,
+            name => list_to_binary(Name),
+            owner => Owner,
+            location => Location,
+            geocode => to_geo_json(
+                {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
+                    LongCountry, CityId}
+            ),
+            score_update_height => ScoreBlock,
+            score => Score,
+            block_added => FirstBlock,
+            block => Height,
+            status => #{
+                online => OnlineStatus,
+                gps => GPSStatus,
+                height => BlockStatus
+            },
+            nonce => MaybeZero(Nonce)
+        }
+    ).
