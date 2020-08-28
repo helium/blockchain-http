@@ -20,6 +20,7 @@
 -define(S_HOTSPOT, "hotspot").
 -define(S_CITY_HOTSPOT_LIST, "hotspot_city_list").
 -define(S_CITY_HOTSPOT_LIST_BEFORE, "hotspot_city_list_before").
+-define(S_HOTSPOT_WITNESS_LIST, "hotspot_witness_list").
 
 -define(SELECT_HOTSPOT_BASE(G), [
     "select (select max(height) from blocks) as height, ",
@@ -130,6 +131,23 @@ prepare_conn(Conn) ->
         []
     ),
 
+    {ok, S8} = epgsql:parse(
+        Conn,
+        ?S_HOTSPOT_WITNESS_LIST,
+        [
+            "with hotspot_witnesses as ( ",
+            "    select gi.address as witness_for, w.key as witness, w.value as witness_info ",
+            "    from gateway_inventory gi, jsonb_each(gi.witnesses) w where gi.address = $1 ",
+            ")",
+            ?SELECT_HOTSPOT_BASE([
+                ", g.witness_for, g.witness_info ",
+                "from (select * from hotspot_witnesses w inner join gateway_inventory i on (w.witness = i.address)) g"
+            ]),
+            "order by g.first_block, g.address"
+        ],
+        []
+    ),
+
     #{
         ?S_HOTSPOT_LIST_BEFORE => S1,
         ?S_HOTSPOT_LIST => S2,
@@ -137,7 +155,8 @@ prepare_conn(Conn) ->
         ?S_OWNER_HOTSPOT_LIST => S4,
         ?S_HOTSPOT => S5,
         ?S_CITY_HOTSPOT_LIST_BEFORE => S6,
-        ?S_CITY_HOTSPOT_LIST => S7
+        ?S_CITY_HOTSPOT_LIST => S7,
+        ?S_HOTSPOT_WITNESS_LIST => S8
     }.
 
 handle('GET', [], Req) ->
@@ -162,9 +181,14 @@ handle('GET', [Address, <<"rewards">>], Req) ->
 handle('GET', [Address, <<"rewards">>, <<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time], Req),
     ?MK_RESPONSE(bh_route_rewards:get_reward_sum({hotspot, Address}, Args), block_time);
+handle('GET', [Address, <<"witnesses">>], _Req) ->
+    ?MK_RESPONSE(get_hotspot_list([{witnesses_for, Address}]), block_time);
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
+get_hotspot_list([{witnesses_for, Address}]) ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESS_LIST, [Address]),
+    mk_hotspot_witness_list_from_result(Result);
 get_hotspot_list([{owner, undefined}, {city, undefined}, {cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, []),
     mk_hotspot_list_from_result(Result);
@@ -217,6 +241,9 @@ get_hotspot(Address) ->
 mk_hotspot_list_from_result({ok, _, Results}) ->
     {ok, hotspot_list_to_json(Results), mk_cursor(Results)}.
 
+mk_hotspot_witness_list_from_result({ok, _, Results}) ->
+    {ok, hotspot_witness_list_to_json(Results)}.
+
 mk_cursor(Results) when is_list(Results) ->
     case length(Results) < ?HOTSPOT_LIST_LIMIT of
         true ->
@@ -244,6 +271,9 @@ mk_cursor(Results) when is_list(Results) ->
 hotspot_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
 
+hotspot_witness_list_to_json(Results) ->
+    lists:map(fun hotspot_witness_to_json/1, Results).
+
 to_geo_json(
     {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry,
         CityId}
@@ -268,6 +298,21 @@ to_geo_json({ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCount
         short_country => ShortCountry,
         long_country => LongCountry,
         city_id => MaybeB64(CityId)
+    }.
+
+hotspot_witness_to_json(
+    {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, OnlineStatus,
+        GPSStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
+        ShortCountry, LongCountry, CityId, WitnessFor, WitnessInfo}
+) ->
+    Base = hotspot_to_json(
+        {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, OnlineStatus,
+            GPSStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
+            LongState, ShortCountry, LongCountry, CityId}
+    ),
+    Base#{
+        witness_for => WitnessFor,
+        witness_info => WitnessInfo
     }.
 
 hotspot_to_json(

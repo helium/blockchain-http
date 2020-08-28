@@ -17,7 +17,8 @@ all() ->
         elections_test,
         challenges_test,
         rewards_test,
-        rewards_sum_test
+        rewards_sum_test,
+        witnesses_test
     ].
 
 init_per_suite(Config) ->
@@ -163,5 +164,17 @@ rewards_sum_test(_Config) ->
     ]),
     #{<<"data">> := #{<<"sum">> := Sum}} = Json,
     ?assert(Sum >= 0),
+
+    ok.
+
+witnesses_test(_Config) ->
+    Hotspot = "112hYxknRPeCP9PLtkAy3f86fWpXaRzRffjPj5HcrS7qePttY3Ek",
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/hotspots/",
+        Hotspot,
+        "/witnesses"
+    ]),
+    #{<<"data">> := Data} = Json,
+    ?assert(length(Data) >= 0),
 
     ok.
