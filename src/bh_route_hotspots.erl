@@ -15,6 +15,7 @@
 
 -define(S_HOTSPOT_LIST_BEFORE, "hotspot_list_before").
 -define(S_HOTSPOT_LIST, "hotspot_list").
+-define(S_HOTSPOT_LIST_ELECTED, "hotspot_list_elected").
 -define(S_OWNER_HOTSPOT_LIST_BEFORE, "owner_hotspot_list_before").
 -define(S_OWNER_HOTSPOT_LIST, "owner_hotspot_list").
 -define(S_HOTSPOT, "hotspot").
@@ -148,6 +149,24 @@ prepare_conn(Conn) ->
         []
     ),
 
+    {ok, S9} = epgsql:parse(
+        Conn,
+        ?S_HOTSPOT_LIST_ELECTED,
+        [
+            "with field_members as ( ",
+            "    select fields->'members' as members ",
+            "    from transactions ",
+            "    where type = 'consensus_group_v1' order by block desc limit 1 ",
+            "),",
+            "members as ( ",
+            "    select * from jsonb_array_elements_text((select members from field_members)) ",
+            ") ",
+            ?SELECT_HOTSPOT_BASE,
+            "where g.address in (select * from members)"
+        ],
+        []
+    ),
+
     #{
         ?S_HOTSPOT_LIST_BEFORE => S1,
         ?S_HOTSPOT_LIST => S2,
@@ -156,12 +175,15 @@ prepare_conn(Conn) ->
         ?S_HOTSPOT => S5,
         ?S_CITY_HOTSPOT_LIST_BEFORE => S6,
         ?S_CITY_HOTSPOT_LIST => S7,
-        ?S_HOTSPOT_WITNESS_LIST => S8
+        ?S_HOTSPOT_WITNESS_LIST => S8,
+        ?S_HOTSPOT_LIST_ELECTED => S9
     }.
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(get_hotspot_list([{owner, undefined}, {city, undefined} | Args]), block_time);
+handle('GET', [<<"elected">>], __Req) ->
+    ?MK_RESPONSE(get_hotspot_elected_list(), block_time);
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address), block_time);
 handle('GET', [Address, <<"activity">>], Req) ->
@@ -185,6 +207,10 @@ handle('GET', [Address, <<"witnesses">>], _Req) ->
     ?MK_RESPONSE(get_hotspot_list([{witnesses_for, Address}]), block_time);
 handle(_, _, _Req) ->
     ?RESPONSE_404.
+
+get_hotspot_elected_list() ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST_ELECTED, []),
+    mk_hotspot_list_from_result(Result).
 
 get_hotspot_list([{witnesses_for, Address}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESS_LIST, [Address]),
