@@ -15,6 +15,7 @@ all() ->
         activity_low_block_test,
         activity_filter_no_result_test,
         elections_test,
+        elected_test,
         challenges_test,
         rewards_test,
         rewards_sum_test,
@@ -112,6 +113,15 @@ elections_test(_Config) ->
     {ok, {_, _, NextJson}} = ?json_request(["/v1/hotspots/", Hotspot, "/elections?cursor=", Cursor]),
     #{<<"data">> := NextData} = NextJson,
     ?assert(length(NextData) >= 0),
+
+    ok.
+
+elected_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/elected"]),
+    #{
+        <<"data">> := Data
+    } = Json,
+    ?assert(length(Data) > 0),
 
     ok.
 
