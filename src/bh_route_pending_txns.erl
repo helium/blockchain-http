@@ -244,7 +244,9 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
 ?TXN_SIG_HASH(blockchain_txn_redeem_htlc_v1_pb);
 ?TXN_SIG_HASH(blockchain_txn_price_oracle_v1_pb);
 ?TXN_SIG_HASH(blockchain_txn_token_burn_v1_pb);
-?TXN_SIG_HASH(blockchain_txn_security_exchange_v1_pb).
+?TXN_SIG_HASH(blockchain_txn_security_exchange_v1_pb);
+?TXN_SIG_HASH(blockchain_txn_state_channel_close_v1_pb);
+?TXN_SIG_HASH(blockchain_txn_state_channel_open_v1_pb).
 
 ?TXN_TYPE(blockchain_txn_oui_v1_pb, <<"oui_v1">>);
 ?TXN_TYPE(blockchain_txn_add_gateway_v1_pb, <<"add_gateway_v1">>);
@@ -255,4 +257,6 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
 ?TXN_TYPE(blockchain_txn_redeem_htlc_v1_pb, <<"redeem_htlc_v1">>);
 ?TXN_TYPE(blockchain_txn_price_oracle_v1_pb, <<"price_oracle_v1">>);
 ?TXN_TYPE(blockchain_txn_token_burn_v1_pb, <<"token_burn_v1">>);
-?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, <<"security_exchange_v1">>).
+?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, <<"security_exchange_v1">>);
+?TXN_TYPE(blockchain_txn_state_channel_close_v1_pb, <<"state_channel_close_v1">>);
+?TXN_TYPE(blockchain_txn_state_channel_open_v1_pb, <<"state_channel_open_v1">>).
