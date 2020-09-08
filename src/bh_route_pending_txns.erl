@@ -120,7 +120,7 @@ insert_pending_txn(#blockchain_txn_security_exchange_v1_pb{nonce=Nonce, payer=Ad
     insert_pending_txn(Txn, Address, Nonce, <<"security">>, Bin);
 insert_pending_txn(#blockchain_txn_token_burn_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
     insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_state_channel_close_v1_pb{owner=Address}=Txn, Bin) ->
+insert_pending_txn(#blockchain_txn_state_channel_close_v1_pb{closer=Address}=Txn, Bin) ->
   insert_pending_txn(Txn, Address, 0, <<"none">>, Bin);
 insert_pending_txn(#blockchain_txn_state_channel_open_v1_pb{owner=Address}=Txn, Bin) ->
   insert_pending_txn(Txn, Address, 0, <<"none">>, Bin).
