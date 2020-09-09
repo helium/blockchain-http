@@ -16,7 +16,8 @@ all() ->
         hotspots_test,
         stats_test,
         rewards_test,
-        rewards_sum_test
+        rewards_sum_test,
+        rich_list_test
     ].
 
 init_per_suite(Config) ->
@@ -145,5 +146,17 @@ rewards_sum_test(_Config) ->
     ]),
     #{<<"data">> := #{<<"sum">> := Sum}} = Json,
     ?assert(Sum >= 0),
+
+    ok.
+
+rich_list_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/accounts/rich"),
+    #{<<"data">> := List} = Json,
+    ?assert(length(List) > 0),
+
+    {ok, {_, _, LimitJson}} = ?json_request("/v1/accounts/rich?limit=10"),
+    #{<<"data">> := LimitList} = LimitJson,
+    ?assert(length(LimitList) > 0),
+    ?assert(length(LimitList) =< 10),
 
     ok.
