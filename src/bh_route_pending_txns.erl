@@ -89,7 +89,9 @@ handle(_, _, _Req) ->
                        | #blockchain_txn_redeem_htlc_v1_pb{}
                        | #blockchain_txn_price_oracle_v1_pb{}
                        | #blockchain_txn_token_burn_v1_pb{}
-                       | #blockchain_txn_security_exchange_v1_pb{}.
+                       | #blockchain_txn_security_exchange_v1_pb{}
+                       | #blockchain_txn_state_channel_close_v1_pb{}
+                       | #blockchain_txn_state_channel_open_v1_pb{}.
 
 -type nonce_type() :: binary().
 
@@ -117,7 +119,11 @@ insert_pending_txn(#blockchain_txn_price_oracle_v1_pb{public_key=Address}=Txn, B
 insert_pending_txn(#blockchain_txn_security_exchange_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
     insert_pending_txn(Txn, Address, Nonce, <<"security">>, Bin);
 insert_pending_txn(#blockchain_txn_token_burn_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
-    insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin).
+    insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_state_channel_close_v1_pb{closer=Address}=Txn, Bin) ->
+  insert_pending_txn(Txn, Address, 0, <<"none">>, Bin);
+insert_pending_txn(#blockchain_txn_state_channel_open_v1_pb{owner=Address}=Txn, Bin) ->
+  insert_pending_txn(Txn, Address, 0, <<"none">>, Bin).
 
 
 -spec insert_pending_txn(supported_txn(), libp2p_crypto:pubkey_bin()| undefined, non_neg_integer(), nonce_type(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
@@ -238,7 +244,9 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
 ?TXN_SIG_HASH(blockchain_txn_redeem_htlc_v1_pb);
 ?TXN_SIG_HASH(blockchain_txn_price_oracle_v1_pb);
 ?TXN_SIG_HASH(blockchain_txn_token_burn_v1_pb);
-?TXN_SIG_HASH(blockchain_txn_security_exchange_v1_pb).
+?TXN_SIG_HASH(blockchain_txn_security_exchange_v1_pb);
+?TXN_SIG_HASH(blockchain_txn_state_channel_close_v1_pb);
+?TXN_SIG_HASH(blockchain_txn_state_channel_open_v1_pb).
 
 ?TXN_TYPE(blockchain_txn_oui_v1_pb, <<"oui_v1">>);
 ?TXN_TYPE(blockchain_txn_add_gateway_v1_pb, <<"add_gateway_v1">>);
@@ -249,4 +257,6 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
 ?TXN_TYPE(blockchain_txn_redeem_htlc_v1_pb, <<"redeem_htlc_v1">>);
 ?TXN_TYPE(blockchain_txn_price_oracle_v1_pb, <<"price_oracle_v1">>);
 ?TXN_TYPE(blockchain_txn_token_burn_v1_pb, <<"token_burn_v1">>);
-?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, <<"security_exchange_v1">>).
+?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, <<"security_exchange_v1">>);
+?TXN_TYPE(blockchain_txn_state_channel_close_v1_pb, <<"state_channel_close_v1">>);
+?TXN_TYPE(blockchain_txn_state_channel_open_v1_pb, <<"state_channel_open_v1">>).
