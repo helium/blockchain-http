@@ -181,7 +181,7 @@ get_token_supply([{format, Format}], CacheTime) ->
         <<"raw">> ->
             Headers = [{<<"Content-Type">>, <<"text/plain">>}],
             {ok, bh_route_handler:add_cache_header(CacheTime, Headers),
-                float_to_binary(mk_token_supply_from_result(Result))};
+                float_to_binary(mk_token_supply_from_result(Result), [{decimals, 8}, compact])};
         _ ->
             ?MK_RESPONSE({ok, #{token_supply => mk_token_supply_from_result(Result)}}, CacheTime)
     end.
