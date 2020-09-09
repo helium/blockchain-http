@@ -17,7 +17,7 @@ end_per_suite(Config) ->
     ?end_bh(Config).
 
 current_test(_Config) ->
-    {ok, {_, _, Json}} = ?json_request("/v1/ouis/current"),
+    {ok, {_, _, Json}} = ?json_request("/v1/ouis/last"),
     #{<<"data">> := _} = Json,
 
     ok.

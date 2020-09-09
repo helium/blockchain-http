@@ -31,7 +31,7 @@ handle('GET', [], Req) ->
     Result = bh_route_txns:get_txn_list(Args),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);
-handle('GET', [<<"current">>], _Req) ->
+handle('GET', [<<"last">>], _Req) ->
     ?MK_RESPONSE(get_current_oui(), block_time);
 handle(_, _, _Req) ->
     ?RESPONSE_404.
