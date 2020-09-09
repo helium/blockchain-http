@@ -2,20 +2,25 @@
 
 -include("bh_route_handler.hrl").
 
--export([get_args/2,
-         mk_response/2,
-         lat_lon/2, lat_lon/3,
-         cursor_encode/1, cursor_decode/1]).
+-export([
+    get_args/2,
+    mk_response/2,
+    add_cache_header/2,
+    lat_lon/2, lat_lon/3,
+    cursor_encode/1,
+    cursor_decode/1
+]).
 
--callback handle(elli:http_method(), Path::[binary()], Req::elli:req()) -> elli:result().
+-callback handle(elli:http_method(), Path :: [binary()], Req :: elli:req()) -> elli:result().
 
--type arg_spec() :: Key::atom() | {Key::atom(), Default::any()}.
--type arg() :: {Key::atom(), Value::any()}.
--type cache_time() :: infinity
-                    | never
-                    | undefined
-                    | block_time
-                    | {block_time, pos_integer()}.
+-type arg_spec() :: Key :: atom() | {Key :: atom(), Default :: any()}.
+-type arg() :: {Key :: atom(), Value :: any()}.
+-type cache_time() ::
+    infinity |
+    never |
+    undefined |
+    block_time |
+    {block_time, pos_integer()}.
 
 -export_type([cache_time/0]).
 
@@ -28,38 +33,41 @@ get_args([], _Req, Acc) ->
 get_args([Key | Tail], Req, Acc) when is_atom(Key) ->
     get_args([{Key, undefined} | Tail], Req, Acc);
 get_args([{Key, Default} | Tail], Req, Acc) ->
-    V = case elli_request:get_arg_decoded(atom_to_binary(Key, latin1), Req, Default) of
+    V =
+        case elli_request:get_arg_decoded(atom_to_binary(Key, latin1), Req, Default) of
             <<>> -> Default;
             Arg -> Arg
         end,
     get_args(Tail, Req, [{Key, V} | Acc]).
 
-
 %% @doc Construct a standard response given a map, list and an
 %% optional cursor if needed. Given an error tuple, it will respond
 %% with a pre-configured error code.
 -spec mk_response(
-        {ok, Json::(map() | list()), Cursor::map() | undefined, Meta::map | undefined}
-        | {ok, Json::(map() | list()), Cursor::map() | undefined}
-        | {ok, Json::(map() | list())}
-        | {error, term()},
-        cache_time()) -> {ok | elli:response_code(), elli:headers(), elli:body()}.
+    {ok, Json :: (map() | list()), Cursor :: map() | undefined, Meta :: map | undefined} |
+    {ok, Json :: (map() | list()), Cursor :: map() | undefined} |
+    {ok, Json :: (map() | list())} |
+    {error, term()},
+    cache_time()
+) -> {ok | elli:response_code(), elli:headers(), elli:body()}.
 mk_response({ok, Json, Cursor, Meta}, CacheTime) ->
-     Result0 = #{ data => Json },
-     Result1 = case Cursor of
-                  undefined -> Result0;
-                  _ -> Result0#{ cursor => cursor_encode(Cursor)}
-              end,
-    Result = case Meta of
-                 undefined -> Result1;
-                 _ -> Result1#{ meta => Meta }
-             end,
+    Result0 = #{data => Json},
+    Result1 =
+        case Cursor of
+            undefined -> Result0;
+            _ -> Result0#{cursor => cursor_encode(Cursor)}
+        end,
+    Result =
+        case Meta of
+            undefined -> Result1;
+            _ -> Result1#{meta => Meta}
+        end,
     {ok,
-     add_cache_header(
-       CacheTime,
-       [{<<"Content-Type">>, <<"application/json; charset=utf-8">>}
-       ]),
-     jiffy:encode(Result, [])};
+        add_cache_header(
+            CacheTime,
+            [{<<"Content-Type">>, <<"application/json; charset=utf-8">>}]
+        ),
+        jiffy:encode(Result, [])};
 mk_response({ok, Json}, CacheTime) ->
     mk_response({ok, Json, undefined, undefined}, CacheTime);
 mk_response({ok, Json, Cursor}, CacheTime) ->
@@ -73,25 +81,26 @@ mk_response({error, conflict}, _) ->
 mk_response({error, not_found}, _) ->
     ?RESPONSE_404.
 
-
--spec add_cache_header(cache_time(), Acc::list()) -> list(tuple()).
+-spec add_cache_header(cache_time(), Acc :: list()) -> list(tuple()).
 add_cache_header(undefined, Acc) ->
     Acc;
 add_cache_header(infinity, Acc) ->
-    [{<<"Surrogate-Control">>, <<"max-age=86400">>},
-     {<<"Cache-Control">>, <<"max-age=86400">>}
-     | Acc];
+    [
+        {<<"Surrogate-Control">>, <<"max-age=86400">>},
+        {<<"Cache-Control">>, <<"max-age=86400">>}
+        | Acc
+    ];
 add_cache_header(never, Acc) ->
-     [{<<"Cache-Control">>, <<"private, no-store">>}
-      | Acc];
+    [{<<"Cache-Control">>, <<"private, no-store">>} | Acc];
 add_cache_header(block_time, Acc) ->
     add_cache_header({block_time, 1}, Acc);
 add_cache_header({block_time, N}, Acc) ->
     CacheTime = integer_to_binary(N * 60),
-    [{<<"Surrogate-Control">>, <<"max-age=", CacheTime/binary>>},
-     {<<"Cache-Control">>, <<"max-age=", CacheTime/binary>>}
-     | Acc].
-
+    [
+        {<<"Surrogate-Control">>, <<"max-age=", CacheTime/binary>>},
+        {<<"Cache-Control">>, <<"max-age=", CacheTime/binary>>}
+        | Acc
+    ].
 
 lat_lon(Location, Fields) ->
     lat_lon(Location, {<<"lat">>, <<"lng">>}, Fields).
@@ -103,23 +112,23 @@ lat_lon(null, _, Fields) ->
 lat_lon(Location, {LatName, LonName}, Fields) when is_binary(Location) ->
     {Lat, Lon} = h3:to_geo(h3:from_string(binary_to_list(Location))),
     Fields#{
-            LatName => Lat,
-            LonName => Lon
-           }.
+        LatName => Lat,
+        LonName => Lon
+    }.
 
 -spec cursor_decode(binary()) -> {ok, map()} | {error, term()}.
 cursor_decode(Bin) when is_binary(Bin) ->
-    try  jiffy:decode(base64url:decode(Bin), [return_maps]) of
-         Map when is_map(Map) ->
+    try jiffy:decode(base64url:decode(Bin), [return_maps]) of
+        Map when is_map(Map) ->
             {ok, Map};
-         _ ->
+        _ ->
             {error, badarg}
-    catch _:_ ->
+    catch
+        _:_ ->
             {error, badarg}
     end;
 cursor_decode(_) ->
     {error, badarg}.
-
 
 -spec cursor_encode(map()) -> binary().
 cursor_encode(Map) ->
