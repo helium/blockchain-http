@@ -15,6 +15,7 @@
 -define(S_ACCOUNT_BAL_HOURLY, "account_bal_hourly").
 -define(S_ACCOUNT_BAL_MONTHLY, "account_bal_monthly").
 -define(S_ACCOUNT_BAL_WEEKLY, "account_bal_weekly").
+-define(S_ACCOUNT_RICH_LIST, "account_rich_list").
 
 -define(SELECT_ACCOUNT_BASE(A), [
     "select (select max(height) from blocks) as height, l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce, l.first_block",
@@ -36,6 +37,7 @@
 ]).
 
 -define(ACCOUNT_LIST_LIMIT, 100).
+-define(ACCOUNT_RICH_LIST_LIMIT, 1000).
 
 prepare_conn(Conn) ->
     {ok, S1} = epgsql:parse(
@@ -103,18 +105,32 @@ prepare_conn(Conn) ->
         []
     ),
 
+    {ok, S7} = epgsql:parse(
+        Conn,
+        ?S_ACCOUNT_RICH_LIST,
+        [
+            ?SELECT_ACCOUNT_BASE,
+            "order by balance desc limit $1"
+        ],
+        []
+    ),
+
     #{
         ?S_ACCOUNT_LIST_BEFORE => S1,
         ?S_ACCOUNT_LIST => S2,
         ?S_ACCOUNT => S3,
         ?S_ACCOUNT_BAL_HOURLY => S4,
         ?S_ACCOUNT_BAL_MONTHLY => S5,
-        ?S_ACCOUNT_BAL_WEEKLY => S6
+        ?S_ACCOUNT_BAL_WEEKLY => S6,
+        ?S_ACCOUNT_RICH_LIST => S7
     }.
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(get_account_list(Args), block_time);
+handle('GET', [<<"rich">>], Req) ->
+    Args = ?GET_ARGS([limit], Req),
+    ?MK_RESPONSE(get_account_rich_list(Args), block_time);
 handle('GET', [Account], _Req) ->
     ?MK_RESPONSE(get_account(Account), never);
 handle('GET', [Account, <<"hotspots">>], Req) ->
@@ -150,6 +166,15 @@ handle('GET', [Account, <<"stats">>], _Req) ->
     ?MK_RESPONSE(get_stats(Account), {block_time, 10});
 handle(_, _, _Req) ->
     ?RESPONSE_404.
+
+get_account_rich_list([{limit, BinLimit}]) ->
+    Limit =
+        case BinLimit of
+            undefined -> ?ACCOUNT_RICH_LIST_LIMIT;
+            _ -> max(0, min(binary_to_integer(BinLimit), ?ACCOUNT_RICH_LIST_LIMIT))
+        end,
+    {ok, _, Results} = ?PREPARED_QUERY(?S_ACCOUNT_RICH_LIST, [Limit]),
+    {ok, account_list_to_json(Results)}.
 
 get_account_list([{cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_ACCOUNT_LIST, []),
