@@ -1,39 +1,38 @@
 %% -*- erlang -*-
-{application, blockchain_http,
- [
-   {description, "A Helium blockchain HTTP API"},
-   {vsn, "0.1.0"},
-   {registered, []},
-   {mod, {blockchain_http_app, []}},
-   {
-    applications,
-    [
-     kernel,
-     stdlib,
-     syntax_tools,
-     compiler,
-     lager,
-     epgsql,
-     dispcount,
-     jiffy,
-     base64url,
-     h3,
-     iso8601,
-     observer_cli,
-     telemetry,
-     envloader,
-     psql_migration,
-     helium_proto,
-     libp2p_crypto,
-     erl_angry_purple_tiger,
-     elli,
-     tools,
-     recon
-    ]
-   },
-   {env, []},
-   {modules, []},
-   {licenses, ["Apache 2.0"]},
-   {links, []}
- ]
-}.
+{application, blockchain_http, [
+    {description, "A Helium blockchain HTTP API"},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {mod, {blockchain_http_app, []}},
+    {
+        applications,
+        [
+            kernel,
+            stdlib,
+            syntax_tools,
+            compiler,
+            lager,
+            epgsql,
+            eql,
+            dispcount,
+            jiffy,
+            base64url,
+            h3,
+            iso8601,
+            observer_cli,
+            telemetry,
+            envloader,
+            psql_migration,
+            helium_proto,
+            libp2p_crypto,
+            erl_angry_purple_tiger,
+            elli,
+            tools,
+            recon
+        ]
+    },
+    {env, []},
+    {modules, []},
+    {licenses, ["Apache 2.0"]},
+    {links, []}
+]}.
