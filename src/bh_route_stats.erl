@@ -187,12 +187,22 @@ get_token_supply([{format, Format}], CacheTime) ->
     end.
 
 get_stats() ->
-    BlockTimeResults = ?PREPARED_QUERY(?S_STATS_BLOCK_TIMES, []),
-    ElectionTimeResults = ?PREPARED_QUERY(?S_STATS_ELECTION_TIMES, []),
-    StateChannelResults = ?PREPARED_QUERY(?S_STATS_STATE_CHANNELS, []),
-    SupplyResult = ?PREPARED_QUERY(?S_TOKEN_SUPPLY, []),
-    CountsResults = ?PREPARED_QUERY(?S_STATS_COUNTS, []),
-    ChallengeResults = ?PREPARED_QUERY(?S_STATS_CHALLENGES, []),
+    [
+        BlockTimeResults,
+        ElectionTimeResults,
+        StateChannelResults,
+        SupplyResult,
+        CountsResults,
+        ChallengeResults
+    ] =
+        ?EXECUTE_BATCH([
+            {?S_STATS_BLOCK_TIMES, []},
+            {?S_STATS_ELECTION_TIMES, []},
+            {?S_STATS_STATE_CHANNELS, []},
+            {?S_TOKEN_SUPPLY, []},
+            {?S_STATS_COUNTS, []},
+            {?S_STATS_CHALLENGES, []}
+        ]),
 
     {ok, #{
         block_times => mk_stats_from_time_results(BlockTimeResults),
@@ -204,7 +214,7 @@ get_stats() ->
     }}.
 
 mk_stats_from_time_results(
-    {ok, _, [
+    {ok, [
         {LastHrAvg, LastDayAvg, LastWeekAvg, LastMonthAvg, LastHrStddev, LastDayStddev,
             LastWeekStddev, LastMonthStddev}
     ]}
@@ -217,7 +227,7 @@ mk_stats_from_time_results(
     }.
 
 mk_stats_from_state_channel_results(
-    {ok, _, [
+    {ok, [
         {LastDayDCs, LastDayPackets, LastWeekDCs, LastWeekPackets, LastMonthDCs, LastMonthPackets}
     ]}
 ) ->
@@ -227,10 +237,10 @@ mk_stats_from_state_channel_results(
         last_month => #{num_packets => mk_int(LastMonthPackets), num_dcs => mk_int(LastMonthDCs)}
     }.
 
-mk_stats_from_counts_results({ok, _, CountsResults}) ->
+mk_stats_from_counts_results({ok, CountsResults}) ->
     maps:from_list(CountsResults).
 
-mk_stats_from_challenge_results({ok, _, [{ActiveChallenges, LastDayChallenges}]}) ->
+mk_stats_from_challenge_results({ok, [{ActiveChallenges, LastDayChallenges}]}) ->
     #{
         active => mk_int(ActiveChallenges),
         last_day => mk_int(LastDayChallenges)
@@ -250,7 +260,9 @@ mk_int(Bin) when is_binary(Bin) ->
 mk_int(Num) when is_integer(Num) ->
     Num.
 
-mk_token_supply_from_result({ok, _, [{TokenSupply}]}) ->
+mk_token_supply_from_result({ok, _, Result}) ->
+    mk_token_supply_from_result({ok, Result});
+mk_token_supply_from_result({ok, [{TokenSupply}]}) ->
     mk_float(TokenSupply).
 
 -ifdef(TEST).
