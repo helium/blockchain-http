@@ -109,12 +109,12 @@ prepare_conn(Conn) ->
             "     select * from week_interval where timestamp > (now() - '24 hour'::interval)",
             " )",
             " select",
-            "     (select sum((t.counts).num_dcs) as num_dcs from day_interval t)::integer as last_day_dcs,",
-            "     (select sum((t.counts).num_packets) as num_dcs from day_interval t)::integer as last_day_packets,",
-            "     (select sum((t.counts).num_dcs) as num_dcs from week_interval t)::integer as last_week_dcs,",
-            "     (select sum((t.counts).num_packets) as num_dcs from week_interval t)::integer as last_week_packets,",
-            "     (select sum((t.counts).num_dcs) as num_dcs from month_interval t)::integer as last_month_dcs,",
-            "     (select sum((t.counts).num_packets) as num_dcs from month_interval t)::integer as last_month_packets;"
+            "     (select sum((t.counts).num_dcs) as num_dcs from day_interval t)::bigint as last_day_dcs,",
+            "     (select sum((t.counts).num_packets) as num_dcs from day_interval t)::bigint as last_day_packets,",
+            "     (select sum((t.counts).num_dcs) as num_dcs from week_interval t)::bigint as last_week_dcs,",
+            "     (select sum((t.counts).num_packets) as num_dcs from week_interval t)::bigint as last_week_packets,",
+            "     (select sum((t.counts).num_dcs) as num_dcs from month_interval t)::bigint as last_month_dcs,",
+            "     (select sum((t.counts).num_packets) as num_dcs from month_interval t)::bigint as last_month_packets;"
         ],
         []
     ),
