@@ -15,6 +15,7 @@
 -define(S_TOKEN_SUPPLY, "stats_token_supply").
 -define(S_STATS_COUNTS, "stats_counts").
 -define(S_STATS_CHALLENGES, "stats_challenges").
+-define(S_STATS_FEES, "stats_fees").
 
 prepare_conn(Conn) ->
     PrivDir = code:priv_dir(blockchain_http),
@@ -55,7 +56,8 @@ get_stats() ->
         StateChannelResults,
         SupplyResult,
         CountsResults,
-        ChallengeResults
+        ChallengeResults,
+        FeeResults
     ] =
         ?EXECUTE_BATCH([
             {?S_STATS_BLOCK_TIMES, []},
@@ -63,7 +65,8 @@ get_stats() ->
             {?S_STATS_STATE_CHANNELS, []},
             {?S_TOKEN_SUPPLY, []},
             {?S_STATS_COUNTS, []},
-            {?S_STATS_CHALLENGES, []}
+            {?S_STATS_CHALLENGES, []},
+            {?S_STATS_FEES, []}
         ]),
 
     {ok, #{
@@ -72,7 +75,8 @@ get_stats() ->
         token_supply => mk_token_supply_from_result(SupplyResult),
         state_channel_counts => mk_stats_from_state_channel_results(StateChannelResults),
         counts => mk_stats_from_counts_results(CountsResults),
-        challenge_counts => mk_stats_from_challenge_results(ChallengeResults)
+        challenge_counts => mk_stats_from_challenge_results(ChallengeResults),
+        fees => mk_stats_from_fee_results(FeeResults)
     }}.
 
 mk_stats_from_time_results(
@@ -97,6 +101,27 @@ mk_stats_from_state_channel_results(
         last_day => #{num_packets => mk_int(LastDayPackets), num_dcs => mk_int(LastDayDCs)},
         last_week => #{num_packets => mk_int(LastWeekPackets), num_dcs => mk_int(LastWeekDCs)},
         last_month => #{num_packets => mk_int(LastMonthPackets), num_dcs => mk_int(LastMonthDCs)}
+    }.
+
+mk_stats_from_fee_results(
+    {ok, [
+        {LastDayTxnFees, LastDayStakingFees, LastWeekTxnFees, LastWeekStakingFees, LastMonthTxnFees,
+            LastMonthStakingFees}
+    ]}
+) ->
+    #{
+        last_day => #{
+            transaction => mk_int(LastDayTxnFees),
+            staking => mk_int(LastDayStakingFees)
+        },
+        last_week => #{
+            transaction => mk_int(LastWeekTxnFees),
+            staking => mk_int(LastWeekStakingFees)
+        },
+        last_month => #{
+            transaction => mk_int(LastMonthTxnFees),
+            staking => mk_int(LastMonthStakingFees)
+        }
     }.
 
 mk_stats_from_counts_results({ok, CountsResults}) ->

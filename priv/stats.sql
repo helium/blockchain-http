@@ -115,3 +115,43 @@ select (sum(balance) / 100000000)::float as token_supply from account_inventory
      (select sum((t.counts).num_packets) as num_dcs from week_interval t)::bigint as last_week_packets,
      (select sum((t.counts).num_dcs) as num_dcs from month_interval t)::bigint as last_month_dcs,
      (select sum((t.counts).num_packets) as num_dcs from month_interval t)::bigint as last_month_packets
+
+-- Transaction fee stats
+-- :stats_fees
+with heights as (
+    with month_start as (
+        (select height from blocks where timestamp > (now() - '1 month'::interval)
+         order by height limit 1)
+    )
+    select
+        (select height as month from month_start),
+        (select height as week from blocks
+         where height > (select height from month_start) and timestamp > (now() - '1 week'::interval)
+         order by height limit 1),
+        (select height as day from blocks
+         where height > (select height from month_start) and timestamp > (now() - '24 hours'::interval)
+         order by height limit 1)
+),
+month_interval as (
+    select
+        t.block as block,
+        sum((t.fields->>'fee')::numeric) as fees,
+        sum(coalesce((t.fields->>'staking_fee')::numeric, 0)::numeric) as staking_fees
+    from transactions t
+    where t.block > (select month from heights)
+        and (t.fields->>'fee')::numeric > 0
+    group by t.block
+),
+week_interval as (
+    select * from month_interval where block > (select week from heights)
+),
+day_interval as (
+    select * from week_interval where block > (select day from heights)
+)
+select
+    (select sum(t.fees) from day_interval t)::bigint as last_day_txn_fees,
+    (select sum(t.staking_fees) from day_interval t)::bigint as last_day_staking_fees,
+    (select sum(t.fees) from week_interval t)::bigint as last_week_txn_fees,
+    (select sum(t.staking_fees) from week_interval t)::bigint as last_week_staking_fees,
+    (select sum(t.fees) from month_interval t)::bigint as last_month_txn_fees,
+    (select sum(t.staking_fees) from month_interval t)::bigint as last_month_staking_fees;
