@@ -4,6 +4,10 @@
 
 -include_lib("epgsql/include/epgsql.hrl").
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -callback prepare_conn(epgsql:connection()) -> map().
 
 -behaviour(dispcount).
@@ -26,6 +30,7 @@
     code_change/3
 ]).
 
+-export([load_from_eql/2]).
 -export([prepared_query/3, execute_batch/2]).
 
 -record(state, {
@@ -98,6 +103,19 @@ execute_batch(Pool, Queries) ->
             throw(?RESPONSE_503)
     end.
 
+load_from_eql(Conn, Filename) ->
+    PrivDir = code:priv_dir(blockchain_http),
+    {ok, Queries} = eql:compile(filename:join(PrivDir, Filename)),
+    Statements = lists:map(
+        fun({Name, Query}) ->
+            Key = atom_to_list(Name),
+            {ok, Statement} = epgsql:parse(Conn, Key, Query, []),
+            {Key, Statement}
+        end,
+        Queries
+    ),
+    maps:from_list(Statements).
+
 init(Args) ->
     GetOpt = fun(K) ->
         case lists:keyfind(K, 1, Args) of
@@ -160,3 +178,17 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+-ifdef(TEST).
+eql_test() ->
+    meck:new(epgsql),
+    meck:expect(epgsql, parse, fun(fakeconnection, _Key, Query, _Opts) -> {ok, Query} end),
+    %% we need to load the application here so that code:priv/2 will work correctly
+    ok = application:load(blockchain_http),
+    Files = ["stats.sql", "vars.sql"],
+    lists:all(fun(#{}) -> true;
+                 (_) -> false
+              end, [ load_from_eql(fakeconnection, F) || F <- Files ]),
+    meck:unload(epgsql).
+
+-endif.

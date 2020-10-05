@@ -13,22 +13,8 @@
 -define(S_VAR_LIST, "var_list").
 -define(S_VAR, "var_get").
 
--define(SELECT_VARS_BASE, "select v.name, v.type, v.value from vars_inventory v ").
-
 prepare_conn(Conn) ->
-    {ok, S1} = epgsql:parse(Conn, ?S_VAR_LIST,
-                            [?SELECT_VARS_BASE,
-                             "order by name"
-                            ], []),
-
-    {ok, S2} = epgsql:parse(Conn, ?S_VAR,
-                            [?SELECT_VARS_BASE,
-                             "where v.name = $1"
-                            ], []),
-
-    #{?S_VAR_LIST => S1,
-      ?S_VAR => S2
-     }.
+    bh_db_worker:load_from_eql(Conn, "vars.sql").
 
 handle('GET', [], _Req) ->
     ?MK_RESPONSE(get_var_list(), block_time);
