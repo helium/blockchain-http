@@ -15,157 +15,20 @@
 -define(S_TOKEN_SUPPLY, "stats_token_supply").
 -define(S_STATS_COUNTS, "stats_counts").
 -define(S_STATS_CHALLENGES, "stats_challenges").
+-define(S_STATS_FEES, "stats_fees").
 
 prepare_conn(Conn) ->
-    {ok, S1} = epgsql:parse(
-        Conn,
-        ?S_STATS_BLOCK_TIMES,
-        [
-            "with month_interval as (",
-            "    select to_timestamp(time) as timestamp, ",
-            "           time - (lead(time) over (order by height desc)) as diff_time",
-            "    from blocks",
-            "    where to_timestamp(time) > (now() - '1 month'::interval)",
-            "), ",
-            "week_interval as (",
-            "    select * from month_interval where timestamp > (now() - '1 week'::interval)",
-            "), ",
-            "day_interval as (",
-            "    select * from week_interval where timestamp > (now() - '24 hour'::interval)",
-            "), ",
-            "hour_interval as (",
-            "    select * from day_interval where timestamp > (now() - '1 hour'::interval)",
-            ") ",
-            "select ",
-            "    (select avg(diff_time) from hour_interval)::float as last_hour_avg,",
-            "    (select avg(diff_time) from day_interval)::float as last_day_avg,",
-            "    (select avg(diff_time) from week_interval)::float as last_week_avg,",
-            "    (select avg(diff_time) from month_interval)::float as last_month_avg,",
-            %% Add std deviations
-            "    (select stddev(diff_time) from hour_interval)::float as last_hour_stddev,",
-            "    (select stddev(diff_time) from day_interval)::float as last_day_stddev,",
-            "    (select stddev(diff_time) from week_interval)::float as last_week_stddev,",
-            "    (select stddev(diff_time) from month_interval)::float as last_month_stddev"
-        ],
-        []
+    PrivDir = code:priv_dir(blockchain_http),
+    {ok, Queries} = eql:compile(filename:join(PrivDir, "stats.sql")),
+    Statements = lists:map(
+        fun({Name, Query}) ->
+            Key = atom_to_list(Name),
+            {ok, Statement} = epgsql:parse(Conn, Key, Query, []),
+            {Key, Statement}
+        end,
+        Queries
     ),
-
-    {ok, S2} = epgsql:parse(
-        Conn,
-        ?S_STATS_ELECTION_TIMES,
-        [
-            "with month_interval as (",
-            "    select to_timestamp(time) as timestamp, ",
-            "           time - (lead(time) over (order by block desc)) as diff_time",
-            "    from transactions",
-            "    where to_timestamp(time) > (now() - '1 month'::interval)",
-            "    and type = 'consensus_group_v1'"
-            "), ",
-            "week_interval as (",
-            "    select * from month_interval where timestamp > (now() - '1 week'::interval)",
-            "), ",
-            "day_interval as (",
-            "    select * from week_interval where timestamp > (now() - '24 hour'::interval)",
-            "), ",
-            "hour_interval as (",
-            "    select * from day_interval where timestamp > (now() - '1 hour'::interval)",
-            ") ",
-            "select ",
-            "    (select avg(diff_time) from hour_interval)::float as last_hour_avg,",
-            "    (select avg(diff_time) from day_interval)::float as last_day_avg,",
-            "    (select avg(diff_time) from week_interval)::float as last_week_avg,",
-            "    (select avg(diff_time) from month_interval)::float as last_month_avg,",
-            %% Add std deviations
-            "    (select stddev(diff_time) from hour_interval)::float as last_hour_stddev,",
-            "    (select stddev(diff_time) from day_interval)::float as last_day_stddev,",
-            "    (select stddev(diff_time) from week_interval)::float as last_week_stddev,",
-            "    (select stddev(diff_time) from month_interval)::float as last_month_stddev"
-        ],
-        []
-    ),
-
-    {ok, S3} = epgsql:parse(
-        Conn,
-        ?S_TOKEN_SUPPLY,
-        "select (sum(balance) / 100000000)::float as token_supply from account_inventory",
-        []
-    ),
-
-    {ok, S4} = epgsql:parse(
-        Conn,
-        ?S_STATS_STATE_CHANNELS,
-        [
-            " with month_interval as (",
-            "     select to_timestamp(b.time) as timestamp, ",
-            "        state_channel_counts(t.type, t.fields) as counts",
-            "     from blocks b inner join transactions t on b.height = t.block",
-            "     where to_timestamp(b.time) > (now() - '1 month'::interval)",
-            "         and t.type = 'state_channel_close_v1'",
-            " ),",
-            " week_interval as (",
-            "     select * from month_interval where timestamp > (now() - '1 week'::interval)",
-            " ),",
-            " day_interval as (",
-            "     select * from week_interval where timestamp > (now() - '24 hour'::interval)",
-            " )",
-            " select",
-            "     (select sum((t.counts).num_dcs) as num_dcs from day_interval t)::bigint as last_day_dcs,",
-            "     (select sum((t.counts).num_packets) as num_dcs from day_interval t)::bigint as last_day_packets,",
-            "     (select sum((t.counts).num_dcs) as num_dcs from week_interval t)::bigint as last_week_dcs,",
-            "     (select sum((t.counts).num_packets) as num_dcs from week_interval t)::bigint as last_week_packets,",
-            "     (select sum((t.counts).num_dcs) as num_dcs from month_interval t)::bigint as last_month_dcs,",
-            "     (select sum((t.counts).num_packets) as num_dcs from month_interval t)::bigint as last_month_packets;"
-        ],
-        []
-    ),
-
-    {ok, S5} = epgsql:parse(
-        Conn,
-        ?S_STATS_COUNTS,
-        "select name, value from stats_inventory",
-        []
-    ),
-
-    {ok, S6} = epgsql:parse(
-        Conn,
-        ?S_STATS_CHALLENGES,
-        [
-            "with block_poc_range as ( ",
-            "        select greatest(0, max(height) - coalesce((select value::bigint from vars_inventory where name = 'poc_challenge_interval'), 30)) as min, ",
-            "               max(height) ",
-            "        from blocks ",
-            "), ",
-            "block_last_day_range as ( ",
-            "    select min(height), max(height) from blocks ",
-            "    where timestamp between now() - '24 hour'::interval and now() ",
-            "), ",
-            "last_day_challenges as ( ",
-            "    select hash from transactions ",
-            "    where block between (select min from block_last_day_range) and (select max from block_last_day_range) and type = 'poc_receipts_v1'",
-            "), ",
-            "poc_receipts as ( ",
-            "    select hash, fields->>'onion_key_hash' as challenge_id from transactions ",
-            "    where block between (select min from block_poc_range) and (select max from block_poc_range) and type = 'poc_receipts_v1' ",
-            "), ",
-            "poc_requests as ( ",
-            "    select hash, fields->>'onion_key_hash' as challenge_id from transactions ",
-            "    where block between (select min from block_poc_range) and (select max from block_poc_range) and type = 'poc_request_v1'",
-            ") ",
-            "select * from ",
-            "    (select count(*) as active_challenges from poc_requests ",
-            "     where challenge_id not in (select challenge_id from poc_receipts)) as active, ",
-            "    (select count(*) as last_day_challenges from last_day_challenges) as last_day "
-        ],
-        []
-    ),
-    #{
-        ?S_STATS_BLOCK_TIMES => S1,
-        ?S_STATS_ELECTION_TIMES => S2,
-        ?S_TOKEN_SUPPLY => S3,
-        ?S_STATS_STATE_CHANNELS => S4,
-        ?S_STATS_COUNTS => S5,
-        ?S_STATS_CHALLENGES => S6
-    }.
+    maps:from_list(Statements).
 
 handle('GET', [], _Req) ->
     ?MK_RESPONSE(get_stats(), block_time);
@@ -187,12 +50,24 @@ get_token_supply([{format, Format}], CacheTime) ->
     end.
 
 get_stats() ->
-    BlockTimeResults = ?PREPARED_QUERY(?S_STATS_BLOCK_TIMES, []),
-    ElectionTimeResults = ?PREPARED_QUERY(?S_STATS_ELECTION_TIMES, []),
-    StateChannelResults = ?PREPARED_QUERY(?S_STATS_STATE_CHANNELS, []),
-    SupplyResult = ?PREPARED_QUERY(?S_TOKEN_SUPPLY, []),
-    CountsResults = ?PREPARED_QUERY(?S_STATS_COUNTS, []),
-    ChallengeResults = ?PREPARED_QUERY(?S_STATS_CHALLENGES, []),
+    [
+        BlockTimeResults,
+        ElectionTimeResults,
+        StateChannelResults,
+        SupplyResult,
+        CountsResults,
+        ChallengeResults,
+        FeeResults
+    ] =
+        ?EXECUTE_BATCH([
+            {?S_STATS_BLOCK_TIMES, []},
+            {?S_STATS_ELECTION_TIMES, []},
+            {?S_STATS_STATE_CHANNELS, []},
+            {?S_TOKEN_SUPPLY, []},
+            {?S_STATS_COUNTS, []},
+            {?S_STATS_CHALLENGES, []},
+            {?S_STATS_FEES, []}
+        ]),
 
     {ok, #{
         block_times => mk_stats_from_time_results(BlockTimeResults),
@@ -200,11 +75,12 @@ get_stats() ->
         token_supply => mk_token_supply_from_result(SupplyResult),
         state_channel_counts => mk_stats_from_state_channel_results(StateChannelResults),
         counts => mk_stats_from_counts_results(CountsResults),
-        challenge_counts => mk_stats_from_challenge_results(ChallengeResults)
+        challenge_counts => mk_stats_from_challenge_results(ChallengeResults),
+        fees => mk_stats_from_fee_results(FeeResults)
     }}.
 
 mk_stats_from_time_results(
-    {ok, _, [
+    {ok, [
         {LastHrAvg, LastDayAvg, LastWeekAvg, LastMonthAvg, LastHrStddev, LastDayStddev,
             LastWeekStddev, LastMonthStddev}
     ]}
@@ -217,7 +93,7 @@ mk_stats_from_time_results(
     }.
 
 mk_stats_from_state_channel_results(
-    {ok, _, [
+    {ok, [
         {LastDayDCs, LastDayPackets, LastWeekDCs, LastWeekPackets, LastMonthDCs, LastMonthPackets}
     ]}
 ) ->
@@ -227,10 +103,31 @@ mk_stats_from_state_channel_results(
         last_month => #{num_packets => mk_int(LastMonthPackets), num_dcs => mk_int(LastMonthDCs)}
     }.
 
-mk_stats_from_counts_results({ok, _, CountsResults}) ->
+mk_stats_from_fee_results(
+    {ok, [
+        {LastDayTxnFees, LastDayStakingFees, LastWeekTxnFees, LastWeekStakingFees, LastMonthTxnFees,
+            LastMonthStakingFees}
+    ]}
+) ->
+    #{
+        last_day => #{
+            transaction => mk_int(LastDayTxnFees),
+            staking => mk_int(LastDayStakingFees)
+        },
+        last_week => #{
+            transaction => mk_int(LastWeekTxnFees),
+            staking => mk_int(LastWeekStakingFees)
+        },
+        last_month => #{
+            transaction => mk_int(LastMonthTxnFees),
+            staking => mk_int(LastMonthStakingFees)
+        }
+    }.
+
+mk_stats_from_counts_results({ok, CountsResults}) ->
     maps:from_list(CountsResults).
 
-mk_stats_from_challenge_results({ok, _, [{ActiveChallenges, LastDayChallenges}]}) ->
+mk_stats_from_challenge_results({ok, [{ActiveChallenges, LastDayChallenges}]}) ->
     #{
         active => mk_int(ActiveChallenges),
         last_day => mk_int(LastDayChallenges)
@@ -250,7 +147,9 @@ mk_int(Bin) when is_binary(Bin) ->
 mk_int(Num) when is_integer(Num) ->
     Num.
 
-mk_token_supply_from_result({ok, _, [{TokenSupply}]}) ->
+mk_token_supply_from_result({ok, _, Result}) ->
+    mk_token_supply_from_result({ok, Result});
+mk_token_supply_from_result({ok, [{TokenSupply}]}) ->
     mk_float(TokenSupply).
 
 -ifdef(TEST).
