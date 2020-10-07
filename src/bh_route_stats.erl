@@ -18,17 +18,7 @@
 -define(S_STATS_FEES, "stats_fees").
 
 prepare_conn(Conn) ->
-    PrivDir = code:priv_dir(blockchain_http),
-    {ok, Queries} = eql:compile(filename:join(PrivDir, "stats.sql")),
-    Statements = lists:map(
-        fun({Name, Query}) ->
-            Key = atom_to_list(Name),
-            {ok, Statement} = epgsql:parse(Conn, Key, Query, []),
-            {Key, Statement}
-        end,
-        Queries
-    ),
-    maps:from_list(Statements).
+    bh_db_worker:load_from_eql(Conn, "stats.sql").
 
 handle('GET', [], _Req) ->
     ?MK_RESPONSE(get_stats(), block_time);
