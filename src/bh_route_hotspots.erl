@@ -19,6 +19,7 @@
 -define(S_OWNER_HOTSPOT_LIST_BEFORE, "owner_hotspot_list_before").
 -define(S_OWNER_HOTSPOT_LIST, "owner_hotspot_list").
 -define(S_HOTSPOT, "hotspot").
+-define(S_HOTSPOTS_NAMED, "hotspots_named").
 -define(S_CITY_HOTSPOT_LIST, "hotspot_city_list").
 -define(S_CITY_HOTSPOT_LIST_BEFORE, "hotspot_city_list_before").
 -define(S_HOTSPOT_WITNESS_LIST, "hotspot_witness_list").
@@ -107,6 +108,16 @@ prepare_conn(Conn) ->
 
     {ok, S6} = epgsql:parse(
         Conn,
+        ?S_HOTSPOTS_NAMED,
+        [
+            ?SELECT_HOTSPOT_BASE,
+            "where g.name = $1"
+        ],
+        []
+    ),
+
+    {ok, S7} = epgsql:parse(
+        Conn,
         ?S_CITY_HOTSPOT_LIST_BEFORE,
         [
             ?SELECT_HOTSPOT_BASE,
@@ -119,7 +130,7 @@ prepare_conn(Conn) ->
         []
     ),
 
-    {ok, S7} = epgsql:parse(
+    {ok, S8} = epgsql:parse(
         Conn,
         ?S_CITY_HOTSPOT_LIST,
         [
@@ -132,7 +143,7 @@ prepare_conn(Conn) ->
         []
     ),
 
-    {ok, S8} = epgsql:parse(
+    {ok, S9} = epgsql:parse(
         Conn,
         ?S_HOTSPOT_WITNESS_LIST,
         [
@@ -149,7 +160,7 @@ prepare_conn(Conn) ->
         []
     ),
 
-    {ok, S9} = epgsql:parse(
+    {ok, S10} = epgsql:parse(
         Conn,
         ?S_HOTSPOT_LIST_ELECTED,
         [
@@ -173,10 +184,11 @@ prepare_conn(Conn) ->
         ?S_OWNER_HOTSPOT_LIST_BEFORE => S3,
         ?S_OWNER_HOTSPOT_LIST => S4,
         ?S_HOTSPOT => S5,
-        ?S_CITY_HOTSPOT_LIST_BEFORE => S6,
-        ?S_CITY_HOTSPOT_LIST => S7,
-        ?S_HOTSPOT_WITNESS_LIST => S8,
-        ?S_HOTSPOT_LIST_ELECTED => S9
+        ?S_HOTSPOTS_NAMED => S6,
+        ?S_CITY_HOTSPOT_LIST_BEFORE => S7,
+        ?S_CITY_HOTSPOT_LIST => S8,
+        ?S_HOTSPOT_WITNESS_LIST => S9,
+        ?S_HOTSPOT_LIST_ELECTED => S10
     }.
 
 handle('GET', [], Req) ->
@@ -186,6 +198,8 @@ handle('GET', [<<"elected">>], __Req) ->
     ?MK_RESPONSE(get_hotspot_elected_list(), block_time);
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address), block_time);
+handle('GET', [<<"name">>, Name], _Req) ->
+    ?MK_RESPONSE(get_hotspots_named(Name), block_time);
 handle('GET', [Address, <<"activity">>], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
     Result = bh_route_txns:get_activity_list({hotspot, Address}, Args),
@@ -264,6 +278,14 @@ get_hotspot(Address) ->
             {error, not_found}
     end.
 
+get_hotspots_named(Name) ->
+    case ?PREPARED_QUERY(?S_HOTSPOTS_NAMED, [Name]) of
+        {ok, _, Results} ->
+            {ok, hotspot_list_to_json(Results)};
+        _ ->
+            {error, not_found}
+    end.
+
 mk_hotspot_list_from_result({ok, _, Results}) ->
     {ok, hotspot_list_to_json(Results), mk_cursor(Results)}.
 
@@ -276,7 +298,7 @@ mk_cursor(Results) when is_list(Results) ->
             undefined;
         false ->
             case lists:last(Results) of
-                {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location, _Score, _Nonce,
+                {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location, _Score, _Nonce, _Name,
                     _OnlineStatus, _BlockStatus, _ShortStreet, _LongStreet, _ShortCity, _LongCity,
                     _ShortState, _LongState, _ShortCountry, _LongCountry, _CityId} ->
                     #{

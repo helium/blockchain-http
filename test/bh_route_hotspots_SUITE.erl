@@ -52,6 +52,15 @@ get_test(_Config) ->
     ?assertEqual(FetchAddress, binary_to_list(Address)),
     ok.
 
+get_named_test(_Config) ->
+    FetchAddress = "1126WubKPpmEW6uCgcuXMfn4tHEp2rPr9sCrR9YXj2Vvg4gL3QC2",
+    {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/", FetchAddress]),
+    #{
+        <<"data">> := Results
+    } = Json,
+    ?assert(length(Results) >= 1),
+    ok.
+
 not_found_test(_Config) ->
     ?assertMatch({error, {_, 404, _}}, ?json_request("/v1/hotspots/no_address")),
     ok.
