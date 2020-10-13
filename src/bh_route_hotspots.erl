@@ -25,7 +25,7 @@
 
 -define(SELECT_HOTSPOT_BASE(G), [
     "select (select max(height) from blocks) as height, ",
-    "g.last_block, g.first_block, g.address, g.owner, g.location, g.score, g.nonce, ",
+    "g.last_block, g.first_block, g.address, g.owner, g.location, g.score, g.nonce, g.name, ",
     "s.online as online_status, s.block as block_status, "
     "l.short_street, l.long_street, ",
     "l.short_city, l.long_city, ",
@@ -327,12 +327,12 @@ to_geo_json({ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCount
     }.
 
 hotspot_witness_to_json(
-    {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, OnlineStatus,
+    {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, Name, OnlineStatus,
         BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
         ShortCountry, LongCountry, CityId, WitnessFor, WitnessInfo}
 ) ->
     Base = hotspot_to_json(
-        {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, OnlineStatus,
+        {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, Name, OnlineStatus,
             BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
             ShortCountry, LongCountry, CityId}
     ),
@@ -342,7 +342,7 @@ hotspot_witness_to_json(
     }.
 
 hotspot_to_json(
-    {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, OnlineStatus,
+    {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, Name, OnlineStatus,
         BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
         ShortCountry, LongCountry, CityId}
 ) ->
@@ -350,12 +350,11 @@ hotspot_to_json(
         (null) -> 0;
         (V) -> V
     end,
-    {ok, Name} = erl_angry_purple_tiger:animal_name(Address),
     ?INSERT_LAT_LON(
         Location,
         #{
             address => Address,
-            name => list_to_binary(Name),
+            name => Name,
             owner => Owner,
             location => Location,
             geocode => to_geo_json(
