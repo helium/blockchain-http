@@ -89,6 +89,7 @@ handle(_, _, _Req) ->
                        | #blockchain_txn_redeem_htlc_v1_pb{}
                        | #blockchain_txn_price_oracle_v1_pb{}
                        | #blockchain_txn_token_burn_v1_pb{}
+                       | #blockchain_txn_transfer_hotspot_v1_pb{}
                        | #blockchain_txn_security_exchange_v1_pb{}.
 
 -type nonce_type() :: binary().
@@ -98,11 +99,11 @@ insert_pending_txn(#blockchain_txn_oui_v1_pb{owner=Owner}=Txn, Bin) ->
     %% There is no nonce type for that is useful to speculate values for
     insert_pending_txn(Txn, Owner, 0, <<"none">>, Bin);
 insert_pending_txn(#blockchain_txn_add_gateway_v1_pb{gateway=GatewayAddress}=Txn, Bin) ->
-    %% Adding a gateway uses the gateway nonce, evenv though it's
+    %% Adding a gateway uses the gateway nonce, even though it's
     %% expected to be 0 (a gateway can only be added once)
     insert_pending_txn(Txn, GatewayAddress, 0, <<"gateway">>, Bin);
 insert_pending_txn(#blockchain_txn_assert_location_v1_pb{nonce=Nonce, gateway=GatewayAddress}=Txn, Bin) ->
-    %% Asserting a location uses the gatway noncegSy
+    %% Asserting a location uses the gatway nonce
     insert_pending_txn(Txn, GatewayAddress, Nonce, <<"gateway">>, Bin);
 insert_pending_txn(#blockchain_txn_payment_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
     insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
@@ -116,6 +117,8 @@ insert_pending_txn(#blockchain_txn_price_oracle_v1_pb{public_key=Address}=Txn, B
     insert_pending_txn(Txn, Address, 0, <<"none">>, Bin);
 insert_pending_txn(#blockchain_txn_security_exchange_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
     insert_pending_txn(Txn, Address, Nonce, <<"security">>, Bin);
+insert_pending_txn(#blockchain_txn_transfer_hotspot_v1_pb{buyer=Buyer, buyer_nonce=Nonce}=Txn, Bin) ->
+    insert_pending_txn(Txn, Buyer, Nonce, <<"balance">>, Bin);
 insert_pending_txn(#blockchain_txn_token_burn_v1_pb{nonce=Nonce, payer=Address}=Txn, Bin) ->
     insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin).
 
@@ -225,6 +228,12 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
                EncodedTxn = T:encode_msg(BaseTxn),
                crypto:hash(sha256, EncodedTxn) ).
 
+-define(TXN_SSB_HASH(T),
+        txn_hash(#T{}=Txn) ->
+            BaseTxn = Txn#T{seller_signature = <<>>, buyer_signature = <<>>},
+            EncodedTxn = T:encode_msg(BaseTxn),
+            crypto:hash(sha256, EncodedTxn) ).
+
 -define(TXN_TYPE(T, B),
         txn_type(#T{}) ->
                B).
@@ -238,6 +247,7 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
 ?TXN_SIG_HASH(blockchain_txn_redeem_htlc_v1_pb);
 ?TXN_SIG_HASH(blockchain_txn_price_oracle_v1_pb);
 ?TXN_SIG_HASH(blockchain_txn_token_burn_v1_pb);
+?TXN_SSB_HASH(blockchain_txn_transfer_hotspot_v1_pb);
 ?TXN_SIG_HASH(blockchain_txn_security_exchange_v1_pb).
 
 ?TXN_TYPE(blockchain_txn_oui_v1_pb, <<"oui_v1">>);
@@ -249,4 +259,5 @@ txn_unwrap(#blockchain_txn_pb{txn={_, Txn}}) ->
 ?TXN_TYPE(blockchain_txn_redeem_htlc_v1_pb, <<"redeem_htlc_v1">>);
 ?TXN_TYPE(blockchain_txn_price_oracle_v1_pb, <<"price_oracle_v1">>);
 ?TXN_TYPE(blockchain_txn_token_burn_v1_pb, <<"token_burn_v1">>);
+?TXN_TYPE(blockchain_txn_transfer_hotspot_v1_pb, <<"transfer_hotspot_v1">>);
 ?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, <<"security_exchange_v1">>).
