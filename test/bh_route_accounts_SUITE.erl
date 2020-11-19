@@ -17,6 +17,7 @@ all() ->
         stats_test,
         rewards_test,
         rewards_sum_test,
+        rewards_stats_test,
         rich_list_test
     ].
 
@@ -142,10 +143,22 @@ rewards_sum_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request([
         "/v1/accounts/",
         Account,
-        "/rewards/sum/?max_time=2020-08-27&min_time=2019-01-01"
+        "/rewards/sum?max_time=2020-08-27&min_time=2019-01-01"
     ]),
     #{<<"data">> := #{<<"sum">> := Sum}} = Json,
     ?assert(Sum >= 0),
+
+    ok.
+
+rewards_stats_test(_Config) ->
+    Account = "13YuCz3mZ55HZ6hJJvQHCZXGgE8ooe2CSvbtSHQR3m5vZ1EVCNZ",
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/accounts/",
+        Account,
+        "/rewards/stats?max_time=2020-09-27&min_time=2020-08-27&bucket=day"
+    ]),
+    #{<<"data">> := Data} = Json,
+    ?assertEqual(31, length(Data)),
 
     ok.
 

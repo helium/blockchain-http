@@ -95,11 +95,15 @@ select (sum(balance) / 100000000)::float as token_supply from account_inventory
 
 -- State channel details
 -- :stats_state_channels
- with month_interval as (
-     select to_timestamp(b.time) as timestamp,
+with min as (
+    select height from blocks where timestamp > (now() - '1 month'::interval) order by height limit 1
+),
+ month_interval as (
+    select
+        to_timestamp(t.time) as timestamp,
         state_channel_counts(t.type, t.fields) as counts
-     from blocks b inner join transactions t on b.height = t.block
-     where to_timestamp(b.time) > (now() - '1 month'::interval)
+     from transactions t
+     where t.block > (select height from min)
          and t.type = 'state_channel_close_v1'
  ),
  week_interval as (

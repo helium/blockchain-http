@@ -30,7 +30,7 @@
     code_change/3
 ]).
 
--export([load_from_eql/2]).
+-export([load_from_eql/3]).
 -export([prepared_query/3, execute_batch/2]).
 
 -record(state, {
@@ -103,17 +103,27 @@ execute_batch(Pool, Queries) ->
             throw(?RESPONSE_503)
     end.
 
-load_from_eql(Conn, Filename) ->
+load_from_eql(Conn, Filename, Loads) ->
     PrivDir = code:priv_dir(blockchain_http),
     {ok, Queries} = eql:compile(filename:join(PrivDir, Filename)),
-    Statements = lists:map(
-        fun({Name, Query}) ->
-            Key = atom_to_list(Name),
+    Load = fun
+        L({Key, {Name, Params}}) when is_list(Name) ->
+            L({Key, {list_to_atom(Name), Params}});
+        L({Key, {Name, Params}}) ->
+            {ok, Query} =
+                case Params of
+                    [] -> eql:get_query(Name, Queries);
+                    _ -> eql:get_query(Name, Queries, Params)
+                end,
             {ok, Statement} = epgsql:parse(Conn, Key, Query, []),
-            {Key, Statement}
-        end,
-        Queries
-    ),
+            {Key, Statement};
+        L({Key, Params}) ->
+            L({Key, {Key, Params}});
+        L(Key) ->
+            L({Key, {Key, []}})
+    end,
+
+    Statements = lists:map(Load, Loads),
     maps:from_list(Statements).
 
 init(Args) ->
@@ -185,10 +195,19 @@ eql_test() ->
     meck:expect(epgsql, parse, fun(fakeconnection, _Key, Query, _Opts) -> {ok, Query} end),
     %% we need to load the application here so that code:priv/2 will work correctly
     ok = application:load(blockchain_http),
-    Files = ["stats.sql", "vars.sql"],
-    lists:all(fun(#{}) -> true;
-                 (_) -> false
-              end, [ load_from_eql(fakeconnection, F) || F <- Files ]),
+    Files = [
+        {"vars.sql", [
+            {"var_list", {var_list, []}},
+            {"var_get", []}
+        ]}
+    ],
+    lists:all(
+        fun
+            (#{}) -> true;
+            (_) -> false
+        end,
+        [load_from_eql(fakeconnection, F, L) || {F, L} <- Files]
+    ),
     meck:unload(epgsql).
 
 -endif.

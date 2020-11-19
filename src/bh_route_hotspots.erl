@@ -217,6 +217,9 @@ handle('GET', [Address, <<"rewards">>], Req) ->
 handle('GET', [Address, <<"rewards">>, <<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time], Req),
     ?MK_RESPONSE(bh_route_rewards:get_reward_sum({hotspot, Address}, Args), block_time);
+handle('GET', [Address, <<"rewards">>, <<"stats">>], Req) ->
+    Args = ?GET_ARGS([max_time, min_time, bucket], Req),
+    ?MK_RESPONSE(bh_route_rewards:get_reward_stats({hotspot, Address}, Args), block_time);
 handle('GET', [Address, <<"witnesses">>], _Req) ->
     ?MK_RESPONSE(get_hotspot_list([{witnesses_for, Address}]), block_time);
 handle(_, _, _Req) ->
