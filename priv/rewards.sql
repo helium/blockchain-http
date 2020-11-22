@@ -1,6 +1,6 @@
 -- :reward_block_range
 with max as (
-     select height from blocks where timestamp <= $1 order by height desc limit 1
+     select height from blocks where timestamp < $1 order by height desc limit 1
 ),
 min as (
     select height from blocks where timestamp >= $2 order by height limit 1
@@ -11,7 +11,7 @@ select (select height from max) as max, (select height from min) as min
 select :fields
 from rewards r
 :scope
-and r.block >= $2 and r.block < $3
+and r.block >= $2 and r.block <= $3
 order by r.block desc, r.transaction_hash
 
 -- :reward_list_rem_base
@@ -32,14 +32,14 @@ select
     coalesce(stddev(r.amount) / 100000000, 0)::float as stddev
 from rewards r
 :scope
-and r.block >= $2 and r.block < $3
+and r.block >= $2 and r.block <= $3
 
 -- :reward_stats_base
 with time_range as (
     select generate_series(date_trunc($4::text, $2::timestamptz), date_trunc($4::text, $3::timestamptz), $5) as timestamp
 ),
 max as (
-    select height from blocks where timestamp <= (select max(timestamp) from time_range) order by height desc limit 1
+    select height from blocks where timestamp < (select max(timestamp) from time_range) order by height desc limit 1
 ),
 min as (
     select height from blocks where timestamp >= (select min(timestamp) from time_range) order by height limit 1
