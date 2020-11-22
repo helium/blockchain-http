@@ -12,13 +12,22 @@
 -define(S_STATS_BLOCK_TIMES, "stats_block_times").
 -define(S_STATS_ELECTION_TIMES, "stats_election_times").
 -define(S_STATS_STATE_CHANNELS, "stats_state_channels").
--define(S_TOKEN_SUPPLY, "stats_token_supply").
+-define(S_STATS_TOKEN_SUPPLY, "stats_token_supply").
 -define(S_STATS_COUNTS, "stats_counts").
 -define(S_STATS_CHALLENGES, "stats_challenges").
 -define(S_STATS_FEES, "stats_fees").
 
 prepare_conn(Conn) ->
-    bh_db_worker:load_from_eql(Conn, "stats.sql").
+    Loads = [
+        ?S_STATS_BLOCK_TIMES,
+        ?S_STATS_ELECTION_TIMES,
+        ?S_STATS_COUNTS,
+        ?S_STATS_CHALLENGES,
+        ?S_STATS_STATE_CHANNELS,
+        ?S_STATS_TOKEN_SUPPLY,
+        ?S_STATS_FEES
+    ],
+    bh_db_worker:load_from_eql(Conn, "stats.sql", Loads).
 
 handle('GET', [], _Req) ->
     ?MK_RESPONSE(get_stats(), block_time);
@@ -29,7 +38,7 @@ handle(_, _, _Req) ->
     ?RESPONSE_404.
 
 get_token_supply([{format, Format}], CacheTime) ->
-    Result = ?PREPARED_QUERY(?S_TOKEN_SUPPLY, []),
+    Result = ?PREPARED_QUERY(?S_STATS_TOKEN_SUPPLY, []),
     case Format of
         <<"raw">> ->
             Headers = [{<<"Content-Type">>, <<"text/plain">>}],
@@ -53,7 +62,7 @@ get_stats() ->
             {?S_STATS_BLOCK_TIMES, []},
             {?S_STATS_ELECTION_TIMES, []},
             {?S_STATS_STATE_CHANNELS, []},
-            {?S_TOKEN_SUPPLY, []},
+            {?S_STATS_TOKEN_SUPPLY, []},
             {?S_STATS_COUNTS, []},
             {?S_STATS_CHALLENGES, []},
             {?S_STATS_FEES, []}
