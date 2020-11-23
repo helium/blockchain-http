@@ -253,38 +253,19 @@ mk_cursor(Results) when is_list(Results) ->
 %%
 
 get_stats(Account) ->
-    case
-        lists:foldl(
-            fun
-                (_Query, {error, Error}) ->
-                    {error, Error};
-                (Query, {ok, Acc}) ->
-                    case ?PREPARED_QUERY(Query, [Account]) of
-                        {ok, _, Results} ->
-                            {ok, [Results | Acc]};
-                        _ ->
-                            {error, not_found}
-                    end
-            end,
-            {ok, []},
-            [
-                ?S_ACCOUNT_BAL_HOURLY,
-                ?S_ACCOUNT_BAL_WEEKLY,
-                ?S_ACCOUNT_BAL_MONTHLY
-            ]
-        )
-    of
-        {ok, [BalanceMonthlyResults, BalanceWeeklyResults, BalanceHourlyResults]} ->
-            {ok, #{
-                last_day => mk_balance_stats(BalanceHourlyResults),
-                last_week => mk_balance_stats(BalanceWeeklyResults),
-                last_month => mk_balance_stats(BalanceMonthlyResults)
-            }};
-        {error, Error} ->
-            {error, Error}
-    end.
+    [BalanceHourlyResults, BalanceWeeklyResults, BalanceMonthlyResults] =
+        ?EXECUTE_BATCH([
+            {?S_ACCOUNT_BAL_HOURLY, [Account]},
+            {?S_ACCOUNT_BAL_WEEKLY, [Account]},
+            {?S_ACCOUNT_BAL_MONTHLY, [Account]}
+        ]),
+    {ok, #{
+        last_day => mk_balance_stats(BalanceHourlyResults),
+        last_week => mk_balance_stats(BalanceWeeklyResults),
+        last_month => mk_balance_stats(BalanceMonthlyResults)
+    }}.
 
-mk_balance_stats(Results) ->
+mk_balance_stats({ok, Results}) ->
     lists:map(
         fun({Timestamp, Value}) ->
             #{
