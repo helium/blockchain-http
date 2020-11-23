@@ -78,9 +78,7 @@ execute_batch(Pool, Queries) ->
         Batch = lists:foldr(
             fun({Name, Params}, Acc) ->
                 Statement = maps:get(Name, Stmts),
-                #statement{types = Types} = Statement,
-                TypedParameters = lists:zip(Types, Params),
-                [{Statement, TypedParameters} | Acc]
+                [{Statement, Params} | Acc]
             end,
             [],
             Queries
