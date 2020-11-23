@@ -26,7 +26,8 @@
 
 -define(SELECT_HOTSPOT_BASE(G), [
     "select (select max(height) from blocks) as height, ",
-    "g.last_block, g.first_block, g.address, g.owner, g.location, g.score, g.nonce, g.name, ",
+    "g.last_block, g.first_block, g.first_timestamp, g.address, ",
+    "g.owner, g.location, g.score, g.nonce, g.name, ",
     "s.online as online_status, s.block as block_status, "
     "l.short_street, l.long_street, ",
     "l.short_city, l.long_city, ",
@@ -301,9 +302,10 @@ mk_cursor(Results) when is_list(Results) ->
             undefined;
         false ->
             case lists:last(Results) of
-                {Height, _ScoreBlock, FirstBlock, Address, _Owner, _Location, _Score, _Nonce, _Name,
-                    _OnlineStatus, _BlockStatus, _ShortStreet, _LongStreet, _ShortCity, _LongCity,
-                    _ShortState, _LongState, _ShortCountry, _LongCountry, _CityId} ->
+                {Height, _ScoreBlock, FirstBlock, _FirstTimestamp, Address, _Owner, _Location,
+                    _Score, _Nonce, _Name, _OnlineStatus, _BlockStatus, _ShortStreet, _LongStreet,
+                    _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
+                    _CityId} ->
                     #{
                         before_address => Address,
                         before_block => FirstBlock,
@@ -352,14 +354,14 @@ to_geo_json({ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCount
     }.
 
 hotspot_witness_to_json(
-    {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, Name, OnlineStatus,
-        BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
-        ShortCountry, LongCountry, CityId, WitnessFor, WitnessInfo}
+    {Height, ScoreBlock, FirstBlock, FirstTimestamp, Address, Owner, Location, Score, Nonce, Name,
+        OnlineStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
+        LongState, ShortCountry, LongCountry, CityId, WitnessFor, WitnessInfo}
 ) ->
     Base = hotspot_to_json(
-        {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, Name, OnlineStatus,
-            BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
-            ShortCountry, LongCountry, CityId}
+        {Height, ScoreBlock, FirstBlock, FirstTimestamp, Address, Owner, Location, Score, Nonce,
+            Name, OnlineStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity,
+            ShortState, LongState, ShortCountry, LongCountry, CityId}
     ),
     Base#{
         witness_for => WitnessFor,
@@ -367,9 +369,9 @@ hotspot_witness_to_json(
     }.
 
 hotspot_to_json(
-    {Height, ScoreBlock, FirstBlock, Address, Owner, Location, Score, Nonce, Name, OnlineStatus,
-        BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
-        ShortCountry, LongCountry, CityId}
+    {Height, ScoreBlock, FirstBlock, FirstTimestamp, Address, Owner, Location, Score, Nonce, Name,
+        OnlineStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
+        LongState, ShortCountry, LongCountry, CityId}
 ) ->
     MaybeZero = fun
         (null) -> 0;
@@ -389,6 +391,7 @@ hotspot_to_json(
             score_update_height => ScoreBlock,
             score => Score,
             block_added => FirstBlock,
+            timestamp_added => iso8601:format(FirstTimestamp),
             block => Height,
             status => #{
                 online => OnlineStatus,
