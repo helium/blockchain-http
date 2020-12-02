@@ -1,15 +1,17 @@
 -module(bh_route_oracle_SUITE).
+
 -compile([nowarn_export_all, export_all]).
 
 -include("ct_utils.hrl").
 
-all() -> [
-          price_test,
-          price_at_block_test,
-          list_test,
-          activity_list_test,
-          price_predictions_test
-         ].
+all() ->
+    [
+        price_test,
+        price_at_block_test,
+        list_test,
+        activity_list_test,
+        price_predictions_test
+    ].
 
 init_per_suite(Config) ->
     ?init_bh(Config).
@@ -19,46 +21,45 @@ end_per_suite(Config) ->
 
 price_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/oracle/prices/current"),
-    ?assertMatch(#{ <<"data">> :=
-                        #{ <<"block">> :=  _,
-                           <<"price">> := _
-                         }
-                  }, Json),
+    ?assertMatch(
+        #{<<"data">> := #{<<"block">> := _, <<"price">> := _, <<"timestamp">> := _}},
+        Json
+    ),
 
     ok.
 
 price_at_block_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/oracle/prices/366920"),
-    ?assertMatch(#{ <<"data">> :=
-                        #{ <<"block">> :=  _,
-                           <<"price">> := _
-                         }
-                  }, Json),
+    ?assertMatch(
+        #{<<"data">> := #{<<"block">> := _, <<"price">> := _, <<"timestamp">> := _}},
+        Json
+    ),
 
     ok.
 
-
 list_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/oracle/prices"),
-    #{ <<"data">> := Data } = Json,
+    #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),
 
     ok.
 
 activity_list_test(_Config) ->
     {ok, {_, _, AllJson}} = ?json_request("/v1/oracle/activity"),
-    #{ <<"data">> := AllData } = AllJson,
+    #{<<"data">> := AllData} = AllJson,
     ?assert(length(AllData) >= 0),
 
-    {ok, {_, _, OneJson}} = ?json_request("/v1/oracle/13CFFcmPtMvNQCpWQRXCTqXPnXtcsibDWVwiQRKpUCt4nqtF7RE/activity"),
-    #{ <<"data">> := OneData } = OneJson,
+    {ok, {_, _, OneJson}} = ?json_request(
+        "/v1/oracle/13CFFcmPtMvNQCpWQRXCTqXPnXtcsibDWVwiQRKpUCt4nqtF7RE/activity"
+    ),
+    #{<<"data">> := OneData} = OneJson,
     ?assert(length(OneData) >= 0),
 
     ok.
 
 price_predictions_test(_Config) ->
     {ok, {_, _, AllJson}} = ?json_request("/v1/oracle/predictions"),
-    #{ <<"data">> := AllData } = AllJson,
+    #{<<"data">> := AllData} = AllJson,
     ?assert(length(AllData) >= 0),
 
     ok.
