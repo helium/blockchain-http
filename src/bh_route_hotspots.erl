@@ -23,11 +23,10 @@
 -define(S_CITY_HOTSPOT_LIST, "hotspot_city_list").
 -define(S_CITY_HOTSPOT_LIST_BEFORE, "hotspot_city_list_before").
 -define(S_HOTSPOT_WITNESS_LIST, "hotspot_witness_list").
-
 -define(SELECT_HOTSPOT_BASE(G), [
     "select (select max(height) from blocks) as height, ",
     "g.last_block, g.first_block, g.first_timestamp, g.address, ",
-    "g.owner, g.location, g.score, g.nonce, g.name, ",
+    "g.owner, g.location, g.nonce, g.name, ",
     "s.online as online_status, s.block as block_status, "
     "l.short_street, l.long_street, ",
     "l.short_city, l.long_city, ",
@@ -194,7 +193,10 @@ prepare_conn(Conn) ->
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(get_hotspot_list([{owner, undefined}, {city, undefined} | Args]), block_time);
+    ?MK_RESPONSE(
+        get_hotspot_list([{owner, undefined}, {city, undefined} | Args]),
+        block_time
+    );
 handle('GET', [<<"elected">>], __Req) ->
     ?MK_RESPONSE(get_hotspot_elected_list(), block_time);
 handle('GET', [Address], _Req) ->
@@ -208,10 +210,16 @@ handle('GET', [Address, <<"activity">>], Req) ->
     ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [Address, <<"elections">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(bh_route_elections:get_election_list({hotspot, Address}, Args), block_time);
+    ?MK_RESPONSE(
+        bh_route_elections:get_election_list({hotspot, Address}, Args),
+        block_time
+    );
 handle('GET', [Address, <<"challenges">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(bh_route_challenges:get_challenge_list({hotspot, Address}, Args), block_time);
+    ?MK_RESPONSE(
+        bh_route_challenges:get_challenge_list({hotspot, Address}, Args),
+        block_time
+    );
 handle('GET', [Address, <<"rewards">>], Req) ->
     Args = ?GET_ARGS([cursor, max_time, min_time], Req),
     ?MK_RESPONSE(bh_route_rewards:get_reward_list({hotspot, Address}, Args), block_time);
@@ -251,21 +259,24 @@ get_hotspot_list([{owner, Owner}, {city, City}, {cursor, Cursor}]) ->
         }} ->
             case {Owner, City} of
                 {undefined, undefined} ->
-                    Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST_BEFORE, [BeforeAddress, BeforeBlock]),
+                    Result =
+                        ?PREPARED_QUERY(?S_HOTSPOT_LIST_BEFORE, [BeforeAddress, BeforeBlock]),
                     mk_hotspot_list_from_result(Result);
                 {Owner, undefined} ->
-                    Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [
-                        Owner,
-                        BeforeAddress,
-                        BeforeBlock
-                    ]),
+                    Result =
+                        ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [
+                            Owner,
+                            BeforeAddress,
+                            BeforeBlock
+                        ]),
                     mk_hotspot_list_from_result(Result);
                 {undefined, City} ->
-                    Result = ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST_BEFORE, [
-                        City,
-                        BeforeAddress,
-                        BeforeBlock
-                    ]),
+                    Result =
+                        ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST_BEFORE, [
+                            City,
+                            BeforeAddress,
+                            BeforeBlock
+                        ]),
                     mk_hotspot_list_from_result(Result);
                 {_, _} ->
                     {error, badarg}
@@ -302,10 +313,10 @@ mk_cursor(Results) when is_list(Results) ->
             undefined;
         false ->
             case lists:last(Results) of
-                {Height, _ScoreBlock, FirstBlock, _FirstTimestamp, Address, _Owner, _Location,
-                    _Score, _Nonce, _Name, _OnlineStatus, _BlockStatus, _ShortStreet, _LongStreet,
-                    _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
-                    _CityId} ->
+                {Height, _LastChangeBlock, FirstBlock, _FirstTimestamp, Address, _Owner,
+                    _Location, _Nonce, _Name, _OnlineStatus, _BlockStatus, _ShortStreet,
+                    _LongStreet, _ShortCity, _LongCity, _ShortState, _LongState,
+                    _ShortCountry, _LongCountry, _CityId} ->
                     #{
                         before_address => Address,
                         before_block => FirstBlock,
@@ -328,8 +339,8 @@ hotspot_witness_list_to_json(Results) ->
     lists:map(fun hotspot_witness_to_json/1, Results).
 
 to_geo_json(
-    {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry,
-        CityId}
+    {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
+        LongCountry, CityId}
 ) ->
     Base = to_geo_json(
         {ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}
@@ -338,7 +349,9 @@ to_geo_json(
         short_street => ShortStreet,
         long_street => LongStreet
     };
-to_geo_json({ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}) ->
+to_geo_json(
+    {ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}
+) ->
     MaybeB64 = fun
         (null) -> null;
         (Bin) -> ?BIN_TO_B64(Bin)
@@ -354,14 +367,14 @@ to_geo_json({ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCount
     }.
 
 hotspot_witness_to_json(
-    {Height, ScoreBlock, FirstBlock, FirstTimestamp, Address, Owner, Location, Score, Nonce, Name,
-        OnlineStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
-        LongState, ShortCountry, LongCountry, CityId, WitnessFor, WitnessInfo}
+    {Height, LastChangeBlock, FirstBlock, FirstTimestamp, Address, Owner, Location, Nonce,
+        Name, OnlineStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity,
+        ShortState, LongState, ShortCountry, LongCountry, CityId, WitnessFor, WitnessInfo}
 ) ->
     Base = hotspot_to_json(
-        {Height, ScoreBlock, FirstBlock, FirstTimestamp, Address, Owner, Location, Score, Nonce,
-            Name, OnlineStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity,
-            ShortState, LongState, ShortCountry, LongCountry, CityId}
+        {Height, LastChangeBlock, FirstBlock, FirstTimestamp, Address, Owner, Location,
+            Nonce, Name, OnlineStatus, BlockStatus, ShortStreet, LongStreet, ShortCity,
+            LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}
     ),
     Base#{
         witness_for => WitnessFor,
@@ -369,9 +382,9 @@ hotspot_witness_to_json(
     }.
 
 hotspot_to_json(
-    {Height, ScoreBlock, FirstBlock, FirstTimestamp, Address, Owner, Location, Score, Nonce, Name,
-        OnlineStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
-        LongState, ShortCountry, LongCountry, CityId}
+    {Height, LastChangeBlock, FirstBlock, FirstTimestamp, Address, Owner, Location, Nonce,
+        Name, OnlineStatus, BlockStatus, ShortStreet, LongStreet, ShortCity, LongCity,
+        ShortState, LongState, ShortCountry, LongCountry, CityId}
 ) ->
     MaybeZero = fun
         (null) -> 0;
@@ -385,11 +398,14 @@ hotspot_to_json(
             owner => Owner,
             location => Location,
             geocode => to_geo_json(
-                {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
-                    LongCountry, CityId}
+                {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
+                    ShortCountry, LongCountry, CityId}
             ),
-            score_update_height => ScoreBlock,
-            score => Score,
+            last_change_block => LastChangeBlock,
+            %% TODO: REMOVE
+            score_update_height => LastChangeBlock,
+            %% TODO: REMOVE
+            score => 1.0,
             block_added => FirstBlock,
             timestamp_added => iso8601:format(FirstTimestamp),
             block => Height,
