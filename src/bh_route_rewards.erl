@@ -16,9 +16,9 @@
 -define(S_REWARD_LIST_ACCOUNT_REM, "reward_list_account_rem").
 -define(S_REWARD_SUM_HOTSPOT, "reward_sum_hotstpot").
 -define(S_REWARD_SUM_ACCOUNT, "reward_sum_account").
+-define(S_REWARD_STATS_HOTSPOTS, "reward_stats_hotstpots").
 -define(S_REWARD_STATS_HOTSPOT, "reward_stats_hotstpot").
 -define(S_REWARD_STATS_ACCOUNT, "reward_stats_account").
-
 -define(REWARD_FIELDS,
     "r.block, r.transaction_hash, to_timestamp(r.time) as timestamp, r.account, r.gateway, r.amount"
 ).
@@ -29,19 +29,47 @@ prepare_conn(Conn) ->
         {?S_REWARD_LIST_HOTSPOT,
             {reward_list_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.gateway = $1"}]}},
         {?S_REWARD_LIST_HOTSPOT_REM,
-            {reward_list_rem_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.gateway = $1"}]}},
+            {reward_list_rem_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.gateway = $1"}
+            ]}},
         {?S_REWARD_LIST_ACCOUNT,
             {reward_list_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.account = $1"}]}},
         {?S_REWARD_LIST_ACCOUNT_REM,
-            {reward_list_rem_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.account = $1"}]}},
+            {reward_list_rem_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.account = $1"}
+            ]}},
         {?S_REWARD_SUM_HOTSPOT,
-            {reward_sum_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.gateway = $1"}]}},
+            {reward_sum_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.gateway = $1"},
+                {source, "reward_data"}
+            ]}},
         {?S_REWARD_SUM_ACCOUNT,
-            {reward_sum_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.account = $1"}]}},
+            {reward_sum_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.account = $1"},
+                {source, {eql, reward_sum_hotspot_group}}
+            ]}},
+        {?S_REWARD_STATS_HOTSPOTS,
+            {reward_stats_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where true = $1"},
+                {source, {eql, reward_stats_hotspot_group}}
+            ]}},
         {?S_REWARD_STATS_HOTSPOT,
-            {reward_stats_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.gateway = $1"}]}},
+            {reward_stats_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.gateway = $1"},
+                {source, "reward_data"}
+            ]}},
         {?S_REWARD_STATS_ACCOUNT,
-            {reward_stats_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.account = $1"}]}}
+            {reward_stats_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.account = $1"},
+                {source, {eql, reward_stats_hotspot_group}}
+            ]}}
     ],
     bh_db_worker:load_from_eql(Conn, "rewards.sql", Loads).
 
@@ -58,6 +86,11 @@ get_reward_sum({hotspot, Address}, Args = [{max_time, _}, {min_time, _}]) ->
 get_reward_sum({account, Address}, Args = [{max_time, _}, {min_time, _}]) ->
     get_reward_sum([Address], ?S_REWARD_SUM_ACCOUNT, Args).
 
+get_reward_stats(
+    {hotspot, all},
+    Args = [{max_time, _}, {min_time, _}, {bucket, _}]
+) ->
+    get_reward_stats([true], ?S_REWARD_STATS_HOTSPOT, Args);
 get_reward_stats(
     {hotspot, Address},
     Args = [{max_time, _}, {min_time, _}, {bucket, _}]
@@ -103,11 +136,10 @@ grow_txn_list(
         Query,
         State#state{
             high_block = LowBlock,
-            low_block =
-                max(
-                    EndBlock,
-                    LowBlock - (HighBlock - LowBlock) * 10
-                )
+            low_block = max(
+                EndBlock,
+                LowBlock - (HighBlock - LowBlock) * 10
+            )
         }
     ),
     grow_txn_list(Query, NewState).
@@ -135,7 +167,9 @@ calc_low_block(HighBlock, EndBlock) ->
 -spec parse_min_max_time(High :: binary(), Low :: binary()) ->
     {ok, {MaxTime :: calendar:datetime(), MinTime :: calendar:datetime()}} |
     {error, term()}.
-parse_min_max_time(MaxTime, MinTime) when MaxTime == undefined orelse MinTime == undefined ->
+parse_min_max_time(MaxTime, MinTime) when
+    MaxTime == undefined orelse MinTime == undefined
+->
     {error, badarg};
 parse_min_max_time(MaxTime0, MinTime0) ->
     try
@@ -155,7 +189,8 @@ parse_min_max_time(MaxTime0, MinTime0) ->
 get_min_max_height(MaxTime0, MinTime0) ->
     case parse_min_max_time(MaxTime0, MinTime0) of
         {ok, {MaxTime, MinTime}} ->
-            {ok, _, [{HighBlock, LowBlock}]} = ?PREPARED_QUERY(?S_BLOCK_RANGE, [MaxTime, MinTime]),
+            {ok, _, [{HighBlock, LowBlock}]} =
+                ?PREPARED_QUERY(?S_BLOCK_RANGE, [MaxTime, MinTime]),
             {ok, {{MaxTime, HighBlock}, {MinTime, LowBlock}}};
         {error, Error} ->
             {error, Error}

@@ -21,18 +21,39 @@ from rewards r
 and r.block = $2 and r.transaction_hash > $3
 order by r.transaction_hash
 
+-- :reward_sum_hotspot_group
+(select
+    sum(r.amount) as amount
+from reward_data r
+group by r.gateway)
+
 -- :reward_sum_base
+with reward_data as (
+    select 
+        r.amount, 
+        r.gateway
+    from rewards r
+    :scope
+    and r.block >= $2 and r.block <= $3
+)
 select
-    coalesce(min(r.amount) / 100000000, 0)::float as min,
-    coalesce(max(r.amount) / 100000000, 0)::float as max,
-    coalesce(sum(r.amount), 0)::bigint as sum,
-    coalesce(sum(r.amount) / 100000000, 0)::float as total,
-    coalesce(percentile_cont(0.5) within group (order by r.amount) / 100000000, 0)::float as median,
-    coalesce(avg(r.amount) / 100000000, 0)::float as avg,
-    coalesce(stddev(r.amount) / 100000000, 0)::float as stddev
-from rewards r
-:scope
-and r.block >= $2 and r.block <= $3
+    coalesce(min(d.amount) / 100000000, 0)::float as min,
+    coalesce(max(d.amount) / 100000000, 0)::float as max,
+    coalesce(sum(d.amount), 0)::bigint as sum,
+    coalesce(sum(d.amount) / 100000000, 0)::float as total,
+    coalesce(percentile_cont(0.5) within group (order by d.amount) / 100000000, 0)::float as median,
+    coalesce(avg(d.amount) / 100000000, 0)::float as avg,
+    coalesce(stddev(d.amount) / 100000000, 0)::float as stddev
+from :source d
+
+-- Bucket reward_data by timestamp and gateway to be calculate statistics over hotspot totals in a bucket
+-- rather than individual rewards. 
+-- :reward_stats_hotspot_group
+(select
+    sum(r.amount) as amount,
+    r.timestamp
+from reward_data r
+group by r.timestamp, r.gateway)
 
 -- :reward_stats_base
 with time_range as (
@@ -44,19 +65,26 @@ max as (
 min as (
     select height from blocks where timestamp >= (select min(timestamp) from time_range) order by height limit 1
 ),
-data as (
-    select
-        min(r.amount) as min,
-        max(r.amount) as max,
-        sum(r.amount) as sum,
-        percentile_cont(0.5) within group (order by r.amount) as median,
-        avg(r.amount) as avg,
-        stddev(r.amount) as stddev,
-        date_trunc($4::text, to_timestamp(r.time)) as timestamp
+reward_data as (
+    select 
+        r.amount, 
+        r.gateway, 
+        date_trunc($4::text, to_timestamp(r.time)) as timestamp 
     from rewards r
     :scope
     and r.block >= (select height from min) and r.block <= (select height from max)
-    group by date_trunc($4::text, to_timestamp(r.time))
+),
+data as (
+    select 
+        min(d.amount) as min,
+        max(d.amount) as max,
+        sum(d.amount) as sum,
+        percentile_cont(0.5) within group (order by d.amount) as median,
+        avg(d.amount) as avg,
+        stddev(d.amount) as stddev,
+        d.timestamp
+    from :source d
+    group by d.timestamp
 )
 select
     t.timestamp,
