@@ -5,7 +5,7 @@
 -export([
     get_args/2,
     parse_timespan/2,
-    parse_bucket/1,
+    parse_bucket/2,
     parse_interval/1,
     parse_interval/2,
     parse_bucketed_timespan/3,
@@ -102,9 +102,9 @@ parse_timespan(MaxTime0, MinTime0) ->
             {error, Error}
     end.
 
--spec parse_bucket(binary()) -> {ok, interval_spec()} | {error, term()}.
-parse_bucket(Bin) ->
-    parse_interval(1, Bin).
+-spec parse_bucket(integer(), binary()) -> {ok, interval_spec()} | {error, term()}.
+parse_bucket(N, Bin) ->
+    parse_interval(N, Bin).
 
 -spec parse_interval(binary()) -> {ok, interval_spec()} | {error, term()}.
 parse_interval(Bin) ->
@@ -146,7 +146,7 @@ interval_to_seconds({{H, M, S}, D, 0}) ->
 parse_bucketed_timespan(MaxTime0, MinTime0, Bucket0) ->
     case parse_timespan(MaxTime0, MinTime0) of
         {ok, {MaxTime, MinTime}} ->
-            case parse_bucket(Bucket0) of
+            case parse_bucket(-1, Bucket0) of
                 {ok, Bucket} -> {ok, {{MaxTime, MinTime}, Bucket}};
                 {error, Error} -> {error, Error}
             end;
