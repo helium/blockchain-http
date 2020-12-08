@@ -402,10 +402,6 @@ hotspot_to_json(
                     ShortCountry, LongCountry, CityId}
             ),
             last_change_block => LastChangeBlock,
-            %% TODO: REMOVE
-            score_update_height => LastChangeBlock,
-            %% TODO: REMOVE
-            score => 1.0,
             block_added => FirstBlock,
             timestamp_added => iso8601:format(FirstTimestamp),
             block => Height,
