@@ -3,7 +3,6 @@
 -compile([nowarn_export_all, export_all]).
 
 -include("bh_route_handler.hrl").
-
 -include("ct_utils.hrl").
 
 all() ->
@@ -16,6 +15,8 @@ all() ->
         activity_filter_no_result_test,
         elections_test,
         elected_test,
+        elected_block_test,
+        elected_hash_test,
         challenges_test,
         rewards_test,
         rewards_sum_test,
@@ -120,7 +121,8 @@ elections_test(_Config) ->
     } = Json,
     ?assert(length(Data) >= 0),
 
-    {ok, {_, _, NextJson}} = ?json_request(["/v1/hotspots/", Hotspot, "/elections?cursor=", Cursor]),
+    {ok, {_, _, NextJson}} =
+        ?json_request(["/v1/hotspots/", Hotspot, "/elections?cursor=", Cursor]),
     #{<<"data">> := NextData} = NextJson,
     ?assert(length(NextData) >= 0),
 
@@ -128,6 +130,27 @@ elections_test(_Config) ->
 
 elected_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/elected"]),
+    #{
+        <<"data">> := Data
+    } = Json,
+    ?assert(length(Data) > 0),
+
+    ok.
+
+elected_block_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/elected/93"]),
+    #{
+        <<"data">> := Data
+    } = Json,
+    ?assert(length(Data) > 0),
+
+    ok.
+
+elected_hash_test(_Config) ->
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/hotspots/elected/hash/5cBTF9x8DN1DhUNVmQExXHWAXID6BZIxJG-LLx4KzSs"
+        ]),
     #{
         <<"data">> := Data
     } = Json,
@@ -144,7 +167,8 @@ challenges_test(_Config) ->
     } = Json,
     ?assert(length(Data) >= 0),
 
-    {ok, {_, _, NextJson}} = ?json_request(["/v1/hotspots/", Hotspot, "/challenges?cursor=", Cursor]),
+    {ok, {_, _, NextJson}} =
+        ?json_request(["/v1/hotspots/", Hotspot, "/challenges?cursor=", Cursor]),
     #{<<"data">> := NextData} = NextJson,
     ?assert(length(NextData) >= 0),
 
@@ -152,11 +176,12 @@ challenges_test(_Config) ->
 
 rewards_test(_Config) ->
     Hotspot = "112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK",
-    {ok, {_, _, Json}} = ?json_request([
-        "/v1/hotspots/",
-        Hotspot,
-        "/rewards?max_time=2020-08-27&min_time=2019-01-01"
-    ]),
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/hotspots/",
+            Hotspot,
+            "/rewards?max_time=2020-08-27&min_time=2019-01-01"
+        ]),
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),
 
@@ -164,12 +189,13 @@ rewards_test(_Config) ->
         undefined ->
             ok;
         Cursor ->
-            {ok, {_, _, CursorJson}} = ?json_request([
-                "/v1/hotspots/",
-                Hotspot,
-                "/rewards?cursor=",
-                Cursor
-            ]),
+            {ok, {_, _, CursorJson}} =
+                ?json_request([
+                    "/v1/hotspots/",
+                    Hotspot,
+                    "/rewards?cursor=",
+                    Cursor
+                ]),
             #{<<"data">> := CursorData} = CursorJson,
             ?assert(length(CursorData) >= 0)
     end,
@@ -177,11 +203,12 @@ rewards_test(_Config) ->
 
 rewards_sum_test(_Config) ->
     Hotspot = "112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK",
-    {ok, {_, _, Json}} = ?json_request([
-        "/v1/hotspots/",
-        Hotspot,
-        "/rewards/sum?max_time=2020-08-27&min_time=2019-01-01"
-    ]),
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/hotspots/",
+            Hotspot,
+            "/rewards/sum?max_time=2020-08-27&min_time=2019-01-01"
+        ]),
     #{<<"data">> := #{<<"sum">> := Sum}} = Json,
     ?assert(Sum >= 0),
 
@@ -189,11 +216,12 @@ rewards_sum_test(_Config) ->
 
 rewards_stats_test(_Config) ->
     Hotspot = "112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK",
-    {ok, {_, _, Json}} = ?json_request([
-        "/v1/hotspots/",
-        Hotspot,
-        "/rewards/stats?max_time=2020-09-27&min_time=2020-08-27&bucket=day"
-    ]),
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/hotspots/",
+            Hotspot,
+            "/rewards/stats?max_time=2020-09-27&min_time=2020-08-27&bucket=day"
+        ]),
     #{<<"data">> := Data} = Json,
     ?assertEqual(31, length(Data)),
 
@@ -201,11 +229,12 @@ rewards_stats_test(_Config) ->
 
 witnesses_test(_Config) ->
     Hotspot = "112hYxknRPeCP9PLtkAy3f86fWpXaRzRffjPj5HcrS7qePttY3Ek",
-    {ok, {_, _, Json}} = ?json_request([
-        "/v1/hotspots/",
-        Hotspot,
-        "/witnesses"
-    ]),
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/hotspots/",
+            Hotspot,
+            "/witnesses"
+        ]),
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),
 
