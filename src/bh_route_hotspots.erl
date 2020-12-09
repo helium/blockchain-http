@@ -15,7 +15,8 @@
 
 -define(S_HOTSPOT_LIST_BEFORE, "hotspot_list_before").
 -define(S_HOTSPOT_LIST, "hotspot_list").
--define(S_HOTSPOT_LIST_ELECTED, "hotspot_list_elected").
+-define(S_HOTSPOT_ELECTED_LIST, "hotspot_elected_list").
+-define(S_HOTSPOT_ELECTION_LIST, "hotspot_list_election_list").
 -define(S_OWNER_HOTSPOT_LIST_BEFORE, "owner_hotspot_list_before").
 -define(S_OWNER_HOTSPOT_LIST, "owner_hotspot_list").
 -define(S_HOTSPOT, "hotspot").
@@ -23,173 +24,101 @@
 -define(S_CITY_HOTSPOT_LIST, "hotspot_city_list").
 -define(S_CITY_HOTSPOT_LIST_BEFORE, "hotspot_city_list_before").
 -define(S_HOTSPOT_WITNESS_LIST, "hotspot_witness_list").
--define(SELECT_HOTSPOT_BASE(G), [
-    "select (select max(height) from blocks) as height, ",
-    "g.last_block, g.first_block, g.first_timestamp, g.address, ",
-    "g.owner, g.location, g.nonce, g.name, ",
-    "s.online as online_status, s.block as block_status, "
-    "l.short_street, l.long_street, ",
-    "l.short_city, l.long_city, ",
-    "l.short_state, l.long_state, ",
-    "l.short_country, l.long_country, ",
-    "l.city_id ",
-    G,
-    " left join locations l on g.location = l.location ",
-    " left join gateway_status s on s.address = g.address "
-]).
-
--define(SELECT_HOTSPOT_BASE, ?SELECT_HOTSPOT_BASE("from gateway_inventory g")).
--define(SELECT_OWNER_HOTSPOT,
-    ?SELECT_HOTSPOT_BASE(["from (select * from gateway_inventory where owner = $1) as g"])
-).
-
 -define(HOTSPOT_LIST_LIMIT, 1000).
 
 prepare_conn(Conn) ->
-    {ok, S1} = epgsql:parse(
-        Conn,
-        ?S_HOTSPOT_LIST_BEFORE,
-        [
-            ?SELECT_HOTSPOT_BASE,
-            "where ((g.address > $1 and g.first_block = $2) or (g.first_block < $2)) ",
-            "order by g.first_block desc, g.address ",
-            "limit ",
-            integer_to_list(?HOTSPOT_LIST_LIMIT)
-        ],
-        []
-    ),
-
-    {ok, S2} = epgsql:parse(
-        Conn,
-        ?S_HOTSPOT_LIST,
-        [
-            ?SELECT_HOTSPOT_BASE,
-            "order by g.first_block desc, g.address ",
-            "limit ",
-            integer_to_list(?HOTSPOT_LIST_LIMIT)
-        ],
-        []
-    ),
-
-    {ok, S3} = epgsql:parse(
-        Conn,
-        ?S_OWNER_HOTSPOT_LIST_BEFORE,
-        [
-            ?SELECT_OWNER_HOTSPOT,
-            "where ((g.address > $2 and g.first_block = $3) or (g.first_block < $3)) ",
-            "order by g.first_block desc, g.address "
-            "limit ",
-            integer_to_list(?HOTSPOT_LIST_LIMIT)
-        ],
-        []
-    ),
-
-    {ok, S4} = epgsql:parse(
-        Conn,
-        ?S_OWNER_HOTSPOT_LIST,
-        [
-            ?SELECT_OWNER_HOTSPOT,
-            "order by g.first_block desc, g.address ",
-            "limit ",
-            integer_to_list(?HOTSPOT_LIST_LIMIT)
-        ],
-        []
-    ),
-
-    {ok, S5} = epgsql:parse(
-        Conn,
-        ?S_HOTSPOT,
-        [
-            ?SELECT_HOTSPOT_BASE,
-            "where g.address = $1"
-        ],
-        []
-    ),
-
-    {ok, S6} = epgsql:parse(
-        Conn,
-        ?S_HOTSPOTS_NAMED,
-        [
-            ?SELECT_HOTSPOT_BASE,
-            "where g.name = $1"
-        ],
-        []
-    ),
-
-    {ok, S7} = epgsql:parse(
-        Conn,
-        ?S_CITY_HOTSPOT_LIST_BEFORE,
-        [
-            ?SELECT_HOTSPOT_BASE,
-            "where l.city_id = $1 "
-            "and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3)) ",
-            "order by g.first_block desc, g.address "
-            "limit ",
-            integer_to_list(?HOTSPOT_LIST_LIMIT)
-        ],
-        []
-    ),
-
-    {ok, S8} = epgsql:parse(
-        Conn,
-        ?S_CITY_HOTSPOT_LIST,
-        [
-            ?SELECT_HOTSPOT_BASE,
-            "where l.city_id = $1 "
-            "order by g.first_block desc, g.address ",
-            "limit ",
-            integer_to_list(?HOTSPOT_LIST_LIMIT)
-        ],
-        []
-    ),
-
-    {ok, S9} = epgsql:parse(
-        Conn,
-        ?S_HOTSPOT_WITNESS_LIST,
-        [
-            "with hotspot_witnesses as ( ",
-            "    select gi.address as witness_for, w.key as witness, w.value as witness_info ",
-            "    from gateway_inventory gi, jsonb_each(gi.witnesses) w where gi.address = $1 ",
-            ")",
-            ?SELECT_HOTSPOT_BASE([
-                ", g.witness_for, g.witness_info ",
-                "from (select * from hotspot_witnesses w inner join gateway_inventory i on (w.witness = i.address)) g"
-            ]),
-            "order by g.first_block, g.address"
-        ],
-        []
-    ),
-
-    {ok, S10} = epgsql:parse(
-        Conn,
-        ?S_HOTSPOT_LIST_ELECTED,
-        [
-            "with field_members as ( ",
-            "    select fields->'members' as members ",
-            "    from transactions ",
-            "    where type = 'consensus_group_v1' order by block desc limit 1 ",
-            "),",
-            "members as ( ",
-            "    select * from jsonb_array_elements_text((select members from field_members)) ",
-            ") ",
-            ?SELECT_HOTSPOT_BASE,
-            "where g.address in (select * from members)"
-        ],
-        []
-    ),
-
-    #{
-        ?S_HOTSPOT_LIST_BEFORE => S1,
-        ?S_HOTSPOT_LIST => S2,
-        ?S_OWNER_HOTSPOT_LIST_BEFORE => S3,
-        ?S_OWNER_HOTSPOT_LIST => S4,
-        ?S_HOTSPOT => S5,
-        ?S_HOTSPOTS_NAMED => S6,
-        ?S_CITY_HOTSPOT_LIST_BEFORE => S7,
-        ?S_CITY_HOTSPOT_LIST => S8,
-        ?S_HOTSPOT_WITNESS_LIST => S9,
-        ?S_HOTSPOT_LIST_ELECTED => S10
-    }.
+    HotspotListLimit = "limit " ++ integer_to_list(?HOTSPOT_LIST_LIMIT),
+    Loads = [
+        {?S_HOTSPOT_LIST_BEFORE,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, hotspot_list_before_scope},
+                {order, hotspot_list_order},
+                {limit, HotspotListLimit}
+            ]}},
+        {?S_HOTSPOT_LIST,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, ""},
+                {order, hotspot_list_order},
+                {limit, HotspotListLimit}
+            ]}},
+        {?S_OWNER_HOTSPOT_LIST_BEFORE,
+            {hotspot_list_base, [
+                {source, owner_hotspot_list_source},
+                {scope, owner_hotspot_list_before_scope},
+                {order, hotspot_list_order},
+                {limit, HotspotListLimit}
+            ]}},
+        {?S_OWNER_HOTSPOT_LIST,
+            {hotspot_list_base, [
+                {source, owner_hotspot_list_source},
+                {scope, ""},
+                {order, hotspot_list_order},
+                {limit, HotspotListLimit}
+            ]}},
+        {?S_HOTSPOT,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, "where g.address = $1"},
+                {order, ""},
+                {limit, ""}
+            ]}},
+        {?S_HOTSPOTS_NAMED,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, "where g.name = $1"},
+                {order, ""},
+                {limit, ""}
+            ]}},
+        {?S_CITY_HOTSPOT_LIST_BEFORE,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, city_hotspot_list_before_scope},
+                {order, hotspot_list_order},
+                {limit, HotspotListLimit}
+            ]}},
+        {?S_CITY_HOTSPOT_LIST,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, city_hotspot_list_scope},
+                {order, hotspot_list_order},
+                {limit, HotspotListLimit}
+            ]}},
+        {?S_HOTSPOT_WITNESS_LIST,
+            {hotspot_witness_list, [
+                {hotspot_select,
+                    {hotspot_list_base, [
+                        {source, hotspot_witness_list_source},
+                        {scope, ""},
+                        {order, hotspot_list_order},
+                        {limit, ""}
+                    ]}}
+            ]}},
+        {?S_HOTSPOT_ELECTED_LIST,
+            {hotspot_elected_list, [
+                {filter, "and block <= $1"},
+                {hotspot_select,
+                    {hotspot_list_base, [
+                        {source, hotspot_list_source},
+                        {scope, hotspot_elected_list_scope},
+                        {order, ""},
+                        {limit, ""}
+                    ]}}
+            ]}},
+        {?S_HOTSPOT_ELECTION_LIST,
+            {hotspot_elected_list, [
+                {filter, "and hash = $1"},
+                {hotspot_select,
+                    {hotspot_list_base, [
+                        {source, hotspot_list_source},
+                        {scope, hotspot_elected_list_scope},
+                        {order, ""},
+                        {limit, ""}
+                    ]}}
+            ]}}
+    ],
+    bh_db_worker:load_from_eql(Conn, "hotspots.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
@@ -197,8 +126,18 @@ handle('GET', [], Req) ->
         get_hotspot_list([{owner, undefined}, {city, undefined} | Args]),
         block_time
     );
-handle('GET', [<<"elected">>], __Req) ->
-    ?MK_RESPONSE(get_hotspot_elected_list(), block_time);
+handle('GET', [<<"elected">>], _Req) ->
+    {ok, #{height := Height}} = bh_route_blocks:get_block_height(),
+    ?MK_RESPONSE(get_hotspot_elected_list({height, Height}), block_time);
+handle('GET', [<<"elected">>, BlockId], _Req) ->
+    try binary_to_integer(BlockId) of
+        Height -> ?MK_RESPONSE(get_hotspot_elected_list({height, Height}), infinity)
+    catch
+        _:_ ->
+            ?RESPONSE_400
+    end;
+handle('GET', [<<"elected">>, <<"hash">>, TxnHash], _Req) ->
+    ?MK_RESPONSE(get_hotspot_elected_list({hash, TxnHash}), infinity);
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address), block_time);
 handle('GET', [<<"name">>, Name], _Req) ->
@@ -234,8 +173,11 @@ handle('GET', [Address, <<"witnesses">>], _Req) ->
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
-get_hotspot_elected_list() ->
-    Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST_ELECTED, []),
+get_hotspot_elected_list({height, Height}) ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_ELECTED_LIST, [Height]),
+    mk_hotspot_list_from_result(Result);
+get_hotspot_elected_list({hash, TxnHash}) ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_ELECTION_LIST, [TxnHash]),
     mk_hotspot_list_from_result(Result).
 
 get_hotspot_list([{witnesses_for, Address}]) ->

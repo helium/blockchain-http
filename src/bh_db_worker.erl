@@ -5,7 +5,9 @@
 -include_lib("epgsql/include/epgsql.hrl").
 
 -ifdef(TEST).
+
 -include_lib("eunit/include/eunit.hrl").
+
 -endif.
 
 -callback prepare_conn(epgsql:connection()) -> map().
@@ -46,7 +48,7 @@ prepared_query(shutdown, _, _) ->
     throw(?RESPONSE_503_SHUTDOWN);
 prepared_query(Pool, Name, Params) ->
     Ref = make_ref(),
-    Fun = fun(From, {Stmts, Conn}) ->
+    Fun = fun (From, {Stmts, Conn}) ->
         Statement = maps:get(Name, Stmts),
         #statement{types = Types} = Statement,
         TypedParameters = lists:zip(Types, Params),
@@ -74,9 +76,9 @@ execute_batch(shutdown, _) ->
     throw(?RESPONSE_503_SHUTDOWN);
 execute_batch(Pool, Queries) ->
     Ref = make_ref(),
-    Fun = fun(From, {Stmts, Conn}) ->
+    Fun = fun (From, {Stmts, Conn}) ->
         Batch = lists:foldr(
-            fun({Name, Params}, Acc) ->
+            fun ({Name, Params}, Acc) ->
                 Statement = maps:get(Name, Stmts),
                 [{Statement, Params} | Acc]
             end,
@@ -104,15 +106,26 @@ execute_batch(Pool, Queries) ->
 load_from_eql(Conn, Filename, Loads) ->
     PrivDir = code:priv_dir(blockchain_http),
     {ok, Queries} = eql:compile(filename:join(PrivDir, Filename)),
+    ResolveParams = fun
+        R({K, Name}) when is_atom(Name) ->
+            R({K, {Name, []}});
+        R({K, {Name, Params}}) ->
+            {ok, Q} =
+                case Params of
+                    [] -> eql:get_query(Name, Queries);
+                    _ -> eql:get_query(Name, Queries, lists:map(R, Params))
+                end,
+            {K, Q};
+        R({K, V}) ->
+            {K, V}
+    end,
     Load = fun
         L({Key, {Name, Params}}) when is_list(Name) ->
             L({Key, {list_to_atom(Name), Params}});
-        L({Key, {Name, Params}}) ->
-            {ok, Query} =
-                case Params of
-                    [] -> eql:get_query(Name, Queries);
-                    _ -> eql:get_query(Name, Queries, Params)
-                end,
+        L({Key, {_Name, _Params}} = Entry) ->
+            %% Leverage the equivalent pattern in ResolveParams to
+            %% expand out nested eql fragments and their parameters. 
+            {Key, Query} = ResolveParams(Entry),
             {ok, Statement} = epgsql:parse(Conn, Key, Query, []),
             {Key, Statement};
         L({Key, Params}) ->
@@ -125,7 +138,7 @@ load_from_eql(Conn, Filename, Loads) ->
     maps:from_list(Statements).
 
 init(Args) ->
-    GetOpt = fun(K) ->
+    GetOpt = fun (K) ->
         case lists:keyfind(K, 1, Args) of
             false -> error({missing_opt, K});
             {_, V} -> V
@@ -136,7 +149,7 @@ init(Args) ->
     {ok, Conn} = epgsql:connect(DBOpts#{codecs => Codecs}),
     Handlers = GetOpt(db_handlers),
     PreparedStatements = lists:foldl(
-        fun(Mod, Acc) ->
+        fun (Mod, Acc) ->
             maps:merge(Mod:prepare_conn(Conn), Acc)
         end,
         #{},
@@ -188,9 +201,10 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 -ifdef(TEST).
+
 eql_test() ->
     meck:new(epgsql),
-    meck:expect(epgsql, parse, fun(fakeconnection, _Key, Query, _Opts) -> {ok, Query} end),
+    meck:expect(epgsql, parse, fun (fakeconnection, _Key, Query, _Opts) -> {ok, Query} end),
     %% we need to load the application here so that code:priv/2 will work correctly
     ok = application:load(blockchain_http),
     Files = [
