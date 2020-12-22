@@ -72,6 +72,8 @@ var_to_json({<<"staking_keys">> = Name, <<"binary">>, Value}) ->
     {Name, b64_to_keys(Value)};
 var_to_json({<<"price_oracle_public_keys">> = Name, <<"binary">>, Value}) ->
     {Name, b64_to_keys(Value)};
+var_to_json({<<"hip17_res_", _/binary>> = Name, <<"binary">>, Value}) ->
+    {Name, [binary_to_integer(N) || N <- string:split(?B64_TO_BIN(Value), ",", all)]};
 var_to_json({Name, <<"binary">>, Value}) ->
     {Name, Value}.
 
