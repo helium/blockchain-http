@@ -272,7 +272,7 @@ get_activity_list({hotspot, Address}, Args) ->
 }).
 
 %% Grows a txn list with the given queru until it's the txn list limit
-%% size. We 10x the search space every time we find we don't have
+%% size. We 10x the search space (up to a max) every time we find we don't have
 %% enough transactions.
 grow_txn_list(_Query, State = #state{results = Results}) when
     length(Results) >= ?TXN_LIST_LIMIT
@@ -288,7 +288,10 @@ grow_txn_list(Query, State = #state{low_block = LowBlock, high_block = HighBlock
     NewState =
         execute_query(Query, State#state{
             high_block = LowBlock,
-            low_block = max(1, LowBlock - (HighBlock - LowBlock) * 10)
+            %% Empirically a 100k block search is slower than 10, 10k searches 
+            %% (which in turn is faster than 100, 1k searches). 
+            %% so cap at 10000 instead of 100000. 
+            low_block = max(1, LowBlock - min(10000, (HighBlock - LowBlock) * 10))
         }),
     grow_txn_list(Query, NewState).
 
