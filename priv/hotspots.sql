@@ -11,6 +11,7 @@ select
     g.name,
     s.online as online_status, 
     s.block as block_status,
+    s.listen_addrs as listen_addrs,
     l.short_street, l.long_street,
     l.short_city, l.long_city,
     l.short_state, l.long_state,
