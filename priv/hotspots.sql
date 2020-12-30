@@ -51,9 +51,19 @@ and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3))
 where l.city_id = $1
 
 -- :hotspot_witness_list
-with hotspot_witnesses as (
-    select gi.address as witness_for, w.key as witness, w.value as witness_info
-    from gateway_inventory gi, jsonb_each(gi.witnesses) w where gi.address = $1
+with min as (
+    select height from blocks where timestamp > (now() - '5 day'::interval) order by height limit 1
+),
+recent_witnesses as (
+     select $1 as address, jsonb_merge_agg(witnesses) as witnesses from 
+        (select * 
+        from gateways 
+        where address = $1 and block >= (select height from min) 
+        order by block) a
+ ),
+hotspot_witnesses as (
+    select r.address as witness_for, w.key as witness, w.value as witness_info
+    from recent_witnesses r, jsonb_each(r.witnesses) w
 )
 :hotspot_select
 
