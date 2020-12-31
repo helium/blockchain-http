@@ -16,7 +16,6 @@
 -define(S_ACCOUNT_BAL_MONTHLY, "account_bal_monthly").
 -define(S_ACCOUNT_BAL_WEEKLY, "account_bal_weekly").
 -define(S_ACCOUNT_RICH_LIST, "account_rich_list").
-
 -define(SELECT_ACCOUNT_BASE(A), [
     "select (select max(height) from blocks) as height, l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce, l.first_block",
     A,
@@ -24,7 +23,6 @@
 ]).
 
 -define(SELECT_ACCOUNT_BASE, ?SELECT_ACCOUNT_BASE("")).
-
 -define(SELECT_ACCOUNT_STATS(TS), [
     "with ts as ( ",
     TS,
@@ -146,10 +144,16 @@ handle('GET', [Account, <<"activity">>], Req) ->
     ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [Account, <<"elections">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(bh_route_elections:get_election_list({account, Account}, Args), block_time);
+    ?MK_RESPONSE(
+        bh_route_elections:get_election_list({account, Account}, Args),
+        block_time
+    );
 handle('GET', [Account, <<"challenges">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(bh_route_challenges:get_challenge_list({account, Account}, Args), block_time);
+    ?MK_RESPONSE(
+        bh_route_challenges:get_challenge_list({account, Account}, Args),
+        block_time
+    );
 handle('GET', [Account, <<"rewards">>], Req) ->
     Args = ?GET_ARGS([cursor, max_time, min_time], Req),
     ?MK_RESPONSE(bh_route_rewards:get_reward_list({account, Account}, Args), block_time);
@@ -181,16 +185,16 @@ get_account_rich_list([{limit, BinLimit}]) ->
 
 get_account_list([{cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_ACCOUNT_LIST, []),
-    mk_account_list_from_result(undefined, Result);
+    mk_account_list_from_result(Result);
 get_account_list([{cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, #{
             <<"before_address">> := BeforeAddress,
             <<"before_block">> := BeforeBlock,
-            <<"height">> := CursorHeight
+            <<"height">> := _Height
         }} ->
             Result = ?PREPARED_QUERY(?S_ACCOUNT_LIST_BEFORE, [BeforeAddress, BeforeBlock]),
-            mk_account_list_from_result(CursorHeight, Result);
+            mk_account_list_from_result(Result);
         _ ->
             {error, badarg}
     end.
@@ -203,35 +207,7 @@ get_account(Account) ->
             {ok, account_to_json({null, Account, 0, 0, 0, 0, 0, 0, 0})}
     end.
 
-mk_account_list_from_result(undefined, {ok, _, Results}) ->
-    {ok, account_list_to_json(Results), mk_cursor(Results)};
-mk_account_list_from_result(
-    CursorHeight,
-    {ok, _, [
-        {Height, _Address, _DCBalance, _DCNonce, _SecBalance, _SecNonce, _Balance, _Nonce,
-            _FirstBlock}
-        | _
-    ]}
-) when Height /= CursorHeight ->
-    %% For a mismatched height we return a bad argument so the
-    %% requester can re-start
-    {error, cursor_expired};
-mk_account_list_from_result(
-    CursorHeight,
-    {ok, _,
-        [
-            {Height, _Address, _DCBalance, _DCNonce, _SecBalance, _SecNonce, _Balance, _Nonce,
-                _FirstBlock}
-            | _
-        ] = Results}
-) when Height == CursorHeight ->
-    %% The above head ensures that the given cursor height matches the
-    %% height in the results
-    {ok, account_list_to_json(Results), mk_cursor(Results)};
-mk_account_list_from_result(_Height, {ok, _, Results}) ->
-    %% This really only happens when Result = [], which can happen if
-    %% the last page is exactly the right height to allow for another
-    %% (empty) last page.
+mk_account_list_from_result({ok, _, Results}) ->
     {ok, account_list_to_json(Results), mk_cursor(Results)}.
 
 mk_cursor(Results) when is_list(Results) ->
@@ -239,8 +215,8 @@ mk_cursor(Results) when is_list(Results) ->
         true ->
             undefined;
         false ->
-            {Height, Address, _DCBalance, _DCNonce, _SecBalance, _SecNonce, _Balance, _Nonce,
-                FirstBlock} = lists:last(Results),
+            {Height, Address, _DCBalance, _DCNonce, _SecBalance, _SecNonce, _Balance,
+                _Nonce, FirstBlock} = lists:last(Results),
             #{
                 before_address => Address,
                 before_block => FirstBlock,
@@ -267,7 +243,7 @@ get_stats(Account) ->
 
 mk_balance_stats({ok, Results}) ->
     lists:map(
-        fun({Timestamp, Value}) ->
+        fun ({Timestamp, Value}) ->
             #{
                 timestamp => iso8601:format(Timestamp),
                 balance => Value
@@ -301,7 +277,8 @@ account_to_json(
         SpecNonce, SpecSecNonce}
 ) ->
     Base = account_to_json(
-        {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce, FirstBlock}
+        {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce,
+            FirstBlock}
     ),
     Base#{
         <<"speculative_nonce">> => SpecNonce,
