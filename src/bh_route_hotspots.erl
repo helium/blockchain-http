@@ -311,15 +311,15 @@ to_geo_json(
 
 hotspot_witness_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Owner,
-        Location, Nonce, Name, OnlineStatus, BlockStatus, ListenAddrs, ShortStreet,
-        LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry,
-        CityId, WitnessFor, WitnessInfo}
+        Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus, ListenAddrs,
+        ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
+        LongCountry, CityId, WitnessFor, WitnessInfo}
 ) ->
     Base = hotspot_to_json(
         {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address,
-            Owner, Location, Nonce, Name, OnlineStatus, BlockStatus, ListenAddrs,
-            ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
-            ShortCountry, LongCountry, CityId}
+            Owner, Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus,
+            ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
+            LongState, ShortCountry, LongCountry, CityId}
     ),
     Base#{
         witness_for => WitnessFor,
