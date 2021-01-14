@@ -38,6 +38,8 @@ handle(Method, [<<"v1">>, <<"cities">> | Tail], Req) ->
     bh_route_cities:handle(Method, Tail, Req);
 handle(Method, [<<"v1">>, <<"ouis">> | Tail], Req) ->
     bh_route_ouis:handle(Method, Tail, Req);
+handle(Method, [<<"v1">>, <<"locations">> | Tail], Req) ->
+    bh_route_locations:handle(Method, Tail, Req);
 handle('GET', [], _Req) ->
     {200, [], <<>>};
 handle(_, _, _Req) ->
