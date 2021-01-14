@@ -4,6 +4,7 @@ select
     g.last_block, 
     g.first_block, 
     g.first_timestamp, 
+    g.last_poc_challenge,
     g.address,
     g.owner, 
     g.location, 
