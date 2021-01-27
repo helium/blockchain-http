@@ -4,17 +4,25 @@
 
 -export([
     get_args/2,
+    parse_timespan/2,
+    parse_bucket/1,
+    parse_bucketed_timespan/3,
     mk_response/2,
     add_cache_header/2,
-    lat_lon/2, lat_lon/3,
+    lat_lon/2,
+    lat_lon/3,
     cursor_encode/1,
     cursor_decode/1
 ]).
 
--callback handle(elli:http_method(), Path :: [binary()], Req :: elli:req()) -> elli:result().
+-callback handle(elli:http_method(), Path :: [binary()], Req :: elli:req()) ->
+    elli:result().
 
 -type arg_spec() :: Key :: atom() | {Key :: atom(), Default :: any()}.
 -type arg() :: {Key :: atom(), Value :: any()}.
+-type bucket_spec() :: {Type :: binary(), Spec :: epgsql:pg_interval()}.
+-type timespan() :: {Max :: calendar:datetime(), Min :: calendar:datetime()}.
+-type blockspan() :: {MaxBlock :: non_neg_integer(), Min :: non_neg_integer()}.
 -type cache_time() ::
     infinity |
     never |
@@ -22,7 +30,7 @@
     block_time |
     {block_time, pos_integer()}.
 
--export_type([cache_time/0]).
+-export_type([cache_time/0, timespan/0, blockspan/0, bucket_spec/0]).
 
 -spec get_args([arg_spec()], elli:req()) -> [arg()].
 get_args(Names, Req) ->
@@ -40,6 +48,55 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
         end,
     get_args(Tail, Req, [{Key, V} | Acc]).
 
+-spec parse_timespan(High :: binary(), Low :: binary()) ->
+    {ok, timespan()} | {error, term()}.
+parse_timespan(MaxTime0, MinTime0) ->
+    ParseTime = fun
+        (<<"now">>) -> calendar:universal_time();
+        (undefined) -> calendar:universal_time();
+        (T) -> iso8601:parse(T)
+    end,
+    Validate = fun (Max, Min) ->
+        calendar:datetime_to_gregorian_seconds(Max) >
+            calendar:datetime_to_gregorian_seconds(Min)
+    end,
+    try
+        {MaxTime, MinTime} = {ParseTime(MaxTime0), ParseTime(MinTime0)},
+        case Validate(MaxTime, MinTime) of
+            true -> {ok, {MaxTime, MinTime}};
+            false -> {error, badarg}
+        end
+    catch
+        error:badarg ->
+            {error, badarg}
+    end.
+
+-spec parse_bucket(binary()) -> {ok, bucket_spec()} | {error, term()}.
+parse_bucket(<<"month">>) ->
+    {ok, {<<"month">>, {{0, 0, 0}, 0, 1}}};
+parse_bucket(<<"week">>) ->
+    {ok, {<<"week">>, {{0, 0, 0}, 7, 0}}};
+parse_bucket(<<"day">>) ->
+    {ok, {<<"day">>, {{0, 0, 0}, 1, 0}}};
+parse_bucket(<<"hour">>) ->
+    {ok, {<<"hour">>, {{1, 0, 0}, 0, 0}}};
+parse_bucket(_) ->
+    {error, badarg}.
+
+-spec parse_bucketed_timespan(High :: binary(), Low :: binary(), Step :: binary()) ->
+    {ok, {timespan(), bucket_spec()}} |
+    {error, term()}.
+parse_bucketed_timespan(MaxTime0, MinTime0, Bucket0) ->
+    case parse_timespan(MaxTime0, MinTime0) of
+        {ok, {MaxTime, MinTime}} ->
+            case parse_bucket(Bucket0) of
+                {ok, Bucket} -> {ok, {{MaxTime, MinTime}, Bucket}};
+                {error, Error} -> {error, Error}
+            end;
+        {error, Error} ->
+            {error, Error}
+    end.
+
 %% @doc Construct a standard response given a map, list and an
 %% optional cursor if needed. Given an error tuple, it will respond
 %% with a pre-configured error code.
@@ -49,7 +106,8 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
     {ok, Json :: (map() | list())} |
     {error, term()},
     cache_time()
-) -> {ok | elli:response_code(), elli:headers(), elli:body()}.
+) ->
+    {ok | elli:response_code(), elli:headers(), elli:body()}.
 mk_response({ok, Json, Cursor, Meta}, CacheTime) ->
     Result0 = #{data => Json},
     Result1 =
