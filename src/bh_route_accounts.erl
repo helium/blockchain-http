@@ -159,17 +159,39 @@ mk_cursor(Results) when is_list(Results) ->
 
 get_stats(Account) ->
     Now = calendar:universal_time(),
+    Interval = fun (B) ->
+        {ok, {_, V}} = ?PARSE_INTERVAL(B),
+        V
+    end,
     [BalanceHourlyResults, BalanceWeeklyResults, BalanceMonthlyResults] =
         ?EXECUTE_BATCH([
             %% Hourly: Last 24 hours, truncating start/end to the hour, bucketed
             %by the hour
-            {?S_ACCOUNT_BALANCE_SERIES, [Account, Now, "24 hour", "hour", "1 hour"]},
+            {?S_ACCOUNT_BALANCE_SERIES, [
+                Account,
+                Now,
+                Interval(<<"24 hour">>),
+                <<"hour">>,
+                Interval(<<"1 hour">>)
+            ]},
             %% Weekly: Last 1 weekk, truncating start/end to the day, but
             %bucketd every 8 hours
-            {?S_ACCOUNT_BALANCE_SERIES, [Account, Now, "1 week", "day", "8 hour"]},
+            {?S_ACCOUNT_BALANCE_SERIES, [
+                Account,
+                Now,
+                Interval(<<"1 week">>),
+                <<"day">>,
+                Interval(<<"8 hour">>)
+            ]},
             %% Monthly: Last 30 days, truncating start/end to the day, bucketed
             %every day
-            {?S_ACCOUNT_BALANCE_SERIES, [Account, Now, "30 day", "day", "1 day"]}
+            {?S_ACCOUNT_BALANCE_SERIES, [
+                Account,
+                Now,
+                Interval(<<"30 day">>),
+                <<"day">>,
+                Interval(<<"1 day">>)
+            ]}
         ]),
     {ok, #{
         last_day => mk_balance_stats(BalanceHourlyResults),

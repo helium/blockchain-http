@@ -6,6 +6,8 @@
     get_args/2,
     parse_timespan/2,
     parse_bucket/1,
+    parse_interval/1,
+    parse_interval/2,
     parse_bucketed_timespan/3,
     mk_response/2,
     add_cache_header/2,
@@ -20,7 +22,7 @@
 
 -type arg_spec() :: Key :: atom() | {Key :: atom(), Default :: any()}.
 -type arg() :: {Key :: atom(), Value :: any()}.
--type bucket_spec() :: {Type :: binary(), Spec :: epgsql:pg_interval()}.
+-type interval_spec() :: {Type :: binary(), Spec :: epgsql:pg_interval()}.
 -type timespan() :: {Max :: calendar:datetime(), Min :: calendar:datetime()}.
 -type blockspan() :: {MaxBlock :: non_neg_integer(), Min :: non_neg_integer()}.
 -type cache_time() ::
@@ -30,7 +32,7 @@
     block_time |
     {block_time, pos_integer()}.
 
--export_type([cache_time/0, timespan/0, blockspan/0, bucket_spec/0]).
+-export_type([cache_time/0, timespan/0, blockspan/0, interval_spec/0]).
 
 -spec get_args([arg_spec()], elli:req()) -> [arg()].
 get_args(Names, Req) ->
@@ -71,20 +73,35 @@ parse_timespan(MaxTime0, MinTime0) ->
             {error, badarg}
     end.
 
--spec parse_bucket(binary()) -> {ok, bucket_spec()} | {error, term()}.
-parse_bucket(<<"month">>) ->
-    {ok, {<<"month">>, {{0, 0, 0}, 0, 1}}};
-parse_bucket(<<"week">>) ->
-    {ok, {<<"week">>, {{0, 0, 0}, 7, 0}}};
-parse_bucket(<<"day">>) ->
-    {ok, {<<"day">>, {{0, 0, 0}, 1, 0}}};
-parse_bucket(<<"hour">>) ->
-    {ok, {<<"hour">>, {{1, 0, 0}, 0, 0}}};
-parse_bucket(_) ->
+-spec parse_bucket(binary()) -> {ok, interval_spec()} | {error, term()}.
+parse_bucket(Bin) ->
+    parse_interval(1, Bin).
+
+-spec parse_interval(binary()) -> {ok, interval_spec()} | {error, term()}.
+parse_interval(Bin) ->
+    TrimmedBin = string:trim(Bin),
+    [NumBin, Bucket] = string:split(TrimmedBin, " ", leading),
+    try
+        Num = binary_to_integer(NumBin),
+        parse_interval(Num, string:trim(Bucket))
+    catch
+        error:badarg ->
+            {error, badarg}
+    end.
+
+parse_interval(N, <<"month">>) ->
+    {ok, {<<"month">>, {{0, 0, 0}, 0, N}}};
+parse_interval(N, <<"week">>) ->
+    {ok, {<<"week">>, {{0, 0, 0}, N * 7, 0}}};
+parse_interval(N, <<"day">>) ->
+    {ok, {<<"day">>, {{0, 0, 0}, N, 0}}};
+parse_interval(N, <<"hour">>) ->
+    {ok, {<<"hour">>, {{N, 0, 0}, 0, 0}}};
+parse_interval(_, _) ->
     {error, badarg}.
 
 -spec parse_bucketed_timespan(High :: binary(), Low :: binary(), Step :: binary()) ->
-    {ok, {timespan(), bucket_spec()}} |
+    {ok, {timespan(), interval_spec()}} |
     {error, term()}.
 parse_bucketed_timespan(MaxTime0, MinTime0, Bucket0) ->
     case parse_timespan(MaxTime0, MinTime0) of

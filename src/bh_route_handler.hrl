@@ -9,6 +9,7 @@
 -define(MAX_LIMIT, 1000).
 -define(DEFAULT_ARG_LIMIT, <<"100">>).
 -define(GET_ARGS(A, R), bh_route_handler:get_args((A), (R))).
+-define(PARSE_INTERVAL(B), bh_route_handler:parse_interval((B))).
 -define(PARSE_TIMESPAN(H, L), bh_route_handler:parse_timespan((H), (L))).
 -define(PARSE_BUCKETED_TIMESPAN(H, L, B),
     bh_route_handler:parse_bucketed_timespan((H), (L), (B))
