@@ -12,116 +12,45 @@
 -define(S_ACCOUNT_LIST_BEFORE, "account_list_before").
 -define(S_ACCOUNT_LIST, "account_list").
 -define(S_ACCOUNT, "account").
--define(S_ACCOUNT_BAL_HOURLY, "account_bal_hourly").
--define(S_ACCOUNT_BAL_MONTHLY, "account_bal_monthly").
--define(S_ACCOUNT_BAL_WEEKLY, "account_bal_weekly").
+-define(S_ACCOUNT_BALANCE_SERIES, "account_balance_series").
 -define(S_ACCOUNT_RICH_LIST, "account_rich_list").
--define(SELECT_ACCOUNT_BASE(A), [
-    "select (select max(height) from blocks) as height, l.address, l.dc_balance, l.dc_nonce, l.security_balance, l.security_nonce, l.balance, l.nonce, l.first_block",
-    A,
-    " from account_inventory l "
-]).
-
--define(SELECT_ACCOUNT_BASE, ?SELECT_ACCOUNT_BASE("")).
--define(SELECT_ACCOUNT_STATS(TS), [
-    "with ts as ( ",
-    TS,
-    " order by timestamp desc),",
-    "accounts_ts as (",
-    " select accounts.*, blocks.timestamp  from accounts inner join blocks on blocks.height = accounts.block",
-    " where address = $1 ",
-    ")",
-    "select ts.timestamp, (select accounts_ts.balance from accounts_ts where timestamp <= ts.timestamp order by timestamp desc limit 1) from ts"
-]).
-
 -define(ACCOUNT_LIST_LIMIT, 100).
 -define(ACCOUNT_RICH_LIST_LIMIT, 1000).
 
 prepare_conn(Conn) ->
-    {ok, S1} = epgsql:parse(
-        Conn,
-        ?S_ACCOUNT_LIST_BEFORE,
-        [
-            ?SELECT_ACCOUNT_BASE,
-            "where (l.address > $1 and l.first_block = $2) or (l.first_block < $2) ",
-            "order by first_block desc, address limit ",
-            integer_to_list(?ACCOUNT_LIST_LIMIT)
-        ],
-        []
-    ),
-
-    {ok, S2} = epgsql:parse(
-        Conn,
-        ?S_ACCOUNT_LIST,
-        [
-            ?SELECT_ACCOUNT_BASE,
-            "order by first_block desc, address limit ",
-            integer_to_list(?ACCOUNT_LIST_LIMIT)
-        ],
-        []
-    ),
-
-    {ok, S3} = epgsql:parse(
-        Conn,
-        ?S_ACCOUNT,
-        [
-            ?SELECT_ACCOUNT_BASE(
-                [
-                    ", (select greatest(l.nonce, coalesce(max(p.nonce), l.nonce)) from pending_transactions p where p.address = l.address and nonce_type='balance' and status != 'failed') as speculative_nonce",
-                    ", (select greatest(l.security_nonce, coalesce(max(p.nonce)), l.security_nonce) from pending_transactions p where p.address = l.address and nonce_type='security' and status != 'failed') as speculative_sec_nonce"
-                ]
-            ),
-            "where l.address = $1"
-        ],
-        []
-    ),
-
-    {ok, S4} = epgsql:parse(
-        Conn,
-        ?S_ACCOUNT_BAL_HOURLY,
-        ?SELECT_ACCOUNT_STATS(
-            "select generate_series(date_trunc('hour', now() + '1 hour') - '24 hour'::interval, date_trunc('hour', now() + '1 hour'), '1 hour') as timestamp"
-        ),
-        []
-    ),
-
-    {ok, S5} = epgsql:parse(
-        Conn,
-        ?S_ACCOUNT_BAL_MONTHLY,
-        ?SELECT_ACCOUNT_STATS(
-            "select generate_series(date_trunc('day', now() + '1 day') - '30 day'::interval, date_trunc('day', now() + '1 day'), '1 day') as timestamp"
-        ),
-        []
-    ),
-
-    {ok, S6} = epgsql:parse(
-        Conn,
-        ?S_ACCOUNT_BAL_WEEKLY,
-        ?SELECT_ACCOUNT_STATS(
-            "select generate_series(date_trunc('day', now() + '8 hour') - '1 week'::interval, date_trunc('day', now() + '8 hour'), '8 hour') as timestamp"
-        ),
-        []
-    ),
-
-    {ok, S7} = epgsql:parse(
-        Conn,
-        ?S_ACCOUNT_RICH_LIST,
-        [
-            ?SELECT_ACCOUNT_BASE,
-            "order by balance desc limit $1"
-        ],
-        []
-    ),
-
-    #{
-        ?S_ACCOUNT_LIST_BEFORE => S1,
-        ?S_ACCOUNT_LIST => S2,
-        ?S_ACCOUNT => S3,
-        ?S_ACCOUNT_BAL_HOURLY => S4,
-        ?S_ACCOUNT_BAL_MONTHLY => S5,
-        ?S_ACCOUNT_BAL_WEEKLY => S6,
-        ?S_ACCOUNT_RICH_LIST => S7
-    }.
+    AccountListLimit = "limit " ++ integer_to_list(?ACCOUNT_LIST_LIMIT),
+    Loads = [
+        {?S_ACCOUNT_LIST_BEFORE,
+            {account_list_base, [
+                {extend, ""},
+                {scope, account_list_before_scope},
+                {order, account_list_order},
+                {limit, AccountListLimit}
+            ]}},
+        {?S_ACCOUNT_LIST,
+            {account_list_base, [
+                {extend, ""},
+                {scope, ""},
+                {order, account_list_order},
+                {limit, AccountListLimit}
+            ]}},
+        {?S_ACCOUNT,
+            {account_list_base, [
+                {extend, account_speculative_extend},
+                {scope, "where l.address = $1"},
+                {order, ""},
+                {limit, ""}
+            ]}},
+        ?S_ACCOUNT_BALANCE_SERIES,
+        {?S_ACCOUNT_RICH_LIST,
+            {account_list_base, [
+                {extend, ""},
+                {scope, ""},
+                {order, "order by balance desc"},
+                {limit, "limit $1"}
+            ]}}
+    ],
+    bh_db_worker:load_from_eql(Conn, "accounts.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
@@ -229,11 +158,40 @@ mk_cursor(Results) when is_list(Results) ->
 %%
 
 get_stats(Account) ->
+    Now = calendar:universal_time(),
+    Interval = fun (B) ->
+        {ok, {_, V}} = ?PARSE_INTERVAL(B),
+        V
+    end,
     [BalanceHourlyResults, BalanceWeeklyResults, BalanceMonthlyResults] =
         ?EXECUTE_BATCH([
-            {?S_ACCOUNT_BAL_HOURLY, [Account]},
-            {?S_ACCOUNT_BAL_WEEKLY, [Account]},
-            {?S_ACCOUNT_BAL_MONTHLY, [Account]}
+            %% Hourly: Last 24 hours, truncating start/end to the hour, bucketed
+            %by the hour
+            {?S_ACCOUNT_BALANCE_SERIES, [
+                Account,
+                Now,
+                Interval(<<"24 hour">>),
+                <<"hour">>,
+                Interval(<<"1 hour">>)
+            ]},
+            %% Weekly: Last 1 weekk, truncating start/end to the day, but
+            %bucketd every 8 hours
+            {?S_ACCOUNT_BALANCE_SERIES, [
+                Account,
+                Now,
+                Interval(<<"1 week">>),
+                <<"day">>,
+                Interval(<<"8 hour">>)
+            ]},
+            %% Monthly: Last 30 days, truncating start/end to the day, bucketed
+            %every day
+            {?S_ACCOUNT_BALANCE_SERIES, [
+                Account,
+                Now,
+                Interval(<<"30 day">>),
+                <<"day">>,
+                Interval(<<"1 day">>)
+            ]}
         ]),
     {ok, #{
         last_day => mk_balance_stats(BalanceHourlyResults),

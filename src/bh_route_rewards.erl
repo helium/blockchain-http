@@ -139,34 +139,15 @@ calc_low_block(HighBlock, EndBlock) ->
             max(EndBlock, Other)
     end.
 
--spec parse_min_max_time(High :: binary(), Low :: binary()) ->
-    {ok, {MaxTime :: calendar:datetime(), MinTime :: calendar:datetime()}} |
+-spec get_blockspan(High :: binary(), Low :: binary()) ->
+    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}} |
     {error, term()}.
-parse_min_max_time(MaxTime, MinTime) when
-    MaxTime == undefined orelse MinTime == undefined
-->
-    {error, badarg};
-parse_min_max_time(MaxTime0, MinTime0) ->
-    try
-        MaxTime = iso8601:parse(MaxTime0),
-        MinTime = iso8601:parse(MinTime0),
-        {ok, {MaxTime, MinTime}}
-    catch
-        error:badarg ->
-            {error, badarg}
-    end.
-
--spec get_min_max_height(High :: binary(), Low :: binary()) ->
-    {ok,
-        {{MaxTime :: calendar:datetime(), HighBlock :: pos_integer()},
-            {MinTime :: calendar:datetime(), LowBlock :: pos_integer()}}} |
-    {error, term()}.
-get_min_max_height(MaxTime0, MinTime0) ->
-    case parse_min_max_time(MaxTime0, MinTime0) of
+get_blockspan(MaxTime0, MinTime0) ->
+    case ?PARSE_TIMESPAN(MaxTime0, MinTime0) of
         {ok, {MaxTime, MinTime}} ->
             {ok, _, [{HighBlock, LowBlock}]} =
                 ?PREPARED_QUERY(?S_BLOCK_RANGE, [MaxTime, MinTime]),
-            {ok, {{MaxTime, HighBlock}, {MinTime, LowBlock}}};
+            {ok, {{MaxTime, MinTime}, {HighBlock, LowBlock}}};
         {error, Error} ->
             {error, Error}
     end.
@@ -176,13 +157,13 @@ get_reward_list(
     {Query, _RemQuery},
     [{cursor, undefined}, {max_time, MaxTime}, {min_time, MinTime}]
 ) ->
-    case get_min_max_height(MaxTime, MinTime) of
-        {ok, {{_, HighBlock}, {_, EndBlock}}} ->
+    case get_blockspan(MaxTime, MinTime) of
+        {ok, {_, {HighBlock, LowBlock}}} ->
             State = #state{
                 high_block = HighBlock,
-                end_block = EndBlock,
+                end_block = LowBlock,
                 %% Aim for block alignment
-                low_block = calc_low_block(HighBlock, EndBlock),
+                low_block = calc_low_block(HighBlock, LowBlock),
                 args = Args
             },
             mk_reward_list_result(execute_query(Query, State));
@@ -219,24 +200,13 @@ get_reward_list(
     end.
 
 get_reward_sum(Args, Query, [{max_time, MaxTime0}, {min_time, MinTime0}]) ->
-    case get_min_max_height(MaxTime0, MinTime0) of
-        {ok, {{MaxTime, HighBlock}, {MinTime, LowBlock}}} ->
+    case get_blockspan(MaxTime0, MinTime0) of
+        {ok, {{MaxTime, MinTime}, {HighBlock, LowBlock}}} ->
             Result = ?PREPARED_QUERY(Query, Args ++ [LowBlock, HighBlock]),
             mk_reward_sum_result(MaxTime, MinTime, Result);
         {error, _} = Error ->
             Error
     end.
-
-get_bucket_args(<<"month">>) ->
-    {ok, {<<"month">>, {{0, 0, 0}, 0, 1}}};
-get_bucket_args(<<"week">>) ->
-    {ok, {<<"week">>, {{0, 0, 0}, 7, 0}}};
-get_bucket_args(<<"day">>) ->
-    {ok, {<<"day">>, {{0, 0, 0}, 1, 0}}};
-get_bucket_args(<<"hour">>) ->
-    {ok, {<<"hour">>, {{1, 0, 0}, 0, 0}}};
-get_bucket_args(_) ->
-    {error, badarg}.
 
 get_reward_stats(
     Args,
@@ -247,18 +217,13 @@ get_reward_stats(
         {bucket, BucketType0}
     ]
 ) ->
-    case parse_min_max_time(MaxTime0, MinTime0) of
-        {ok, {MaxTime, MinTime}} ->
-            case get_bucket_args(BucketType0) of
-                {ok, {BucketType, BucketStep}} ->
-                    Result = ?PREPARED_QUERY(
-                        Query,
-                        Args ++ [MinTime, MaxTime, BucketType, BucketStep]
-                    ),
-                    mk_reward_stats_result(MaxTime, MinTime, BucketType, Result);
-                {error, _} = Error ->
-                    Error
-            end;
+    case ?PARSE_BUCKETED_TIMESPAN(MaxTime0, MinTime0, BucketType0) of
+        {ok, {{MaxTime, MinTime}, {BucketType, BucketStep}}} ->
+            Result = ?PREPARED_QUERY(
+                Query,
+                Args ++ [MinTime, MaxTime, BucketType, BucketStep]
+            ),
+            mk_reward_stats_result(MaxTime, MinTime, BucketType, Result);
         {error, Error} ->
             {error, Error}
     end.
