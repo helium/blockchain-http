@@ -50,27 +50,56 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
         end,
     get_args(Tail, Req, [{Key, V} | Acc]).
 
+%% Parse a given binary timestamp. Returns the given `Now' time if passed 
+%% <<"now">> or undefined. Otherwise an attempt is made to parse an interval relative
+%% to `Now', like "-1 week", or "-30 days". If an interval is parsed `Now' +
+%% the interval is returned. Failing all, a standard iso8601 parsing attempt is
+%% made. 
+-spec parse_timestamp(Now :: calendar:datetime(), binary() | undefined) ->
+    {ok, calendar:datetime()} | {error, term()}.
+parse_timestamp(Now, undefined) ->
+    {ok, Now};
+parse_timestamp(Now, <<"now">>) ->
+    parse_timestamp(Now, undefined);
+parse_timestamp(Now, Bin) ->
+    case parse_interval(Bin) of
+        {ok, {_, Interval}} ->
+            {ok,
+                calendar:gregorian_seconds_to_datetime(
+                    calendar:datetime_to_gregorian_seconds(Now) +
+                        interval_to_seconds(Interval)
+                )};
+        {error, _} ->
+            try {ok, iso8601:parse(Bin)}
+            catch
+                error:badarg ->
+                    {error, badarg}
+            end
+    end.
+
 -spec parse_timespan(High :: binary(), Low :: binary()) ->
     {ok, timespan()} | {error, term()}.
 parse_timespan(MaxTime0, MinTime0) ->
-    ParseTime = fun
-        (<<"now">>) -> calendar:universal_time();
-        (undefined) -> calendar:universal_time();
-        (T) -> iso8601:parse(T)
-    end,
     Validate = fun (Max, Min) ->
-        calendar:datetime_to_gregorian_seconds(Max) >
+        calendar:datetime_to_gregorian_seconds(Max) >=
             calendar:datetime_to_gregorian_seconds(Min)
     end,
-    try
-        {MaxTime, MinTime} = {ParseTime(MaxTime0), ParseTime(MinTime0)},
-        case Validate(MaxTime, MinTime) of
-            true -> {ok, {MaxTime, MinTime}};
-            false -> {error, badarg}
-        end
-    catch
-        error:badarg ->
-            {error, badarg}
+    %% Parse max_time relative to the current time
+    case parse_timestamp(calendar:universal_time(), MaxTime0) of
+        {ok, MaxTime} ->
+            %% Then parse min_time relative to max_time
+            case parse_timestamp(MaxTime, MinTime0) of
+                {ok, MinTime} ->
+                    %% Validate min/max ordering
+                    case Validate(MaxTime, MinTime) of
+                        true -> {ok, {MaxTime, MinTime}};
+                        false -> {error, badarg}
+                    end;
+                {error, Error} ->
+                    {error, Error}
+            end;
+        {error, Error} ->
+            {error, Error}
     end.
 
 -spec parse_bucket(binary()) -> {ok, interval_spec()} | {error, term()}.
@@ -80,17 +109,19 @@ parse_bucket(Bin) ->
 -spec parse_interval(binary()) -> {ok, interval_spec()} | {error, term()}.
 parse_interval(Bin) ->
     TrimmedBin = string:trim(Bin),
-    [NumBin, Bucket] = string:split(TrimmedBin, " ", leading),
     try
-        Num = binary_to_integer(NumBin),
-        parse_interval(Num, string:trim(Bucket))
+        case string:split(TrimmedBin, " ", leading) of
+            [NumBin, Bucket] ->
+                Num = binary_to_integer(NumBin),
+                parse_interval(Num, string:trim(Bucket));
+            _ ->
+                {error, badarg}
+        end
     catch
         error:badarg ->
             {error, badarg}
     end.
 
-parse_interval(N, <<"month">>) ->
-    {ok, {<<"month">>, {{0, 0, 0}, 0, N}}};
 parse_interval(N, <<"week">>) ->
     {ok, {<<"week">>, {{0, 0, 0}, N * 7, 0}}};
 parse_interval(N, <<"day">>) ->
@@ -99,6 +130,15 @@ parse_interval(N, <<"hour">>) ->
     {ok, {<<"hour">>, {{N, 0, 0}, 0, 0}}};
 parse_interval(_, _) ->
     {error, badarg}.
+
+-define(HOURS_TO_SECS(H), (60 * 60 * H)).
+-define(MINUTES_TO_SECS(M), (60 * (M))).
+
+-spec interval_to_seconds(epgsql:pg_interval()) -> non_neg_integer().
+interval_to_seconds({{H, M, S}, D, 0}) ->
+    TimeSecs = S + ?MINUTES_TO_SECS(M) + ?HOURS_TO_SECS(H),
+    DaySecs = D * ?HOURS_TO_SECS(24),
+    TimeSecs + DaySecs.
 
 -spec parse_bucketed_timespan(High :: binary(), Low :: binary(), Step :: binary()) ->
     {ok, {timespan(), interval_spec()}} |
@@ -208,3 +248,30 @@ cursor_decode(_) ->
 -spec cursor_encode(map()) -> binary().
 cursor_encode(Map) ->
     ?BIN_TO_B64(jiffy:encode(Map)).
+
+-ifdef(TEST).
+
+-include_lib("eunit/include/eunit.hrl").
+
+parse_timestamp_test() ->
+    Now = {{2021, 1, 28}, {0, 0, 0}} = iso8601:parse("2021-01-28"),
+    %% Basic iso8601 parsing
+    ?assertEqual({ok, Now}, parse_timestamp(Now, "2021-01-28")),
+    ?assertEqual(
+        {ok, {{2021, 1, 29}, {0, 36, 59}}},
+        parse_timestamp(Now, "2021-01-29T00:36:59Z")
+    ),
+    %% invalid timestamp
+    ?assertEqual({error, badarg}, parse_timestamp(Now, "no way")),
+
+    %% now/undefined
+    ?assertMatch({ok, _}, parse_timestamp(Now, <<"now">>)),
+    ?assertMatch({ok, _}, parse_timestamp(Now, undefined)),
+
+    %% intervals
+    ?assertMatch({ok, {{2021, 1, 27}, {0, 0, 0}}}, parse_timestamp(Now, <<"-1 day">>)),
+    ?assertMatch({ok, {{2021, 1, 21}, {0, 0, 0}}}, parse_timestamp(Now, <<"-1 week">>)),
+    ?assertMatch({ok, {{2021, 1, 26}, {0, 0, 0}}}, parse_timestamp(Now, <<"-48 hour">>)),
+    ok.
+
+-endif.
