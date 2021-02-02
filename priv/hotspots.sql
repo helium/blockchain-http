@@ -130,3 +130,44 @@ from time_range t
     on d.time >= low and d.time < high
 group by t.low
 order by t.low desc;
+
+-- :hotspot_bucketed_challenges_source
+(select
+    count(d.time),
+    d.time
+from challenge_data d
+group by d.time, d.address)
+
+-- :hotspot_bucketed_challenges_base
+with time_range as (
+    select 
+        extract(epoch from low)::bigint as low, 
+        extract(epoch from high)::bigint as high 
+    from (
+        select 
+            timestamp as low, 
+            lag(timestamp) over (order by timestamp desc) as high
+        from generate_series($2::timestamptz, $3::timestamptz, $4::interval) as timestamp) t
+    where high is not null
+),
+challenge_data as (
+    select 
+        a.actor as address, 
+        b.time
+    from transaction_actors a inner join blocks b on b.height = a.block
+    :scope
+    and b.time >= (select min(low) from time_range) and b.time <= (select max(high) from time_range)
+)
+select 
+    to_timestamp(t.low) as timestamp,
+    coalesce(min(d.count), 0) as min,
+    coalesce(max(d.count), 0) as max,
+    coalesce(sum(d.count), 0) as sum,
+    coalesce(percentile_cont(0.5) within group (order by d.count), 0)::float as median,
+    coalesce(avg(d.count), 0)::float as avg,
+    coalesce(stddev(d.count), 0)::float as stddev
+from time_range t 
+    left join :source d 
+    on d.time >= low and d.time < high
+group by t.low
+order by t.low desc;

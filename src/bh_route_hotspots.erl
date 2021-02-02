@@ -25,6 +25,7 @@
 -define(S_CITY_HOTSPOT_LIST_BEFORE, "hotspot_city_list_before").
 -define(S_HOTSPOT_WITNESS_LIST, "hotspot_witness_list").
 -define(S_HOTSPOT_BUCKETED_SUM_WITNESSES, "hotspot_bucketed_sum_witnesses").
+-define(S_HOTSPOT_BUCKETED_SUM_CHALLENGES, "hotspot_bucketed_sum_challenges").
 -define(HOTSPOT_LIST_LIMIT, 1000).
 
 prepare_conn(Conn) ->
@@ -122,6 +123,11 @@ prepare_conn(Conn) ->
             {hotspot_bucketed_witnesses_base, [
                 {scope, "where g.address = $1"},
                 {source, hotspot_bucketed_witnesses_source}
+            ]}},
+        {?S_HOTSPOT_BUCKETED_SUM_CHALLENGES,
+            {hotspot_bucketed_challenges_base, [
+                {scope, "where a.actor = $1"},
+                {source, hotspot_bucketed_challenges_source}
             ]}}
     ],
     bh_db_worker:load_from_eql(Conn, "hotspots.sql", Loads).
@@ -165,6 +171,9 @@ handle('GET', [Address, <<"challenges">>], Req) ->
         bh_route_challenges:get_challenge_list({hotspot, Address}, Args),
         block_time
     );
+handle('GET', [Address, <<"challenges">>, <<"sum">>], Req) ->
+    Args = ?GET_ARGS([max_time, min_time, bucket], Req),
+    ?MK_RESPONSE(get_challenges_sum({hotspot, Address}, Args), block_time);
 handle('GET', [Address, <<"rewards">>], Req) ->
     Args = ?GET_ARGS([cursor, max_time, min_time], Req),
     ?MK_RESPONSE(bh_route_rewards:get_reward_list({hotspot, Address}, Args), block_time);
@@ -254,7 +263,38 @@ get_witness_bucketed_sum(Args, Query, [
     case ?PARSE_BUCKETED_TIMESPAN(MaxTime0, MinTime0, Bucket) of
         {ok, {{MaxTime, MinTime}, {BucketType, BucketStep}}} ->
             Result = ?PREPARED_QUERY(Query, Args ++ [MaxTime, MinTime, BucketStep]),
-            mk_witness_buckets_result(MaxTime, MinTime, BucketType, Result);
+            mk_buckets_result(
+                fun witness_bucket_to_json/1,
+                MaxTime,
+                MinTime,
+                BucketType,
+                Result
+            );
+        {error, Error} ->
+            {error, Error}
+    end.
+
+get_challenges_sum(
+    {hotspot, Address},
+    Args = [{max_time, _}, {min_time, _}, {bucket, _}]
+) ->
+    get_challenges_bucketed_sum([Address], ?S_HOTSPOT_BUCKETED_SUM_CHALLENGES, Args).
+
+get_challenges_bucketed_sum(Args, Query, [
+    {max_time, MaxTime0},
+    {min_time, MinTime0},
+    {bucket, Bucket}
+]) ->
+    case ?PARSE_BUCKETED_TIMESPAN(MaxTime0, MinTime0, Bucket) of
+        {ok, {{MaxTime, MinTime}, {BucketType, BucketStep}}} ->
+            Result = ?PREPARED_QUERY(Query, Args ++ [MaxTime, MinTime, BucketStep]),
+            mk_buckets_result(
+                fun challenge_bucket_to_json/1,
+                MaxTime,
+                MinTime,
+                BucketType,
+                Result
+            );
         {error, Error} ->
             {error, Error}
     end.
@@ -303,13 +343,13 @@ mk_cursor(Results) when is_list(Results) ->
             end
     end.
 
-mk_witness_buckets_result(MaxTime, MinTime, BucketType, {ok, _, Results}) ->
+mk_buckets_result(Fun, MaxTime, MinTime, BucketType, {ok, _, Results}) ->
     Meta = #{
         max_time => iso8601:format(MaxTime),
         min_time => iso8601:format(MinTime),
         bucket => BucketType
     },
-    {ok, witness_buckets_to_json(Results), undefined, Meta}.
+    {ok, buckets_to_json(Fun, Results), undefined, Meta}.
 
 %%
 %% to_jaon
@@ -402,8 +442,8 @@ hotspot_to_json(
         }
     ).
 
-witness_buckets_to_json(Results) ->
-    lists:map(fun witness_bucket_to_json/1, Results).
+buckets_to_json(Fun, Results) ->
+    lists:map(Fun, Results).
 
 witness_bucket_to_json({Min, Max, Median, Avg, StdDev}) ->
     #{
@@ -415,6 +455,21 @@ witness_bucket_to_json({Min, Max, Median, Avg, StdDev}) ->
     };
 witness_bucket_to_json({Timestamp, Min, Max, Median, Avg, StdDev}) ->
     Base = witness_bucket_to_json({Min, Max, Median, Avg, StdDev}),
+    Base#{
+        timestamp => iso8601:format(Timestamp)
+    }.
+
+challenge_bucket_to_json({Min, Max, Sum, Median, Avg, StdDev}) ->
+    #{
+        min => Min,
+        max => Max,
+        sum => Sum,
+        median => Median,
+        avg => Avg,
+        stddev => StdDev
+    };
+challenge_bucket_to_json({Timestamp, Min, Max, Sum, Median, Avg, StdDev}) ->
+    Base = challenge_bucket_to_json({Min, Max, Sum, Median, Avg, StdDev}),
     Base#{
         timestamp => iso8601:format(Timestamp)
     }.

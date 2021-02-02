@@ -23,7 +23,8 @@ all() ->
         rewards_sum_test,
         rewards_buckets_test,
         witnesses_test,
-        witnesses_buckets_test
+        witnesses_buckets_test,
+        challenges_buckets_test
     ].
 
 init_per_suite(Config) ->
@@ -260,6 +261,19 @@ witnesses_buckets_test(_Config) ->
             "/v1/hotspots/",
             Hotspot,
             "/witnesses/sum?max_time=2020-09-27&min_time=2020-08-27&bucket=day"
+        ]),
+    #{<<"data">> := Data} = Json,
+    ?assert(length(Data) >= 0),
+
+    ok.
+
+challenges_buckets_test(_Config) ->
+    Hotspot = "112hYxknRPeCP9PLtkAy3f86fWpXaRzRffjPj5HcrS7qePttY3Ek",
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/hotspots/",
+            Hotspot,
+            "/challenges/sum?&min_time=-7%20day&bucket=day"
         ]),
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),
