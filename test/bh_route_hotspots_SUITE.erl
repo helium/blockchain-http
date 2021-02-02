@@ -20,7 +20,7 @@ all() ->
         challenges_test,
         rewards_test,
         rewards_sum_test,
-        rewards_stats_test,
+        rewards_buckets_test,
         witnesses_test
     ].
 
@@ -214,13 +214,13 @@ rewards_sum_test(_Config) ->
 
     ok.
 
-rewards_stats_test(_Config) ->
+rewards_buckets_test(_Config) ->
     Hotspot = "112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK",
     {ok, {_, _, Json}} =
         ?json_request([
             "/v1/hotspots/",
             Hotspot,
-            "/rewards/stats?max_time=2020-09-27&min_time=2020-08-27&bucket=day"
+            "/rewards/sum?max_time=2020-09-27&min_time=2020-08-27&bucket=day"
         ]),
     #{<<"data">> := Data} = Json,
     ?assertEqual(31, length(Data)),

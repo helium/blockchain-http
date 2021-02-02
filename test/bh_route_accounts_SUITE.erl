@@ -3,7 +3,6 @@
 -compile([nowarn_export_all, export_all]).
 
 -include("bh_route_handler.hrl").
-
 -include("ct_utils.hrl").
 
 all() ->
@@ -17,7 +16,7 @@ all() ->
         stats_test,
         rewards_test,
         rewards_sum_test,
-        rewards_stats_test,
+        rewards_buckets_test,
         rich_list_test
     ].
 
@@ -101,7 +100,7 @@ stats_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request(["/v1/accounts/", Account, "/stats"]),
     #{<<"data">> := Data} = Json,
     lists:foreach(
-        fun(Key) ->
+        fun (Key) ->
             Entry = maps:get(Key, Data),
             ?assert(length(Entry) > 0)
         end,
@@ -114,11 +113,12 @@ stats_test(_Config) ->
 
 rewards_test(_Config) ->
     Account = "13YuCz3mZ55HZ6hJJvQHCZXGgE8ooe2CSvbtSHQR3m5vZ1EVCNZ",
-    {ok, {_, _, Json}} = ?json_request([
-        "/v1/accounts/",
-        Account,
-        "/rewards?max_time=2020-08-27&min_time=2019-01-01"
-    ]),
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/accounts/",
+            Account,
+            "/rewards?max_time=2020-08-27&min_time=2019-01-01"
+        ]),
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),
 
@@ -126,12 +126,13 @@ rewards_test(_Config) ->
         undefined ->
             ok;
         Cursor ->
-            {ok, {_, _, CursorJson}} = ?json_request([
-                "/v1/accounts/",
-                Account,
-                "/rewards?cursor=",
-                Cursor
-            ]),
+            {ok, {_, _, CursorJson}} =
+                ?json_request([
+                    "/v1/accounts/",
+                    Account,
+                    "/rewards?cursor=",
+                    Cursor
+                ]),
             #{<<"data">> := CursorData} = CursorJson,
             ?assert(length(CursorData) >= 0)
     end,
@@ -140,23 +141,25 @@ rewards_test(_Config) ->
 
 rewards_sum_test(_Config) ->
     Account = "13YuCz3mZ55HZ6hJJvQHCZXGgE8ooe2CSvbtSHQR3m5vZ1EVCNZ",
-    {ok, {_, _, Json}} = ?json_request([
-        "/v1/accounts/",
-        Account,
-        "/rewards/sum?max_time=2020-08-27&min_time=2019-01-01"
-    ]),
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/accounts/",
+            Account,
+            "/rewards/sum?max_time=2020-08-27&min_time=2019-01-01"
+        ]),
     #{<<"data">> := #{<<"sum">> := Sum}} = Json,
     ?assert(Sum >= 0),
 
     ok.
 
-rewards_stats_test(_Config) ->
+rewards_buckets_test(_Config) ->
     Account = "13YuCz3mZ55HZ6hJJvQHCZXGgE8ooe2CSvbtSHQR3m5vZ1EVCNZ",
-    {ok, {_, _, Json}} = ?json_request([
-        "/v1/accounts/",
-        Account,
-        "/rewards/stats?max_time=2020-09-27&min_time=2020-08-27&bucket=day"
-    ]),
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/accounts/",
+            Account,
+            "/rewards/sum?max_time=2020-09-27&min_time=2020-08-27&bucket=day"
+        ]),
     #{<<"data">> := Data} = Json,
     ?assertEqual(31, length(Data)),
 

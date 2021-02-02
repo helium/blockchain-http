@@ -87,11 +87,8 @@ handle('GET', [Account, <<"rewards">>], Req) ->
     Args = ?GET_ARGS([cursor, max_time, min_time], Req),
     ?MK_RESPONSE(bh_route_rewards:get_reward_list({account, Account}, Args), block_time);
 handle('GET', [Account, <<"rewards">>, <<"sum">>], Req) ->
-    Args = ?GET_ARGS([max_time, min_time], Req),
-    ?MK_RESPONSE(bh_route_rewards:get_reward_sum({account, Account}, Args), block_time);
-handle('GET', [Account, <<"rewards">>, <<"stats">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time, bucket], Req),
-    ?MK_RESPONSE(bh_route_rewards:get_reward_stats({account, Account}, Args), block_time);
+    ?MK_RESPONSE(bh_route_rewards:get_reward_sum({account, Account}, Args), block_time);
 handle('GET', [Account, <<"pending_transactions">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(bh_route_pending_txns:get_pending_txn_list({actor, Account}, Args), never);

@@ -1,7 +1,7 @@
 -module(bh_route_rewards).
 
 -export([prepare_conn/1, handle/3]).
--export([get_reward_list/2, get_reward_sum/2, get_reward_stats/2]).
+-export([get_reward_list/2, get_reward_sum/2]).
 
 -behavior(bh_route_handler).
 -behavior(bh_db_worker).
@@ -15,9 +15,11 @@
 -define(S_REWARD_LIST_ACCOUNT, "reward_list_account").
 -define(S_REWARD_LIST_ACCOUNT_REM, "reward_list_account_rem").
 -define(S_REWARD_SUM_HOTSPOT, "reward_sum_hotstpot").
+-define(S_REWARD_SUM_HOTSPOTS, "reward_sum_hotspots").
 -define(S_REWARD_SUM_ACCOUNT, "reward_sum_account").
--define(S_REWARD_STATS_HOTSPOT, "reward_stats_hotstpot").
--define(S_REWARD_STATS_ACCOUNT, "reward_stats_account").
+-define(S_REWARD_BUCKETED_SUM_ACCOUNT, "reward_bucketed_sum_account").
+-define(S_REWARD_BUCKETED_SUM_HOTSPOT, "reward_bucketed_sum_hotstpot").
+-define(S_REWARD_BUCKETED_SUM_HOTSPOTS, "reward_bucketed_sum_hotstpots").
 -define(REWARD_FIELDS,
     "r.block, r.transaction_hash, to_timestamp(r.time) as timestamp, r.account, r.gateway, r.amount"
 ).
@@ -26,27 +28,61 @@ prepare_conn(Conn) ->
     Loads = [
         ?S_BLOCK_RANGE,
         {?S_REWARD_LIST_HOTSPOT,
-            {reward_list_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.gateway = $1"}]}},
+            {reward_list_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.gateway = $1"}
+            ]}},
         {?S_REWARD_LIST_HOTSPOT_REM,
             {reward_list_rem_base, [
                 {fields, ?REWARD_FIELDS},
                 {scope, "where r.gateway = $1"}
             ]}},
         {?S_REWARD_LIST_ACCOUNT,
-            {reward_list_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.account = $1"}]}},
+            {reward_list_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.account = $1"}
+            ]}},
         {?S_REWARD_LIST_ACCOUNT_REM,
             {reward_list_rem_base, [
                 {fields, ?REWARD_FIELDS},
                 {scope, "where r.account = $1"}
             ]}},
         {?S_REWARD_SUM_HOTSPOT,
-            {reward_sum_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.gateway = $1"}]}},
+            {reward_sum_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.gateway = $1"},
+                {source, "reward_data"}
+            ]}},
+        {?S_REWARD_SUM_HOTSPOTS,
+            {reward_sum_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where true = $1"},
+                {source, reward_sum_hotspot_source}
+            ]}},
         {?S_REWARD_SUM_ACCOUNT,
-            {reward_sum_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.account = $1"}]}},
-        {?S_REWARD_STATS_HOTSPOT,
-            {reward_stats_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.gateway = $1"}]}},
-        {?S_REWARD_STATS_ACCOUNT,
-            {reward_stats_base, [{fields, ?REWARD_FIELDS}, {scope, "where r.account = $1"}]}}
+            {reward_sum_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.account = $1"},
+                {source, reward_sum_hotspot_source}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_HOTSPOTS,
+            {reward_bucketed_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where true = $1"},
+                {source, reward_bucketed_hotspot_source}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_HOTSPOT,
+            {reward_bucketed_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.gateway = $1"},
+                {source, "reward_data"}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_ACCOUNT,
+            {reward_bucketed_base, [
+                {fields, ?REWARD_FIELDS},
+                {scope, "where r.account = $1"},
+                {source, reward_bucketed_hotspot_source}
+            ]}}
     ],
     bh_db_worker:load_from_eql(Conn, "rewards.sql", Loads).
 
@@ -58,21 +94,30 @@ get_reward_list({hotspot, Address}, Args = [{cursor, _}, {max_time, _}, {min_tim
 get_reward_list({account, Address}, Args = [{cursor, _}, {max_time, _}, {min_time, _}]) ->
     get_reward_list([Address], {?S_REWARD_LIST_ACCOUNT, ?S_REWARD_LIST_ACCOUNT_REM}, Args).
 
-get_reward_sum({hotspot, Address}, Args = [{max_time, _}, {min_time, _}]) ->
-    get_reward_sum([Address], ?S_REWARD_SUM_HOTSPOT, Args);
-get_reward_sum({account, Address}, Args = [{max_time, _}, {min_time, _}]) ->
-    get_reward_sum([Address], ?S_REWARD_SUM_ACCOUNT, Args).
-
-get_reward_stats(
+%% all hotspots
+get_reward_sum(
+    {hotspot, all},
+    Args = [{max_time, _}, {min_time, _}, {bucket, undefined}]
+) ->
+    get_reward_sum([true], ?S_REWARD_SUM_HOTSPOTS, Args);
+get_reward_sum({hotspot, all}, Args = [{max_time, _}, {min_time, _}, {bucket, _}]) ->
+    get_reward_bucketed_sum([true], ?S_REWARD_BUCKETED_SUM_HOTSPOTS, Args);
+%% one hotspot
+get_reward_sum(
     {hotspot, Address},
-    Args = [{max_time, _}, {min_time, _}, {bucket, _}]
+    Args = [{max_time, _}, {min_time, _}, {bucket, undefined}]
 ) ->
-    get_reward_stats([Address], ?S_REWARD_STATS_HOTSPOT, Args);
-get_reward_stats(
+    get_reward_sum([Address], ?S_REWARD_SUM_HOTSPOT, Args);
+get_reward_sum({hotspot, Address}, Args = [{max_time, _}, {min_time, _}, {bucket, _}]) ->
+    get_reward_bucketed_sum([Address], ?S_REWARD_BUCKETED_SUM_HOTSPOT, Args);
+%% one account
+get_reward_sum(
     {account, Address},
-    Args = [{max_time, _}, {min_time, _}, {bucket, _}]
+    Args = [{max_time, _}, {min_time, _}, {bucket, undefined}]
 ) ->
-    get_reward_stats([Address], ?S_REWARD_STATS_ACCOUNT, Args).
+    get_reward_sum([Address], ?S_REWARD_SUM_ACCOUNT, Args);
+get_reward_sum({account, Address}, Args = [{max_time, _}, {min_time, _}, {bucket, _}]) ->
+    get_reward_bucketed_sum([Address], ?S_REWARD_BUCKETED_SUM_ACCOUNT, Args).
 
 -define(REWARD_LIST_BLOCK_ALIGN, 100).
 
@@ -152,6 +197,21 @@ get_blockspan(MaxTime0, MinTime0) ->
             {error, Error}
     end.
 
+-spec get_bucketed_blockspan(High :: binary(), Low :: binary(), Bucket :: binary()) ->
+    {ok,
+        {bh_route_handler:timespan(), bh_route_handler:blockspan(),
+            bh_route_handler:interval_spec()}} |
+    {error, term()}.
+get_bucketed_blockspan(MaxTime0, MinTime0, BucketType0) ->
+    case ?PARSE_BUCKETED_TIMESPAN(MaxTime0, MinTime0, BucketType0) of
+        {ok, {{MaxTime, MinTime}, {BucketType, BucketStep}}} ->
+            {ok, _, [{HighBlock, LowBlock}]} =
+                ?PREPARED_QUERY(?S_BLOCK_RANGE, [MaxTime, MinTime]),
+            {ok, {{MaxTime, MinTime}, {HighBlock, LowBlock}, {BucketType, BucketStep}}};
+        {error, Error} ->
+            {error, Error}
+    end.
+
 get_reward_list(
     Args,
     {Query, _RemQuery},
@@ -199,31 +259,27 @@ get_reward_list(
             {error, badarg}
     end.
 
-get_reward_sum(Args, Query, [{max_time, MaxTime0}, {min_time, MinTime0}]) ->
-    case get_blockspan(MaxTime0, MinTime0) of
-        {ok, {{MaxTime, MinTime}, {HighBlock, LowBlock}}} ->
-            Result = ?PREPARED_QUERY(Query, Args ++ [LowBlock, HighBlock]),
+get_reward_sum(Args, Query, [{max_time, MaxTime0}, {min_time, MinTime0}, {bucket, _Bucket}]) ->
+    case ?PARSE_TIMESPAN(MaxTime0, MinTime0) of
+        {ok, {MaxTime, MinTime}} ->
+            Result = ?PREPARED_QUERY(Query, Args ++ [MinTime, MaxTime]),
             mk_reward_sum_result(MaxTime, MinTime, Result);
         {error, _} = Error ->
             Error
     end.
 
-get_reward_stats(
-    Args,
-    Query,
-    [
-        {max_time, MaxTime0},
-        {min_time, MinTime0},
-        {bucket, BucketType0}
-    ]
-) ->
-    case ?PARSE_BUCKETED_TIMESPAN(MaxTime0, MinTime0, BucketType0) of
-        {ok, {{MaxTime, MinTime}, {BucketType, BucketStep}}} ->
+get_reward_bucketed_sum(Args, Query, [
+    {max_time, MaxTime0},
+    {min_time, MinTime0},
+    {bucket, BucketType0}
+]) ->
+    case get_bucketed_blockspan(MaxTime0, MinTime0, BucketType0) of
+        {ok, {{MaxTime, MinTime}, _, {BucketType, BucketStep}}} ->
             Result = ?PREPARED_QUERY(
                 Query,
-                Args ++ [MinTime, MaxTime, BucketType, BucketStep]
+                Args ++ [MaxTime, MinTime, BucketStep]
             ),
-            mk_reward_stats_result(MaxTime, MinTime, BucketType, Result);
+            mk_reward_buckets_result(MaxTime, MinTime, BucketType, Result);
         {error, Error} ->
             {error, Error}
     end.
@@ -246,13 +302,13 @@ mk_reward_sum_result(MaxTime, MinTime, {ok, _, [Result]}) ->
     %% Result is expected to have the same fields as a stat results
     {ok, reward_stat_to_json(Result), undefined, Meta}.
 
-mk_reward_stats_result(MaxTime, MinTime, BucketType, {ok, _, Results}) ->
+mk_reward_buckets_result(MaxTime, MinTime, BucketType, {ok, _, Results}) ->
     Meta = #{
         max_time => iso8601:format(MaxTime),
         min_time => iso8601:format(MinTime),
         bucket => BucketType
     },
-    {ok, reward_stats_to_json(Results), undefined, Meta}.
+    {ok, reward_buckets_to_json(Results), undefined, Meta}.
 
 mk_reward_list_cursor(EndBlock, undefined, #state{end_block = EndBlock}) ->
     undefined;
@@ -263,17 +319,13 @@ mk_reward_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
             (State#state.anchor_block == undefined) and
                 (BeforeBlock rem ?REWARD_LIST_BLOCK_ALIGN == 0)
         of
-            true ->
-                BeforeBlock;
-            false ->
-                State#state.anchor_block
+            true -> BeforeBlock;
+            false -> State#state.anchor_block
         end,
     lists:foldl(
         fun
-            ({_Key, undefined}, Acc) ->
-                Acc;
-            ({Key, Value}, Acc) ->
-                Acc#{Key => Value}
+            ({_Key, undefined}, Acc) -> Acc;
+            ({Key, Value}, Acc) -> Acc#{Key => Value}
         end,
         #{},
         [
@@ -301,7 +353,7 @@ reward_to_json({Block, Hash, Timestamp, Account, Gateway, Amount}) ->
         <<"amount">> => Amount
     }.
 
-reward_stats_to_json(Results) ->
+reward_buckets_to_json(Results) ->
     lists:map(fun reward_stat_to_json/1, Results).
 
 reward_stat_to_json({Min, Max, Sum, Total, Median, Avg, StdDev}) ->

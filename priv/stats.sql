@@ -139,11 +139,11 @@ with heights as (
 month_interval as (
     select
         t.block as block,
-        sum((t.fields->>'fee')::numeric) as fees,
-        sum(coalesce((t.fields->>'staking_fee')::numeric, 0)::numeric) as staking_fees
+        sum(coalesce((t.fields->>'fee')::numeric, 0)) as fees,
+        sum(coalesce((t.fields->>'staking_fee')::numeric, 0)) as staking_fees
     from transactions t
     where t.block > (select month from heights)
-        and (t.fields->>'fee')::numeric > 0
+        and t.type not in ('poc_receipts_v1', 'poc_request_v1', 'rewards_v1', 'consensus_group_v1')
     group by t.block
 ),
 week_interval as (
