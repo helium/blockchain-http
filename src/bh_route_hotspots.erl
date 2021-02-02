@@ -24,6 +24,7 @@
 -define(S_CITY_HOTSPOT_LIST, "hotspot_city_list").
 -define(S_CITY_HOTSPOT_LIST_BEFORE, "hotspot_city_list_before").
 -define(S_HOTSPOT_WITNESS_LIST, "hotspot_witness_list").
+-define(S_HOTSPOT_BUCKETED_SUM_WITNESSES, "hotspot_bucketed_sum_witnesses").
 -define(HOTSPOT_LIST_LIMIT, 1000).
 
 prepare_conn(Conn) ->
@@ -116,6 +117,11 @@ prepare_conn(Conn) ->
                         {order, ""},
                         {limit, ""}
                     ]}}
+            ]}},
+        {?S_HOTSPOT_BUCKETED_SUM_WITNESSES,
+            {hotspot_bucketed_witnesses_base, [
+                {scope, "where g.address = $1"},
+                {source, hotspot_bucketed_witnesses_source}
             ]}}
     ],
     bh_db_worker:load_from_eql(Conn, "hotspots.sql", Loads).
@@ -174,6 +180,9 @@ handle('GET', [<<"rewards">>, <<"sum">>], Req) ->
     );
 handle('GET', [Address, <<"witnesses">>], _Req) ->
     ?MK_RESPONSE(get_hotspot_list([{witnesses_for, Address}]), block_time);
+handle('GET', [Address, <<"witnesses">>, <<"sum">>], Req) ->
+    Args = ?GET_ARGS([max_time, min_time, bucket], Req),
+    ?MK_RESPONSE(get_witnesses_sum({hotspot, Address}, Args), block_time);
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
@@ -231,6 +240,25 @@ get_hotspot_list([{owner, Owner}, {city, City}, {cursor, Cursor}]) ->
             {error, badarg}
     end.
 
+get_witnesses_sum(
+    {hotspot, Address},
+    Args = [{max_time, _}, {min_time, _}, {bucket, _}]
+) ->
+    get_witness_bucketed_sum([Address], ?S_HOTSPOT_BUCKETED_SUM_WITNESSES, Args).
+
+get_witness_bucketed_sum(Args, Query, [
+    {max_time, MaxTime0},
+    {min_time, MinTime0},
+    {bucket, Bucket}
+]) ->
+    case ?PARSE_BUCKETED_TIMESPAN(MaxTime0, MinTime0, Bucket) of
+        {ok, {{MaxTime, MinTime}, {BucketType, BucketStep}}} ->
+            Result = ?PREPARED_QUERY(Query, Args ++ [MaxTime, MinTime, BucketStep]),
+            mk_witness_buckets_result(MaxTime, MinTime, BucketType, Result);
+        {error, Error} ->
+            {error, Error}
+    end.
+
 get_hotspot(Address) ->
     case ?PREPARED_QUERY(?S_HOTSPOT, [Address]) of
         {ok, _, [Result]} ->
@@ -274,6 +302,14 @@ mk_cursor(Results) when is_list(Results) ->
                     }
             end
     end.
+
+mk_witness_buckets_result(MaxTime, MinTime, BucketType, {ok, _, Results}) ->
+    Meta = #{
+        max_time => iso8601:format(MaxTime),
+        min_time => iso8601:format(MinTime),
+        bucket => BucketType
+    },
+    {ok, witness_buckets_to_json(Results), undefined, Meta}.
 
 %%
 %% to_jaon
@@ -365,3 +401,20 @@ hotspot_to_json(
             nonce => MaybeZero(Nonce)
         }
     ).
+
+witness_buckets_to_json(Results) ->
+    lists:map(fun witness_bucket_to_json/1, Results).
+
+witness_bucket_to_json({Min, Max, Median, Avg, StdDev}) ->
+    #{
+        min => Min,
+        max => Max,
+        median => Median,
+        avg => Avg,
+        stddev => StdDev
+    };
+witness_bucket_to_json({Timestamp, Min, Max, Median, Avg, StdDev}) ->
+    Base = witness_bucket_to_json({Min, Max, Median, Avg, StdDev}),
+    Base#{
+        timestamp => iso8601:format(Timestamp)
+    }.
