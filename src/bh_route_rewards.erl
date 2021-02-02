@@ -197,21 +197,6 @@ get_blockspan(MaxTime0, MinTime0) ->
             {error, Error}
     end.
 
--spec get_bucketed_blockspan(High :: binary(), Low :: binary(), Bucket :: binary()) ->
-    {ok,
-        {bh_route_handler:timespan(), bh_route_handler:blockspan(),
-            bh_route_handler:interval_spec()}} |
-    {error, term()}.
-get_bucketed_blockspan(MaxTime0, MinTime0, BucketType0) ->
-    case ?PARSE_BUCKETED_TIMESPAN(MaxTime0, MinTime0, BucketType0) of
-        {ok, {{MaxTime, MinTime}, {BucketType, BucketStep}}} ->
-            {ok, _, [{HighBlock, LowBlock}]} =
-                ?PREPARED_QUERY(?S_BLOCK_RANGE, [MaxTime, MinTime]),
-            {ok, {{MaxTime, MinTime}, {HighBlock, LowBlock}, {BucketType, BucketStep}}};
-        {error, Error} ->
-            {error, Error}
-    end.
-
 get_reward_list(
     Args,
     {Query, _RemQuery},
@@ -273,8 +258,8 @@ get_reward_bucketed_sum(Args, Query, [
     {min_time, MinTime0},
     {bucket, BucketType0}
 ]) ->
-    case get_bucketed_blockspan(MaxTime0, MinTime0, BucketType0) of
-        {ok, {{MaxTime, MinTime}, _, {BucketType, BucketStep}}} ->
+    case ?PARSE_BUCKETED_TIMESPAN(MaxTime0, MinTime0, BucketType0) of
+        {ok, {{MaxTime, MinTime}, {BucketType, BucketStep}}} ->
             Result = ?PREPARED_QUERY(
                 Query,
                 Args ++ [MaxTime, MinTime, BucketStep]

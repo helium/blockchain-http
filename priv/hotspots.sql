@@ -90,3 +90,43 @@ members as (
 -- :hotspot_elected_list_scope
 where g.address in (select * from members)
 
+-- :hotspot_bucketed_witnesses_source
+(select
+    (select count(*) from jsonb_object_keys(jsonb_merge_agg(w.witnesses))),
+    w.time
+from witness_data w
+group by w.time, w.address)
+
+-- :hotspot_bucketed_witnesses_base
+with time_range as (
+    select 
+        extract(epoch from low)::bigint as low, 
+        extract(epoch from high)::bigint as high 
+    from (
+        select 
+            timestamp as low, 
+            lag(timestamp) over (order by timestamp desc) as high
+        from generate_series($2::timestamptz, $3::timestamptz, $4::interval) as timestamp) t
+    where high is not null
+),
+witness_data as (
+    select 
+        g.address, 
+        g.witnesses,
+        g.time
+    from gateways g
+    :scope
+    and g.time >= (select min(low) from time_range) and g.time <= (select max(high) from time_range)
+)
+select 
+    to_timestamp(t.low) as timestamp,
+    coalesce(min(d.count), 0) as min,
+    coalesce(max(d.count), 0) as max,
+    coalesce(percentile_cont(0.5) within group (order by d.count), 0)::float as median,
+    coalesce(avg(d.count), 0)::float as avg,
+    coalesce(stddev(d.count), 0)::float as stddev
+from time_range t 
+    left join :source d 
+    on d.time >= low and d.time < high
+group by t.low
+order by t.low desc;
