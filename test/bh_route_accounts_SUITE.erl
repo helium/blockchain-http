@@ -15,6 +15,7 @@ all() ->
         hotspots_test,
         stats_test,
         rewards_test,
+        rewards_dupe_test,
         rewards_sum_test,
         rewards_buckets_test,
         rich_list_test
@@ -137,6 +138,33 @@ rewards_test(_Config) ->
             ?assert(length(CursorData) >= 0)
     end,
 
+    ok.
+
+rewards_dupe_test(_Config) ->
+    % This account and time range was reported to have a duplicate between the
+    % two pages that build it up. This test ensures that the fetched
+    % tranasctions don't have a duplicate in them. 
+    %
+    % NOTE: This test relies on the page being 100
+    Account = "14cWRnJk7oZDeRSfo9yS3jpWfQmqZxNEzxQoygkoPBixLVSQaTg",
+    MaxTime = "2020-06-16T07:00:00",
+    MinTime = "2020-06-05T00:00:00",
+    Base = ["/v1/accounts/", Account, "/rewards"],
+    TxnHashes = ct_utils:fold_json_request(
+        fun (E, Acc) -> Acc ++ [maps:get(<<"hash">>, E)] end,
+        Base,
+        ?json_request([Base, "?min_time=", MinTime, "&max_time=", MaxTime]),
+        []
+    ),
+    % No duplicates
+    DedupedSize = sets:size(sets:from_list(TxnHashes)),
+    ?assertEqual(DedupedSize, length(TxnHashes)),
+    % No missing
+    {ok, DirectList, undefined} = bh_route_rewards:get_full_reward_list(
+        {account, Account},
+        [{max_time, MaxTime}, {min_time, MinTime}]
+    ),
+    ?assertEqual(DedupedSize, length(DirectList)),
     ok.
 
 rewards_sum_test(_Config) ->

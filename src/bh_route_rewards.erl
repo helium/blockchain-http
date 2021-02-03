@@ -1,13 +1,15 @@
 -module(bh_route_rewards).
 
 -export([prepare_conn/1, handle/3]).
--export([get_reward_list/2, get_reward_sum/2]).
+-export([get_full_reward_list/2, get_blockspan/2, get_reward_list/2, get_reward_sum/2]).
 
 -behavior(bh_route_handler).
 -behavior(bh_db_worker).
 
 -include("bh_route_handler.hrl").
 
+% Limit for reward list lengths. Note that changing this will impact paging dupe
+% tests. 
 -define(REWARD_LIST_LIMIT, 100).
 -define(S_BLOCK_RANGE, "reward_block_range").
 -define(S_REWARD_LIST_HOTSPOT, "reward_list_hotspot").
@@ -20,66 +22,72 @@
 -define(S_REWARD_BUCKETED_SUM_ACCOUNT, "reward_bucketed_sum_account").
 -define(S_REWARD_BUCKETED_SUM_HOTSPOT, "reward_bucketed_sum_hotstpot").
 -define(S_REWARD_BUCKETED_SUM_HOTSPOTS, "reward_bucketed_sum_hotstpots").
--define(REWARD_FIELDS,
-    "r.block, r.transaction_hash, to_timestamp(r.time) as timestamp, r.account, r.gateway, r.amount"
-).
 
 prepare_conn(Conn) ->
     Loads = [
         ?S_BLOCK_RANGE,
         {?S_REWARD_LIST_HOTSPOT,
             {reward_list_base, [
-                {fields, ?REWARD_FIELDS},
-                {scope, "where r.gateway = $1"}
+                {fields, {reward_marker_fields, [{marker, "r.transaction_hash"}]}},
+                {scope, "where r.gateway = $1"},
+                %% Order transactions by hash in a block since a gateway can
+                %% only appear once in a transaction
+                {marker, "r.transaction_hash"}
             ]}},
         {?S_REWARD_LIST_HOTSPOT_REM,
             {reward_list_rem_base, [
-                {fields, ?REWARD_FIELDS},
-                {scope, "where r.gateway = $1"}
+                {fields, {reward_marker_fields, [{marker, "r.transaction_hash"}]}},
+                {scope, "where r.gateway = $1"},
+                {marker, "r.transaction_hash"}
             ]}},
         {?S_REWARD_LIST_ACCOUNT,
             {reward_list_base, [
-                {fields, ?REWARD_FIELDS},
-                {scope, "where r.account = $1"}
+                {fields, {reward_marker_fields, [{marker, "r.gateway"}]}},
+                {scope, "where r.account = $1"},
+                %% order transactions in a block by gateway for an account since
+                %% an account can have multiple gateway rewards in the same
+                %% transaction
+                {marker, "r.gateway"}
             ]}},
         {?S_REWARD_LIST_ACCOUNT_REM,
             {reward_list_rem_base, [
-                {fields, ?REWARD_FIELDS},
-                {scope, "where r.account = $1"}
+                {fields, {reward_marker_fields, [{marker, "r.gateway"}]}},
+                {scope, "where r.account = $1"},
+                {marker, "r.gateway"}
             ]}},
         {?S_REWARD_SUM_HOTSPOT,
             {reward_sum_base, [
-                {fields, ?REWARD_FIELDS},
+                {fields, reward_fields},
                 {scope, "where r.gateway = $1"},
                 {source, "reward_data"}
             ]}},
         {?S_REWARD_SUM_HOTSPOTS,
             {reward_sum_base, [
-                {fields, ?REWARD_FIELDS},
+                {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_sum_hotspot_source}
             ]}},
         {?S_REWARD_SUM_ACCOUNT,
             {reward_sum_base, [
-                {fields, ?REWARD_FIELDS},
+                {fields, reward_fields},
                 {scope, "where r.account = $1"},
                 {source, reward_sum_hotspot_source}
             ]}},
         {?S_REWARD_BUCKETED_SUM_HOTSPOTS,
             {reward_bucketed_base, [
-                {fields, ?REWARD_FIELDS},
+                {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_bucketed_hotspot_source}
             ]}},
         {?S_REWARD_BUCKETED_SUM_HOTSPOT,
             {reward_bucketed_base, [
-                {fields, ?REWARD_FIELDS},
+                {fields, reward_fields},
                 {scope, "where r.gateway = $1"},
                 {source, "reward_data"}
             ]}},
         {?S_REWARD_BUCKETED_SUM_ACCOUNT,
             {reward_bucketed_base, [
-                {fields, ?REWARD_FIELDS},
+                {fields, reward_fields},
                 {scope, "where r.account = $1"},
                 {source, reward_bucketed_hotspot_source}
             ]}}
@@ -88,6 +96,23 @@ prepare_conn(Conn) ->
 
 handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
+
+% Helper to fetch a full list of rewards. Do NOT use as part of the API since it
+% can take a long time for some hotspots/accounts
+get_full_reward_list({hotspot, Address}, Args = [{max_time, _}, {min_time, _}]) ->
+    get_full_reward_list([Address], ?S_REWARD_LIST_HOTSPOT, Args);
+get_full_reward_list({account, Address}, Args = [{max_time, _}, {min_time, _}]) ->
+    get_full_reward_list([Address], ?S_REWARD_LIST_ACCOUNT, Args).
+
+get_full_reward_list(Args, Query, [{max_time, MaxTime}, {min_time, MinTime}]) ->
+    case get_blockspan(MaxTime, MinTime) of
+        {ok, {_, {MaxBlock, MinBlock}}} ->
+            {ok, _, Results} =
+                ?PREPARED_QUERY(Query, Args ++ [MinBlock, MaxBlock]),
+            {ok, reward_list_to_json(Results), undefined};
+        {error, _} = Error ->
+            Error
+    end.
 
 get_reward_list({hotspot, Address}, Args = [{cursor, _}, {max_time, _}, {min_time, _}]) ->
     get_reward_list([Address], {?S_REWARD_LIST_HOTSPOT, ?S_REWARD_LIST_HOTSPOT_REM}, Args);
@@ -234,6 +259,7 @@ get_reward_list(
             State1 = execute_rem_query(
                 RemQuery,
                 HighBlock,
+                % aka "marker"
                 maps:get(<<"txn">>, C, undefined),
                 State0
             ),
@@ -273,8 +299,8 @@ mk_reward_list_result(State = #state{results = Results}) when
     length(Results) > ?REWARD_LIST_LIMIT
 ->
     {Trimmed, _Remainder} = lists:split(?REWARD_LIST_LIMIT, Results),
-    {Block, Hash, _Timestamp, _Account, _Gateway, _Amount} = lists:last(Trimmed),
-    {ok, reward_list_to_json(Trimmed), mk_reward_list_cursor(Block, Hash, State)};
+    {Block, _Hash, _Timestamp, _Account, _Gateway, _Amount, Marker} = lists:last(Trimmed),
+    {ok, reward_list_to_json(Trimmed), mk_reward_list_cursor(Block, Marker, State)};
 mk_reward_list_result(State = #state{results = Results}) ->
     {ok, reward_list_to_json(Results),
         mk_reward_list_cursor(State#state.low_block, undefined, State)}.
@@ -297,7 +323,7 @@ mk_reward_buckets_result(MaxTime, MinTime, BucketType, {ok, _, Results}) ->
 
 mk_reward_list_cursor(EndBlock, undefined, #state{end_block = EndBlock}) ->
     undefined;
-mk_reward_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
+mk_reward_list_cursor(BeforeBlock, Marker, State = #state{}) ->
     %% Check if we didn't have an anchor block before and we've reached an anchor point
     AnchorBlock =
         case
@@ -316,7 +342,7 @@ mk_reward_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
         [
             {block, BeforeBlock},
             {end_block, State#state.end_block},
-            {txn, BeforeAddr},
+            {txn, Marker},
             {anchor_block, AnchorBlock}
         ]
     ).
@@ -328,7 +354,7 @@ mk_reward_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
 reward_list_to_json(Results) ->
     lists:map(fun reward_to_json/1, Results).
 
-reward_to_json({Block, Hash, Timestamp, Account, Gateway, Amount}) ->
+reward_to_json({Block, Hash, Timestamp, Account, Gateway, Amount, _Marker}) ->
     #{
         <<"block">> => Block,
         <<"hash">> => Hash,
