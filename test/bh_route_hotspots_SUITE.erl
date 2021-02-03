@@ -193,12 +193,7 @@ rewards_test(_Config) ->
             ok;
         Cursor ->
             {ok, {_, _, CursorJson}} =
-                ?json_request([
-                    "/v1/hotspots/",
-                    Hotspot,
-                    "/rewards?cursor=",
-                    Cursor
-                ]),
+                ?json_request(["/v1/hotspots/", Hotspot, "/rewards?cursor=", Cursor]),
             #{<<"data">> := CursorData} = CursorJson,
             ?assert(length(CursorData) >= 0)
     end,

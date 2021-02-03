@@ -1,25 +1,33 @@
 -- :reward_block_range
 with max as (
-     select height from blocks where timestamp < $1 order by height desc limit 1
+     select height from blocks where timestamp <= $1 order by height desc limit 1
 ),
 min as (
     select height from blocks where timestamp >= $2 order by height limit 1
 )
 select (select height from max) as max, (select height from min) as min
 
+-- :reward_fields
+r.block, r.transaction_hash, to_timestamp(r.time) as timestamp, r.account, r.gateway, r.amount
+
+-- Make sure that marker fields and fields are equivalent except for the marker
+-- placeholder!
+-- :reward_marker_fields
+r.block, r.transaction_hash, to_timestamp(r.time) as timestamp, r.account, r.gateway, r.amount, :marker
+
 -- :reward_list_base
 select :fields
 from rewards r
 :scope
-and r.block >= $2 and r.block <= $3
-order by r.block desc, r.transaction_hash
+and r.block >= $2 and r.block < $3
+order by r.block desc, :marker
 
 -- :reward_list_rem_base
 select :fields
 from rewards r
 :scope
-and r.block = $2 and r.transaction_hash > $3
-order by r.transaction_hash
+and r.block = $2 and :marker> $3
+order by :marker
 
 -- :reward_sum_hotspot_source
 (select
