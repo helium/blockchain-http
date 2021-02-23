@@ -13,6 +13,7 @@ all() ->
         activity_low_block_test,
         activity_filter_no_result_test,
         hotspots_test,
+        ouis_test,
         stats_test,
         rewards_test,
         rewards_dupe_test,
@@ -96,12 +97,20 @@ hotspots_test(_Config) ->
 
     ok.
 
+ouis_test(_Config) ->
+    Account = "13tyMLKRFYURNBQqLSqNJg9k41maP1A7Bh8QYxR13oWv7EnFooc",
+    {ok, {_, _, Json}} = ?json_request(["/v1/accounts/", Account, "/ouis"]),
+    #{<<"data">> := Data} = Json,
+    ?assert(length(Data) > 0),
+
+    ok.
+
 stats_test(_Config) ->
     Account = "13YuCz3mZ55HZ6hJJvQHCZXGgE8ooe2CSvbtSHQR3m5vZ1EVCNZ",
     {ok, {_, _, Json}} = ?json_request(["/v1/accounts/", Account, "/stats"]),
     #{<<"data">> := Data} = Json,
     lists:foreach(
-        fun (Key) ->
+        fun(Key) ->
             Entry = maps:get(Key, Data),
             ?assert(length(Entry) > 0)
         end,
@@ -143,7 +152,7 @@ rewards_test(_Config) ->
 rewards_dupe_test(_Config) ->
     % This account and time range was reported to have a duplicate between the
     % two pages that build it up. This test ensures that the fetched
-    % tranasctions don't have a duplicate in them. 
+    % tranasctions don't have a duplicate in them.
     %
     % NOTE: This test relies on the page being 100
     Account = "14cWRnJk7oZDeRSfo9yS3jpWfQmqZxNEzxQoygkoPBixLVSQaTg",
@@ -151,7 +160,7 @@ rewards_dupe_test(_Config) ->
     MinTime = "2020-06-05T00:00:00",
     Base = ["/v1/accounts/", Account, "/rewards"],
     TxnHashes = ct_utils:fold_json_request(
-        fun (E, Acc) -> Acc ++ [maps:get(<<"hash">>, E)] end,
+        fun(E, Acc) -> Acc ++ [maps:get(<<"hash">>, E)] end,
         Base,
         ?json_request([Base, "?min_time=", MinTime, "&max_time=", MaxTime]),
         []
