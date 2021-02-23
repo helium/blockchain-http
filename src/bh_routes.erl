@@ -42,6 +42,8 @@ handle(Method, [<<"v1">>, <<"locations">> | Tail], Req) ->
     bh_route_locations:handle(Method, Tail, Req);
 handle(Method, [<<"v1">>, <<"rewards">> | Tail], Req) ->
     bh_route_rewards:handle(Method, Tail, Req);
+handle(Method, [<<"v1">>, <<"validators">> | Tail], Req) ->
+    bh_route_validators:handle(Method, Tail, Req);
 handle('GET', [], _Req) ->
     {200, [], <<>>};
 handle(_, _, _Req) ->
