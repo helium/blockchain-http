@@ -4,7 +4,9 @@ select name, value from stats_inventory
 
 -- Get token supply
 -- :stats_token_supply
-select (sum(balance) / 100000000)::float as token_supply from account_inventory
+select
+    (select (sum(stake) / 100000000)::float from validator_inventory)
+    + (select (sum(balance) / 100000000)::float from account_inventory)
 
 -- State channel details
 -- :stats_state_channels

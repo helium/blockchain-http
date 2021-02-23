@@ -82,6 +82,10 @@ and a.actor in (select address from gateway_inventory where owner = $1)
 and a.actor = $1
 and a.actor_role in ('payer', 'payee', 'owner')
 
+-- :txn_validator_activity_actor_scope
+and a.actor = $1
+and a.actor_role = 'validator'
+
 -- :txn_actor_count_base
 select type, count(*)
 from (
@@ -113,6 +117,10 @@ where actor = $1 and actor_role in ('payer', 'payee', 'owner')
 -- :txn_oracle_activity_min_block
 select min(block) from transaction_actors
 where actor = $1 and actor_role = 'oracle'
+
+-- :txn_validator_activity_min_block
+select min(block) from transaction_actors
+where actor = $1 and actor_role = 'validator'
 
 -- :txn_genesis_min_block
 select 1

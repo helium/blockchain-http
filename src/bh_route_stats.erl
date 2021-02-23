@@ -8,14 +8,15 @@
 -export([prepare_conn/1, handle/3]).
 %% Utilities
 -export([
-         get_stats/0,
-         get_count_stats/0,
-         get_state_channel_stats/0,
-         get_fee_stats/0,
-         get_token_supply_stats/0,
-         mk_stats_from_time_results/1,
-         mk_stats_from_challenge_results/1
-        ]).
+    get_stats/0,
+    get_count_stats/0,
+    get_state_channel_stats/0,
+    get_fee_stats/0,
+    get_token_supply_stats/0,
+    mk_stats_from_time_results/1,
+    mk_stats_from_challenge_results/1,
+    mk_stats_from_validator_results/1
+]).
 
 -define(S_STATS_STATE_CHANNELS, "stats_state_channels").
 -define(S_STATS_TOKEN_SUPPLY, "stats_token_supply").
@@ -34,14 +35,29 @@ prepare_conn(Conn) ->
 handle('GET', [], _Req) ->
     ?MK_RESPONSE(get_stats(), {block_time, 5});
 handle('GET', [<<"counts">>], _Req) ->
-    ?MK_RESPONSE({ok, mk_stats_from_counts_results(
-                   get_count_stats())}, block_time);
+    ?MK_RESPONSE(
+        {ok,
+            mk_stats_from_counts_results(
+                get_count_stats()
+            )},
+        block_time
+    );
 handle('GET', [<<"state_channels">>], _Req) ->
-    ?MK_RESPONSE({ok, mk_stats_from_state_channel_results(
-                   get_state_channel_stats())}, block_time);
+    ?MK_RESPONSE(
+        {ok,
+            mk_stats_from_state_channel_results(
+                get_state_channel_stats()
+            )},
+        block_time
+    );
 handle('GET', [<<"fees">>], _Req) ->
-    ?MK_RESPONSE({ok, mk_stats_from_fee_results(
-                   get_fee_stats())}, block_time);
+    ?MK_RESPONSE(
+        {ok,
+            mk_stats_from_fee_results(
+                get_fee_stats()
+            )},
+        block_time
+    );
 handle('GET', [<<"token_supply">>], Req) ->
     Args = ?GET_ARGS([format], Req),
     get_token_supply(Args, block_time);
@@ -49,32 +65,40 @@ handle(_, _, _Req) ->
     ?RESPONSE_404.
 
 get_count_stats() ->
-    bh_cache:get({?MODULE, count_stats},
-                 fun() ->
-                         {ok, _Columns, Data} = ?PREPARED_QUERY(?S_STATS_COUNTS, []),
-                         Data
-                 end).
+    bh_cache:get(
+        {?MODULE, count_stats},
+        fun() ->
+            {ok, _Columns, Data} = ?PREPARED_QUERY(?S_STATS_COUNTS, []),
+            Data
+        end
+    ).
 
 get_state_channel_stats() ->
-    bh_cache:get({?MODULE, state_channel_stats},
-                 fun() ->
-                         {ok, _Columns, Data} = ?PREPARED_QUERY(?S_STATS_STATE_CHANNELS, []),
-                         Data
-                 end).
+    bh_cache:get(
+        {?MODULE, state_channel_stats},
+        fun() ->
+            {ok, _Columns, Data} = ?PREPARED_QUERY(?S_STATS_STATE_CHANNELS, []),
+            Data
+        end
+    ).
 
 get_fee_stats() ->
-    bh_cache:get({?MODULE, fee_stats},
-                 fun() ->
-                         {ok, _Columns, Data} = ?PREPARED_QUERY(?S_STATS_FEES, []),
-                         Data
-                 end).
+    bh_cache:get(
+        {?MODULE, fee_stats},
+        fun() ->
+            {ok, _Columns, Data} = ?PREPARED_QUERY(?S_STATS_FEES, []),
+            Data
+        end
+    ).
 
 get_token_supply_stats() ->
-    bh_cache:get({?MODULE, token_supply_stats},
-                 fun() ->
-                         {ok, _Columns, Data} = ?PREPARED_QUERY(?S_STATS_TOKEN_SUPPLY, []),
-                         Data
-                 end).
+    bh_cache:get(
+        {?MODULE, token_supply_stats},
+        fun() ->
+            {ok, _Columns, Data} = ?PREPARED_QUERY(?S_STATS_TOKEN_SUPPLY, []),
+            Data
+        end
+    ).
 
 get_token_supply([{format, Format}], CacheTime) ->
     Result = get_token_supply_stats(),
@@ -95,6 +119,7 @@ get_stats() ->
     CountsResults = get_count_stats(),
     ChallengeResults = bh_route_challenges:get_challenge_stats(),
     FeeResults = get_fee_stats(),
+    ValidatorResults = bh_route_validators:get_validator_stats(),
 
     {ok, #{
         block_times => mk_stats_from_time_results(BlockTimeResults),
@@ -103,7 +128,8 @@ get_stats() ->
         state_channel_counts => mk_stats_from_state_channel_results(StateChannelResults),
         counts => mk_stats_from_counts_results(CountsResults),
         challenge_counts => mk_stats_from_challenge_results(ChallengeResults),
-        fees => mk_stats_from_fee_results(FeeResults)
+        fees => mk_stats_from_fee_results(FeeResults),
+        validators => mk_stats_from_validator_results(ValidatorResults)
     }}.
 
 mk_stats_from_time_results(
@@ -168,3 +194,19 @@ mk_stats_from_challenge_results({ok, [{ActiveChallenges, LastDayChallenges}]}) -
 
 mk_token_supply_from_result({ok, [{TokenSupply}]}) ->
     ?PARSE_FLOAT(TokenSupply).
+
+mk_stats_from_validator_results({ok, Results}) ->
+    %% We do all this to ensure that various status entries are always
+    %% present in the resulting map even if they are not in the sql results
+    lists:foldl(
+        fun(Key, Acc = #{}) ->
+            {Count, Amount} =
+                case lists:keyfind(Key, 1, Results) of
+                    false -> {0, 0};
+                    {_, C, A} -> {C, A}
+                end,
+            maps:put(Key, #{count => Count, amount => Amount}, Acc)
+        end,
+        #{},
+        [<<"staked">>, <<"unstaked">>, <<"cooldown">>]
+    ).
