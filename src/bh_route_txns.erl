@@ -183,7 +183,11 @@
     <<"token_burn_exchange_rate_v1">>,
     <<"payment_v2">>,
     <<"price_oracle_v1">>,
-    <<"transfer_hotspot_v1">>
+    <<"transfer_hotspot_v1">>,
+    <<"stake_validator_v1">>,
+    <<"unstake_validator_v1">>,
+    <<"transfer_validator_stake_v1">>,
+    <<"consensus_group_failure_v1">>
 ]).
 
 prepare_conn(Conn) ->

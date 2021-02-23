@@ -125,7 +125,10 @@ handle(_, _, _Req) ->
     | #blockchain_txn_price_oracle_v1_pb{}
     | #blockchain_txn_token_burn_v1_pb{}
     | #blockchain_txn_transfer_hotspot_v1_pb{}
-    | #blockchain_txn_security_exchange_v1_pb{}.
+    | #blockchain_txn_security_exchange_v1_pb{}
+    | #blockchain_txn_stake_validator_v1_pb{}
+    | #blockchain_txn_unstake_validator_v1_pb{}
+    | #blockchain_txn_transfer_validator_stake_v1_pb{}.
 
 -type nonce_type() :: binary().
 
@@ -191,7 +194,22 @@ insert_pending_txn(
     #blockchain_txn_token_burn_v1_pb{nonce = Nonce, payer = Address} = Txn,
     Bin
 ) ->
-    insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin).
+    insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
+insert_pending_txn(
+    #blockchain_txn_stake_validator_v1_pb{address = Address} = Txn,
+    Bin
+) ->
+    insert_pending_txn(Txn, Address, 0, <<"none">>, Bin);
+insert_pending_txn(
+    #blockchain_txn_transfer_validator_stake_v1_pb{old_address = Address} = Txn,
+    Bin
+) ->
+    insert_pending_txn(Txn, Address, 0, <<"none">>, Bin);
+insert_pending_txn(
+    #blockchain_txn_unstake_validator_v1_pb{address = Address} = Txn,
+    Bin
+) ->
+    insert_pending_txn(Txn, Address, 0, <<"none">>, Bin).
 
 -spec insert_pending_txn(
     supported_txn(),
@@ -340,6 +358,21 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
 ?TXN_HASH(
     blockchain_txn_transfer_hotspot_v1_pb,
     {seller_signature = <<>>, buyer_signature = <<>>}
+);
+?TXN_HASH(
+    blockchain_txn_stake_validator_v1_pb,
+    {owner_signature = <<>>}
+);
+?TXN_HASH(
+    blockchain_txn_unstake_validator_v1_pb,
+    {owner_signature = <<>>}
+);
+?TXN_HASH(
+    blockchain_txn_transfer_validator_stake_v1_pb,
+    {
+        new_owner_signature = <<>>,
+        old_owner_signature = <<>>
+    }
 ).
 
 ?TXN_TYPE(blockchain_txn_oui_v1_pb, <<"oui_v1">>);
@@ -355,4 +388,7 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
 ?TXN_TYPE(blockchain_txn_price_oracle_v1_pb, <<"price_oracle_v1">>);
 ?TXN_TYPE(blockchain_txn_token_burn_v1_pb, <<"token_burn_v1">>);
 ?TXN_TYPE(blockchain_txn_transfer_hotspot_v1_pb, <<"transfer_hotspot_v1">>);
-?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, <<"security_exchange_v1">>).
+?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, <<"security_exchange_v1">>);
+?TXN_TYPE(blockchain_txn_stake_validator_v1_pb, <<"stake_validator_v1">>);
+?TXN_TYPE(blockchain_txn_unstake_validator_v1_pb, <<"unstake_validator_v1">>);
+?TXN_TYPE(blockchain_txn_transfer_validator_stake_v1_pb, <<"transfer_validator_stake_v1">>).
