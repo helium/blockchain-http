@@ -82,8 +82,8 @@ mk_cursor(Results) when is_list(Results) ->
         true ->
             undefined;
         false ->
-            {Height, Address, _Owner, _Stake, _LastHeartbeat, _VersionHeartBeat, _Nonce,
-                FirstBlock} = lists:last(Results),
+            {Height, Address, _Owner, _Stake, _Status, _LastHeartbeat, _VersionHeartBeat,
+                _Nonce, FirstBlock} = lists:last(Results),
             #{
                 before_address => Address,
                 before_block => FirstBlock,
@@ -99,23 +99,26 @@ validator_list_to_json(Results) ->
     lists:map(fun validator_to_json/1, Results).
 
 validator_to_json(
-    {Height, Address, Owner, Stake, LastHeartbeat, VersionHeartbeat, Nonce, _FirstBlock}
+    {Height, Address, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Nonce,
+        _FirstBlock}
 ) ->
     #{
         <<"address">> => Address,
         <<"owner">> => Owner,
         <<"nonce">> => Nonce,
         <<"stake">> => Stake,
+        <<"status">> => Status,
         <<"last_heartbeat">> => LastHeartbeat,
         <<"version_heartbeat">> => VersionHeartbeat,
         <<"block">> => Height
     };
 validator_to_json(
-    {Height, Address, Owner, Stake, LastHeartbeat, VersionHeartbeat, Nonce, FirstBlock,
-        SpecNonce}
+    {Height, Address, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Nonce,
+        FirstBlock, SpecNonce}
 ) ->
     Base = validator_to_json(
-        {Height, Address, Owner, Stake, LastHeartbeat, VersionHeartbeat, Nonce, FirstBlock}
+        {Height, Address, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Nonce,
+            FirstBlock}
     ),
     Base#{
         <<"speculative_nonce">> => SpecNonce

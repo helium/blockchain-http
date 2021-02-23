@@ -4,6 +4,7 @@ select
     l.address,
     l.owner,
     l.stake,
+    l.status,
     l.last_heartbeat,
     l.version_heartbeat,
     l.nonce,
