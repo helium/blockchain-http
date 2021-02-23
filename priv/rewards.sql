@@ -41,6 +41,13 @@ group by r.gateway)
 from reward_data r
 group by r.time)
 
+-- :reward_sum_validator_source
+(select
+    sum(r.amount) as amount
+from reward_data r
+where r.gateway in (select address from validator_inventory)
+group by r.gateway)
+
 -- :reward_sum_base
 with reward_data as (
     select
@@ -78,6 +85,15 @@ group by r.time, r.gateway)
     r.time
 from reward_data r
 group by r.time)
+
+-- Bucket reward_data by timestamp and gateway to be calculate statistics over totals in a bucket
+-- :reward_bucketed_validator_source
+(select
+    sum(r.amount) as amount,
+    r.time
+from reward_data r
+where r.gateway in (select address from validator_inventory)
+group by r.time, r.gateway)
 
 -- :reward_bucketed_base
 with time_range as (

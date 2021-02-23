@@ -56,7 +56,8 @@ get_stats() ->
         SupplyResult,
         CountsResults,
         ChallengeResults,
-        FeeResults
+        FeeResults,
+        ValidatorResults
     ] =
         ?EXECUTE_BATCH([
             {?S_STATS_BLOCK_TIMES, []},
@@ -65,9 +66,11 @@ get_stats() ->
             {?S_STATS_TOKEN_SUPPLY, []},
             {?S_STATS_COUNTS, []},
             {?S_STATS_CHALLENGES, []},
-            {?S_STATS_FEES, []}
+            {?S_STATS_FEES, []},
+            {bh_route_validators:stats_query(), []}
         ]),
 
+    {ok, ValidatorStats} = bh_route_validators:mk_stats_from_results(ValidatorResults),
     {ok, #{
         block_times => mk_stats_from_time_results(BlockTimeResults),
         election_times => mk_stats_from_time_results(ElectionTimeResults),
@@ -75,7 +78,8 @@ get_stats() ->
         state_channel_counts => mk_stats_from_state_channel_results(StateChannelResults),
         counts => mk_stats_from_counts_results(CountsResults),
         challenge_counts => mk_stats_from_challenge_results(ChallengeResults),
-        fees => mk_stats_from_fee_results(FeeResults)
+        fees => mk_stats_from_fee_results(FeeResults),
+        validators => ValidatorStats
     }}.
 
 mk_stats_from_time_results(
