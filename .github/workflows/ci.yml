@@ -15,6 +15,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Cache Hex Packages
+        if: ${{ !env.ACT }}
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/rebar3/hex/hexpm/packages
+          key: ${{ runner.os }}-hex-${{ hashFiles(format('{0}{1}', github.workspace, '/rebar.lock')) }}
+          restore-keys: |
+            ${{ runner.os }}-hex-
+
+      - name: Cache Dialyzer PLTs
+        if: ${{ !env.ACT }}
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/rebar3/rebar3_*_plt
+          key: ${{ runner.os }}-dialyzer-${{ hashFiles(format('{0}{1}', github.workspace, '/rebar.config')) }}
+          restore-keys: |
+            ${{ runner.os }}-dialyzer-
+
       - name: Build
         run: rebar3 compile
 
@@ -31,5 +49,5 @@ jobs:
         if: ${{ !env.ACT }}
         uses: codecov/codecov-action@v1
         with:
-          file: _build/test/covertool/libp2p_crypto.covertool.xml
+          file: _build/test/covertool/blockchain_http.covertool.xml
           fail_ci_if_error: true
