@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+    container: heliumsystems/builder-erlang:2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: rebar3 compile
+
+      - name: Run tests
+        run: rebar3 eunit
+
+      - name: Run Dialyzer
+        run: rebar3 do dialyzer, xref
+
+      - name: Generate coverage report
+        run: rebar3 covertool generate
+
+      - name: Upload coverage report
+        if: ${{ !env.ACT }}
+        uses: codecov/codecov-action@v1
+        with:
+          file: _build/test/covertool/libp2p_crypto.covertool.xml
+          fail_ci_if_error: true
