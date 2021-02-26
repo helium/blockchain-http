@@ -1,4 +1,4 @@
-name: Packaage
+name: Package
 
 on:
   push:
@@ -6,8 +6,7 @@ on:
 
 jobs:
   package:
-    runs-on: ubuntu-latest
-    container: heliumsystems/builder-erlang:2
+    runs-on: ubuntu-18.04
 
     steps:
       - name: Checkout
