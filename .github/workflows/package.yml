@@ -23,9 +23,8 @@ jobs:
           password: ${{ secrets.QUAY_SECRET }}
 
       - name: Name Release
-        if: ${{ startsWith(github.ref, 'refs/tags') }}
-        id: vars
-        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+        id: docker-tag
+        uses: yuya-takeyama/docker-tag-from-github-ref-action@v1
 
       - name: Build and push
         if: ${{ startsWith(github.ref, 'refs/tags') }}
@@ -35,7 +34,7 @@ jobs:
           push: true
           target: runner
           tags: |
-            team-helium/blockchain-http:${{steps.vars.output.tag}}
+            team-helium/blockchain-http:${{ steps.docker-tag.outputs.tag }}
             team-helium/blockchain-http:latest
 
       - name: Image digest
