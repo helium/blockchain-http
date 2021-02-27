@@ -39,8 +39,8 @@ jobs:
           push: true
           target: runner
           tags: |
-            team-helium/blockchain-http:${{ steps.docker-tag.outputs.tag }}
-            team-helium/blockchain-http:latest
+            quay.io/team-helium/blockchain-http:${{ steps.docker-tag.outputs.tag }}
+            quay.io/team-helium/blockchain-http:latest
 
       - name: Image digest
         if: ${{ startsWith(github.ref, 'refs/tags') }}
