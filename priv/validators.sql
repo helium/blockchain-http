@@ -28,9 +28,3 @@ where l.owner = $1
 where l.owner = $1
     and ((l.address > $2 and l.first_block = $3) or (l.first_block < $3))
 
--- :validator_speculative_extend
-, (select greatest(l.nonce, coalesce(max(p.nonce), l.nonce))
-    from pending_transactions p
-    where p.address = l.address and nonce_type='validator' and status != 'failed'
-) as speculative_nonce
-

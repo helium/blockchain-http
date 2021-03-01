@@ -169,20 +169,20 @@ insert_pending_txn(
 ) ->
     insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
 insert_pending_txn(
-    #blockchain_txn_stake_validator_v1_pb{address = Address, nonce = Nonce} = Txn,
+    #blockchain_txn_stake_validator_v1_pb{address = Address} = Txn,
     Bin
 ) ->
-    insert_pending_txn(Txn, Address, Nonce, <<"validator">>, Bin);
+    insert_pending_txn(Txn, Address, 0, <<"none">>, Bin);
 insert_pending_txn(
-    #blockchain_txn_transfer_validator_stake_v1_pb{old_address = Address, nonce = Nonce} = Txn,
+    #blockchain_txn_transfer_validator_stake_v1_pb{old_address = Address} = Txn,
     Bin
 ) ->
-    insert_pending_txn(Txn, Address, Nonce, <<"validator">>, Bin);
+    insert_pending_txn(Txn, Address, 0, <<"none">>, Bin);
 insert_pending_txn(
-    #blockchain_txn_unstake_validator_v1_pb{address = Address, nonce = Nonce} = Txn,
+    #blockchain_txn_unstake_validator_v1_pb{address = Address} = Txn,
     Bin
 ) ->
-    insert_pending_txn(Txn, Address, Nonce, <<"validator">>, Bin).
+    insert_pending_txn(Txn, Address, 0, <<"none">>, Bin).
 
 -spec insert_pending_txn(
     supported_txn(),

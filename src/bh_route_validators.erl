@@ -21,35 +21,30 @@ prepare_conn(Conn) ->
     Loads = [
         {?S_VALIDATOR_LIST_BEFORE,
             {validator_list_base, [
-                {extend, ""},
                 {scope, validator_list_before_scope},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
             ]}},
         {?S_VALIDATOR_LIST,
             {validator_list_base, [
-                {extend, ""},
                 {scope, ""},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
             ]}},
         {?S_OWNER_VALIDATOR_LIST_BEFORE,
             {validator_list_base, [
-                {extend, ""},
                 {scope, owner_validator_list_before_scope},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
             ]}},
         {?S_OWNER_VALIDATOR_LIST,
             {validator_list_base, [
-                {extend, ""},
                 {scope, owner_validator_list_scope},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
             ]}},
         {?S_VALIDATOR,
             {validator_list_base, [
-                {extend, validator_speculative_extend},
                 {scope, "where l.address = $1"},
                 {order, ""},
                 {limit, ""}
@@ -132,25 +127,15 @@ validator_list_to_json(Results) ->
     lists:map(fun validator_to_json/1, Results).
 
 validator_to_json(
-    {Height, Address, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Nonce, _FirstBlock}
+    {Height, Address, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, _Nonce, _FirstBlock}
 ) ->
+    %% Excluded nonce for now as it is unused
     #{
         <<"address">> => Address,
         <<"owner">> => Owner,
-        <<"nonce">> => Nonce,
         <<"stake">> => Stake,
         <<"status">> => Status,
         <<"last_heartbeat">> => LastHeartbeat,
         <<"version_heartbeat">> => VersionHeartbeat,
         <<"block">> => Height
-    };
-validator_to_json(
-    {Height, Address, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Nonce, FirstBlock,
-        SpecNonce}
-) ->
-    Base = validator_to_json(
-        {Height, Address, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Nonce, FirstBlock}
-    ),
-    Base#{
-        <<"speculative_nonce">> => SpecNonce
     }.
