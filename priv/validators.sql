@@ -21,6 +21,13 @@ order by l.first_block desc, l.address
 -- :validator_list_before_scope
 where (l.address > $1 and l.first_block = $2) or (l.first_block < $2)
 
+-- :owner_validator_list_scope
+where l.owner = $1
+
+-- :owner_validator_list_before_scope
+where l.owner = $1
+    and ((l.address > $2 and l.first_block = $3) or (l.first_block < $3))
+
 -- :validator_speculative_extend
 , (select greatest(l.nonce, coalesce(max(p.nonce), l.nonce))
     from pending_transactions p

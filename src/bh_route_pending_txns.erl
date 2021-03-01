@@ -103,25 +103,24 @@ handle(_, _, _Req) ->
     ?RESPONSE_404.
 
 -type supported_txn() ::
-    #blockchain_txn_oui_v1_pb{} |
-    #blockchain_txn_add_gateway_v1_pb{} |
-    #blockchain_txn_assert_location_v1_pb{} |
-    #blockchain_txn_payment_v1_pb{} |
-    #blockchain_txn_payment_v2_pb{} |
-    #blockchain_txn_create_htlc_v1_pb{} |
-    #blockchain_txn_redeem_htlc_v1_pb{} |
-    #blockchain_txn_price_oracle_v1_pb{} |
-    #blockchain_txn_token_burn_v1_pb{} |
-    #blockchain_txn_transfer_hotspot_v1_pb{} |
-    #blockchain_txn_security_exchange_v1_pb{} |
-    #blockchain_txn_stake_validator_v1_pb{} |
-    #blockchain_txn_unstake_validator_v1_pb{} |
-    #blockchain_txn_transfer_validator_stake_v1_pb{}.
+    #blockchain_txn_oui_v1_pb{}
+    | #blockchain_txn_add_gateway_v1_pb{}
+    | #blockchain_txn_assert_location_v1_pb{}
+    | #blockchain_txn_payment_v1_pb{}
+    | #blockchain_txn_payment_v2_pb{}
+    | #blockchain_txn_create_htlc_v1_pb{}
+    | #blockchain_txn_redeem_htlc_v1_pb{}
+    | #blockchain_txn_price_oracle_v1_pb{}
+    | #blockchain_txn_token_burn_v1_pb{}
+    | #blockchain_txn_transfer_hotspot_v1_pb{}
+    | #blockchain_txn_security_exchange_v1_pb{}
+    | #blockchain_txn_stake_validator_v1_pb{}
+    | #blockchain_txn_unstake_validator_v1_pb{}
+    | #blockchain_txn_transfer_validator_stake_v1_pb{}.
 
 -type nonce_type() :: binary().
 
--spec insert_pending_txn(supported_txn(), binary()) ->
-    {ok, jiffy:json_object()} | {error, term()}.
+-spec insert_pending_txn(supported_txn(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
 insert_pending_txn(#blockchain_txn_oui_v1_pb{owner = Owner} = Txn, Bin) ->
     %% There is no nonce type for that is useful to speculate values for
     insert_pending_txn(Txn, Owner, 0, <<"none">>, Bin);
@@ -170,17 +169,17 @@ insert_pending_txn(
 ) ->
     insert_pending_txn(Txn, Address, Nonce, <<"balance">>, Bin);
 insert_pending_txn(
-    #blockchain_txn_stake_validator_v1_pb{validator = Address, nonce = Nonce} = Txn,
+    #blockchain_txn_stake_validator_v1_pb{address = Address, nonce = Nonce} = Txn,
     Bin
 ) ->
     insert_pending_txn(Txn, Address, Nonce, <<"validator">>, Bin);
 insert_pending_txn(
-    #blockchain_txn_transfer_validator_stake_v1_pb{old_addr = Address, nonce = Nonce} = Txn,
+    #blockchain_txn_transfer_validator_stake_v1_pb{old_address = Address, nonce = Nonce} = Txn,
     Bin
 ) ->
     insert_pending_txn(Txn, Address, Nonce, <<"validator">>, Bin);
 insert_pending_txn(
-    #blockchain_txn_unstake_validator_v1_pb{addr = Address, nonce = Nonce} = Txn,
+    #blockchain_txn_unstake_validator_v1_pb{address = Address, nonce = Nonce} = Txn,
     Bin
 ) ->
     insert_pending_txn(Txn, Address, Nonce, <<"validator">>, Bin).
@@ -191,8 +190,7 @@ insert_pending_txn(
     non_neg_integer(),
     nonce_type(),
     binary()
-) ->
-    {ok, jiffy:json_object()} | {error, term()}.
+) -> {ok, jiffy:json_object()} | {error, term()}.
 insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
     TxnHash = ?BIN_TO_B64(txn_hash(Txn)),
     B58Address =
@@ -295,8 +293,9 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
         crypto:hash(sha256, EncodedTxn) ).
 
 -define(TXN_TYPE(T, B),
-        txn_type(#T{}) ->
-               B).
+    txn_type(#T{}) ->
+        B
+).
 
 ?TXN_HASH(
     blockchain_txn_oui_v1_pb,
@@ -323,7 +322,7 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
 );
 ?TXN_HASH(
     blockchain_txn_stake_validator_v1_pb,
-    {owner_signature = <<>>, validator_signature = <<>>}
+    {owner_signature = <<>>}
 );
 ?TXN_HASH(
     blockchain_txn_unstake_validator_v1_pb,
@@ -332,7 +331,6 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
 ?TXN_HASH(
     blockchain_txn_transfer_validator_stake_v1_pb,
     {
-        new_validator_signature = <<>>,
         new_owner_signature = <<>>,
         old_owner_signature = <<>>
     }
