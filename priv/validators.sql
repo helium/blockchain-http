@@ -9,7 +9,6 @@ select
     l.version_heartbeat,
     l.nonce,
     l.first_block
-    :extend
 from validator_inventory l
 :scope
 :order
