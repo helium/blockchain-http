@@ -27,3 +27,20 @@ where l.owner = $1
 where l.owner = $1
     and ((l.address > $2 and l.first_block = $3) or (l.first_block < $3))
 
+
+-- :validator_elected_list
+with field_members as (
+    select fields->'members' as members
+    from transactions
+    where type = 'consensus_group_v1' :filter
+    order by block desc
+    limit 1
+),
+members as (
+    select *
+    from jsonb_array_elements_text((select members from field_members))
+)
+:validator_select
+
+-- :validator_elected_list_scope
+where l.address in (select * from members)

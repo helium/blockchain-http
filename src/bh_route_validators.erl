@@ -11,6 +11,8 @@
 
 -define(S_VALIDATOR_LIST_BEFORE, "validator_list_before").
 -define(S_VALIDATOR_LIST, "validator_list").
+-define(S_VALIDATOR_ELECTED_LIST, "validator_elected_list").
+-define(S_VALIDATOR_ELECTION_LIST, "validator_election_list").
 -define(S_OWNER_VALIDATOR_LIST_BEFORE, "owner_validator_list_before").
 -define(S_OWNER_VALIDATOR_LIST, "owner_validator_list").
 -define(S_VALIDATOR, "validator").
@@ -43,6 +45,26 @@ prepare_conn(Conn) ->
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
             ]}},
+        {?S_VALIDATOR_ELECTED_LIST,
+            {validator_elected_list, [
+                {filter, "and block <= $1"},
+                {validator_select,
+                    {validator_list_base, [
+                        {scope, validator_elected_list_scope},
+                        {order, ""},
+                        {limit, ""}
+                    ]}}
+            ]}},
+        {?S_VALIDATOR_ELECTION_LIST,
+            {validator_elected_list, [
+                {filter, "and hash = $1"},
+                {validator_select,
+                    {validator_list_base, [
+                        {scope, validator_elected_list_scope},
+                        {order, ""},
+                        {limit, ""}
+                    ]}}
+            ]}},
         {?S_VALIDATOR,
             {validator_list_base, [
                 {scope, "where l.address = $1"},
@@ -55,6 +77,18 @@ prepare_conn(Conn) ->
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(get_validator_list([{owner, undefined} | Args]), block_time);
+handle('GET', [<<"elected">>], _Req) ->
+    {ok, #{height := Height}} = bh_route_blocks:get_block_height(),
+    ?MK_RESPONSE(get_validator_elected_list({height, Height}), block_time);
+handle('GET', [<<"elected">>, BlockId], _Req) ->
+    try binary_to_integer(BlockId) of
+        Height -> ?MK_RESPONSE(get_validator_elected_list({height, Height}), infinity)
+    catch
+        _:_ ->
+            ?RESPONSE_400
+    end;
+handle('GET', [<<"elected">>, <<"hash">>, TxnHash], _Req) ->
+    ?MK_RESPONSE(get_validator_elected_list({hash, TxnHash}), infinity);
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_validator(Address), never);
 handle(_, _, _Req) ->
@@ -93,6 +127,13 @@ get_validator_list([{owner, Owner}, {cursor, Cursor}]) ->
         _ ->
             {error, badarg}
     end.
+
+get_validator_elected_list({height, Height}) ->
+    Result = ?PREPARED_QUERY(?S_VALIDATOR_ELECTED_LIST, [Height]),
+    mk_validator_list_from_result(Result);
+get_validator_elected_list({hash, TxnHash}) ->
+    Result = ?PREPARED_QUERY(?S_VALIDATOR_ELECTION_LIST, [TxnHash]),
+    mk_validator_list_from_result(Result).
 
 get_validator(Address) ->
     case ?PREPARED_QUERY(?S_VALIDATOR, [Address]) of
