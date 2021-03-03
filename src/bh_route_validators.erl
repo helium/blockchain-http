@@ -173,13 +173,13 @@ validator_to_json(
 ) ->
     %% Excluded nonce for now as it is unused
     #{
-        <<"address">> => Address,
-        <<"owner">> => Owner,
-        <<"stake">> => Stake,
-        <<"status">> => Status,
-        <<"last_heartbeat">> => LastHeartbeat,
-        <<"version_heartbeat">> => VersionHeartbeat,
-        <<"block">> => Height,
+        address => Address,
+        owner => Owner,
+        stake => Stake,
+        stake_status => Status,
+        last_heartbeat => LastHeartbeat,
+        version_heartbeat => VersionHeartbeat,
+        block => Height,
         status => #{
             online => OnlineStatus,
             height => BlockStatus,
