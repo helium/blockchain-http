@@ -8,8 +8,12 @@ select
     l.last_heartbeat,
     l.version_heartbeat,
     l.nonce,
-    l.first_block
+    l.first_block,
+    s.online as online_status,
+    s.block as block_status,
+    s.listen_addrs as listen_addrs
 from validator_inventory l
+left join validator_status s on s.address = l.address
 :scope
 :order
 :limit
