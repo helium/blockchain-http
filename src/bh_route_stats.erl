@@ -16,6 +16,7 @@
 -define(S_STATS_COUNTS, "stats_counts").
 -define(S_STATS_CHALLENGES, "stats_challenges").
 -define(S_STATS_FEES, "stats_fees").
+-define(S_STATS_VALIDATORS, "stats_validators").
 
 prepare_conn(Conn) ->
     Loads = [
@@ -25,7 +26,8 @@ prepare_conn(Conn) ->
         ?S_STATS_CHALLENGES,
         ?S_STATS_STATE_CHANNELS,
         ?S_STATS_TOKEN_SUPPLY,
-        ?S_STATS_FEES
+        ?S_STATS_FEES,
+        ?S_STATS_VALIDATORS
     ],
     bh_db_worker:load_from_eql(Conn, "stats.sql", Loads).
 
@@ -56,7 +58,8 @@ get_stats() ->
         SupplyResult,
         CountsResults,
         ChallengeResults,
-        FeeResults
+        FeeResults,
+        ValidatorResults
     ] =
         ?EXECUTE_BATCH([
             {?S_STATS_BLOCK_TIMES, []},
@@ -65,7 +68,8 @@ get_stats() ->
             {?S_STATS_TOKEN_SUPPLY, []},
             {?S_STATS_COUNTS, []},
             {?S_STATS_CHALLENGES, []},
-            {?S_STATS_FEES, []}
+            {?S_STATS_FEES, []},
+            {?S_STATS_VALIDATORS, []}
         ]),
 
     {ok, #{
@@ -75,7 +79,8 @@ get_stats() ->
         state_channel_counts => mk_stats_from_state_channel_results(StateChannelResults),
         counts => mk_stats_from_counts_results(CountsResults),
         challenge_counts => mk_stats_from_challenge_results(ChallengeResults),
-        fees => mk_stats_from_fee_results(FeeResults)
+        fees => mk_stats_from_fee_results(FeeResults),
+        validators => mk_stats_from_validator_results(ValidatorResults)
     }}.
 
 mk_stats_from_time_results(
@@ -122,6 +127,20 @@ mk_stats_from_fee_results(
             staking => mk_int(LastMonthStakingFees)
         }
     }.
+
+mk_stats_from_validator_results({ok, ValidatorResults}) ->
+    lists:foldl(
+        fun(Key, Acc) ->
+            {Count, Amount} =
+                case lists:keyfind(Key, 1, ValidatorResults) of
+                    false -> {0, 0};
+                    {_, C, A} -> {C, A}
+                end,
+            maps:put(Key, #{count => Count, amount => Amount}, Acc)
+        end,
+        #{},
+        [<<"staked">>, <<"unstaked">>, <<"cooldown">>]
+    ).
 
 mk_stats_from_counts_results({ok, CountsResults}) ->
     maps:from_list(CountsResults).
