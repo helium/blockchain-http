@@ -180,7 +180,7 @@ get_stats() ->
     Active =
         case ActiveStats of
             {ok, []} -> null;
-            {ok, [{C}]} -> C
+            {ok, [{_, C}]} -> C
         end,
     {ok, Stats#{active => Active}}.
 
