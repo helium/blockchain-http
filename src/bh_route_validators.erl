@@ -91,6 +91,19 @@ handle('GET', [<<"elected">>, <<"hash">>, TxnHash], _Req) ->
     ?MK_RESPONSE(get_validator_elected_list({hash, TxnHash}), infinity);
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_validator(Address), never);
+handle('GET', [Address, <<"rewards">>], Req) ->
+    Args = ?GET_ARGS([cursor, max_time, min_time], Req),
+    ?MK_RESPONSE(bh_route_rewards:get_reward_list({validator, Address}, Args), block_time);
+handle('GET', [Address, <<"rewards">>, <<"sum">>], Req) ->
+    Args = ?GET_ARGS([max_time, min_time, bucket], Req),
+    ?MK_RESPONSE(bh_route_rewards:get_reward_sum({validator, Address}, Args), block_time);
+handle('GET', [<<"rewards">>, <<"sum">>], Req) ->
+    %% We do not allow bucketing across all validators as that takes way too long
+    Args = ?GET_ARGS([max_time, min_time], Req),
+    ?MK_RESPONSE(
+        bh_route_rewards:get_reward_sum({validator, all}, Args ++ [{bucket, undefined}]),
+        block_time
+    );
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
