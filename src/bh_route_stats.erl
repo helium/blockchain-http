@@ -16,7 +16,6 @@
 -define(S_STATS_COUNTS, "stats_counts").
 -define(S_STATS_CHALLENGES, "stats_challenges").
 -define(S_STATS_FEES, "stats_fees").
--define(S_STATS_VALIDATORS, "stats_validators").
 
 prepare_conn(Conn) ->
     Loads = [
@@ -26,8 +25,7 @@ prepare_conn(Conn) ->
         ?S_STATS_CHALLENGES,
         ?S_STATS_STATE_CHANNELS,
         ?S_STATS_TOKEN_SUPPLY,
-        ?S_STATS_FEES,
-        ?S_STATS_VALIDATORS
+        ?S_STATS_FEES
     ],
     bh_db_worker:load_from_eql(Conn, "stats.sql", Loads).
 
@@ -69,9 +67,10 @@ get_stats() ->
             {?S_STATS_COUNTS, []},
             {?S_STATS_CHALLENGES, []},
             {?S_STATS_FEES, []},
-            {?S_STATS_VALIDATORS, []}
+            {bh_route_validators:stats_query(), []}
         ]),
 
+    {ok, ValidatorStats} = bh_route_validators:mk_stats_from_results(ValidatorResults),
     {ok, #{
         block_times => mk_stats_from_time_results(BlockTimeResults),
         election_times => mk_stats_from_time_results(ElectionTimeResults),
@@ -80,7 +79,7 @@ get_stats() ->
         counts => mk_stats_from_counts_results(CountsResults),
         challenge_counts => mk_stats_from_challenge_results(ChallengeResults),
         fees => mk_stats_from_fee_results(FeeResults),
-        validators => mk_stats_from_validator_results(ValidatorResults)
+        validators => ValidatorStats
     }}.
 
 mk_stats_from_time_results(
@@ -127,20 +126,6 @@ mk_stats_from_fee_results(
             staking => mk_int(LastMonthStakingFees)
         }
     }.
-
-mk_stats_from_validator_results({ok, ValidatorResults}) ->
-    lists:foldl(
-        fun(Key, Acc) ->
-            {Count, Amount} =
-                case lists:keyfind(Key, 1, ValidatorResults) of
-                    false -> {0, 0};
-                    {_, C, A} -> {C, A}
-                end,
-            maps:put(Key, #{count => Count, amount => Amount}, Acc)
-        end,
-        #{},
-        [<<"staked">>, <<"unstaked">>, <<"cooldown">>]
-    ).
 
 mk_stats_from_counts_results({ok, CountsResults}) ->
     maps:from_list(CountsResults).

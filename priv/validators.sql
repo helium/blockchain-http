@@ -48,3 +48,13 @@ members as (
 
 -- :validator_elected_list_scope
 where l.address in (select * from members)
+
+-- Validator stats
+-- :validator_stats
+select v.status, count(*), (sum(stake) / 100000000)::float
+from validator_inventory v
+group by v.status
+
+
+-- :validator_active
+select * from stats_inventory where name = 'validators'

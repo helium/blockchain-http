@@ -8,6 +8,8 @@
 -export([prepare_conn/1, handle/3]).
 %% Utilities
 -export([get_validator_list/1, get_validator/1]).
+%% Stats
+-export([stats_query/0, mk_stats_from_results/1]).
 
 -define(S_VALIDATOR_LIST_BEFORE, "validator_list_before").
 -define(S_VALIDATOR_LIST, "validator_list").
@@ -16,6 +18,9 @@
 -define(S_OWNER_VALIDATOR_LIST_BEFORE, "owner_validator_list_before").
 -define(S_OWNER_VALIDATOR_LIST, "owner_validator_list").
 -define(S_VALIDATOR, "validator").
+-define(S_VALIDATOR_STATS, "validators_stats").
+-define(S_ACTIVE_VALIDATORS, "active_validators").
+
 -define(VALIDATOR_LIST_LIMIT, 100).
 
 prepare_conn(Conn) ->
@@ -70,13 +75,17 @@ prepare_conn(Conn) ->
                 {scope, "where l.address = $1"},
                 {order, ""},
                 {limit, ""}
-            ]}}
+            ]}},
+        {?S_VALIDATOR_STATS, {validator_stats, []}},
+        {?S_ACTIVE_VALIDATORS, {validator_active, []}}
     ],
     bh_db_worker:load_from_eql(Conn, "validators.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(get_validator_list([{owner, undefined} | Args]), block_time);
+handle('GET', [<<"stats">>], _Req) ->
+    ?MK_RESPONSE(get_stats(), block_time);
 handle('GET', [<<"elected">>], _Req) ->
     {ok, #{height := Height}} = bh_route_blocks:get_block_height(),
     ?MK_RESPONSE(get_validator_elected_list({height, Height}), block_time);
@@ -155,6 +164,42 @@ get_validator(Address) ->
         _ ->
             {error, not_found}
     end.
+
+stats_query() -> ?S_VALIDATOR_STATS.
+
+get_stats() ->
+    [
+        ActiveStats,
+        ValidatorStats
+    ] = ?EXECUTE_BATCH([
+        {?S_ACTIVE_VALIDATORS, []},
+        {?S_VALIDATOR_STATS, []}
+    ]),
+    {ok, Stats} = mk_stats_from_results(ValidatorStats),
+    %% Inject active validators in the result
+    Active =
+        case ActiveStats of
+            {ok, []} -> null;
+            {ok, [{C}]} -> C
+        end,
+    {ok, Stats#{active => Active}}.
+
+mk_stats_from_results({ok, Results}) ->
+    {ok,
+        %% We do all this to ensure that various status entries are always
+        %% present in the resulting map even if they are not in the sql results
+        lists:foldl(
+            fun(Key, Acc = #{}) ->
+                {Count, Amount} =
+                    case lists:keyfind(Key, 1, Results) of
+                        false -> {0, 0};
+                        {_, C, A} -> {C, A}
+                    end,
+                maps:put(Key, #{count => Count, amount => Amount}, Acc)
+            end,
+            #{},
+            [<<"staked">>, <<"unstaked">>, <<"cooldown">>]
+        )}.
 
 mk_validator_list_from_result({ok, _, Results}) ->
     {ok, validator_list_to_json(Results), mk_cursor(Results)}.

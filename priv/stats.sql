@@ -159,9 +159,3 @@ select
     (select sum(t.staking_fees) from week_interval t)::bigint as last_week_staking_fees,
     (select sum(t.fees) from month_interval t)::bigint as last_month_txn_fees,
     (select sum(t.staking_fees) from month_interval t)::bigint as last_month_staking_fees;
-
--- Validator stats
---:stats_validators
-select v.status, count(*), (sum(stake) / 100000000)::float
-from validator_inventory v
-group by v.status;
