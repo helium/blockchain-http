@@ -26,4 +26,4 @@ where l.owner = $1
     and ((l.oui > $2 and l.first_block = $3) or (l.first_block < $3))
 
 -- :oui_active
-select * from stats_inventory where name = 'ouis'
+select count(*) from oui_inventory;
