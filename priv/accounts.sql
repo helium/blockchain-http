@@ -7,14 +7,11 @@ select
     l.security_balance,
     l.security_nonce,
     l.balance,
-    v.staked_balance,
+    l.staked_balance,
     l.nonce,
     l.first_block
     :extend
 from account_inventory l
-    inner join
-        (select owner, coalesce(sum(stake), 0)::bigint as staked_balance from validator_inventory group by owner) v
-    on l.address = v.owner
 :scope
 :order
 :limit
