@@ -149,7 +149,10 @@
     <<"token_burn_exchange_rate_v1">>,
     <<"payment_v2">>,
     <<"price_oracle_v1">>,
-    <<"transfer_hotspot_v1">>
+    <<"transfer_hotspot_v1">>,
+    <<"stake_validator_v1">>,
+    <<"unstake_validator_v1">>,
+    <<"transfer_validator_stake_v1">>
 ]).
 
 prepare_conn(Conn) ->
@@ -274,9 +277,7 @@ get_activity_list({hotspot, Address}, Args) ->
 %% Grows a txn list with the given queru until it's the txn list limit
 %% size. We 10x the search space (up to a max) every time we find we don't have
 %% enough transactions.
-grow_txn_list(_Query, State = #state{results = Results}) when
-    length(Results) >= ?TXN_LIST_LIMIT
-->
+grow_txn_list(_Query, State = #state{results = Results}) when length(Results) >= ?TXN_LIST_LIMIT ->
     State;
 grow_txn_list(_Query, State = #state{low_block = 1}) ->
     State;
@@ -288,9 +289,9 @@ grow_txn_list(Query, State = #state{low_block = LowBlock, high_block = HighBlock
     NewState =
         execute_query(Query, State#state{
             high_block = LowBlock,
-            %% Empirically a 100k block search is slower than 10, 10k searches 
-            %% (which in turn is faster than 100, 1k searches). 
-            %% so cap at 10000 instead of 100000. 
+            %% Empirically a 100k block search is slower than 10, 10k searches
+            %% (which in turn is faster than 100, 1k searches).
+            %% so cap at 10000 instead of 100000.
             low_block = max(1, LowBlock - min(10000, (HighBlock - LowBlock) * 10))
         }),
     grow_txn_list(Query, NewState).
@@ -354,15 +355,12 @@ get_txn_list(Args, {Query, RemQuery}, [{cursor, Cursor}, {filter_types, _}]) ->
             {error, badarg}
     end.
 
-mk_txn_list_result(State = #state{results = Results}) when
-    length(Results) > ?TXN_LIST_LIMIT
-->
+mk_txn_list_result(State = #state{results = Results}) when length(Results) > ?TXN_LIST_LIMIT ->
     {Trimmed, _Remainder} = lists:split(?TXN_LIST_LIMIT, Results),
     {Height, _Time, Hash, _Type, _Fields} = lists:last(Trimmed),
     {ok, txn_list_to_json(Trimmed), mk_txn_list_cursor(Height, Hash, State)};
 mk_txn_list_result(State = #state{results = Results}) ->
-    {ok, txn_list_to_json(Results),
-        mk_txn_list_cursor(State#state.low_block, undefined, State)}.
+    {ok, txn_list_to_json(Results), mk_txn_list_cursor(State#state.low_block, undefined, State)}.
 
 mk_txn_list_cursor(1, undefined, #state{}) ->
     undefined;
@@ -430,7 +428,7 @@ txn_to_json(
         #{<<"challenger_location">> := ChallengerLoc, <<"path">> := Path} = Fields}
 ) ->
     %% update challengee lat/lon in a path element
-    LatLon = fun (PathElem = #{<<"challengee_location">> := ChallengeeLoc}) ->
+    LatLon = fun(PathElem = #{<<"challengee_location">> := ChallengeeLoc}) ->
         ?INSERT_LAT_LON(
             ChallengeeLoc,
             {<<"challengee_lat">>, <<"challengee_lon">>},
@@ -438,7 +436,7 @@ txn_to_json(
         )
     end,
     %% Insert geo code infomration for a challengee location in a path element
-    Geocode = fun (PathElem = #{<<"challengee_location">> := ChallengeeLoc}) ->
+    Geocode = fun(PathElem = #{<<"challengee_location">> := ChallengeeLoc}) ->
         case ?PREPARED_QUERY(?S_LOC, [ChallengeeLoc]) of
             {ok, _, [Result]} ->
                 PathElem#{<<"geocode">> => bh_route_hotspots:to_geo_json(Result)};
@@ -502,7 +500,7 @@ filter_types(undefined) ->
     filter_types(?FILTER_TYPES);
 filter_types(Bin) when is_binary(Bin) ->
     SplitTypes = binary:split(Bin, <<",">>, [global]),
-    Types = lists:filter(fun (T) -> lists:member(T, ?FILTER_TYPES) end, SplitTypes),
+    Types = lists:filter(fun(T) -> lists:member(T, ?FILTER_TYPES) end, SplitTypes),
     filter_types(Types);
 filter_types(Types) when is_list(Types) ->
     [<<"{">>, lists:join(<<",">>, Types), <<"}">>].
