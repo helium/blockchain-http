@@ -210,7 +210,8 @@ mk_cursor(Results) when is_list(Results) ->
             undefined;
         false ->
             {Height, Address, _Owner, _Stake, _Status, _LastHeartbeat, _VersionHeartBeat, _Nonce,
-                FirstBlock, _OnlineStatus, _BlockStatus, _ListenAddrs} = lists:last(Results),
+                FirstBlock, _OnlineStatus, _BlockStatus, _ListenAddrs,
+                _ReleaseVersion} = lists:last(Results),
             #{
                 before_address => Address,
                 before_block => FirstBlock,
@@ -227,7 +228,7 @@ validator_list_to_json(Results) ->
 
 validator_to_json(
     {Height, Address, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, _Nonce, _FirstBlock,
-        OnlineStatus, BlockStatus, ListenAddrs}
+        OnlineStatus, BlockStatus, ListenAddrs, ReleaseVersion}
 ) ->
     %% Excluded nonce for now as it is unused
     #{
@@ -241,6 +242,7 @@ validator_to_json(
         status => #{
             online => OnlineStatus,
             height => BlockStatus,
-            listen_addrs => ListenAddrs
+            listen_addrs => ListenAddrs,
+            release_version => ReleaseVersion
         }
     }.
