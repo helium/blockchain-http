@@ -136,7 +136,7 @@ get_account(Account) ->
         {ok, _, [Result]} ->
             {ok, account_to_json(Result)};
         _ ->
-            {ok, account_to_json({null, Account, 0, 0, 0, 0, 0, 0, 0})}
+            {ok, account_to_json({null, Account, 0, 0, 0, 0, 0, 0, 0, 0})}
     end.
 
 mk_account_list_from_result({ok, _, Results}) ->
@@ -148,7 +148,7 @@ mk_cursor(Results) when is_list(Results) ->
             undefined;
         false ->
             {Height, Address, _DCBalance, _DCNonce, _SecBalance, _SecNonce, _Balance,
-                _Nonce, FirstBlock} = lists:last(Results),
+                _StakedBalance, _Nonce, FirstBlock} = lists:last(Results),
             #{
                 before_address => Address,
                 before_block => FirstBlock,
@@ -162,7 +162,7 @@ mk_cursor(Results) when is_list(Results) ->
 
 get_stats(Account) ->
     Now = calendar:universal_time(),
-    Interval = fun (B) ->
+    Interval = fun(B) ->
         {ok, {_, V}} = ?PARSE_INTERVAL(B),
         V
     end,
@@ -204,7 +204,7 @@ get_stats(Account) ->
 
 mk_balance_stats({ok, Results}) ->
     lists:map(
-        fun ({Timestamp, Value}) ->
+        fun({Timestamp, Value}) ->
             #{
                 timestamp => iso8601:format(Timestamp),
                 balance => Value
@@ -221,11 +221,13 @@ account_list_to_json(Results) ->
     lists:map(fun account_to_json/1, Results).
 
 account_to_json(
-    {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce, _FirstBlock}
+    {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, StakedBalance, Nonce,
+        _FirstBlock}
 ) ->
     #{
         <<"address">> => Address,
         <<"balance">> => Balance,
+        <<"staked_balance">> => StakedBalance,
         <<"nonce">> => Nonce,
         <<"dc_balance">> => DCBalance,
         <<"dc_nonce">> => DCNonce,
@@ -234,11 +236,11 @@ account_to_json(
         <<"block">> => Height
     };
 account_to_json(
-    {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce, FirstBlock,
-        SpecNonce, SpecSecNonce}
+    {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, StakedBalance, Nonce,
+        FirstBlock, SpecNonce, SpecSecNonce}
 ) ->
     Base = account_to_json(
-        {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce,
+        {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, StakedBalance, Nonce,
             FirstBlock}
     ),
     Base#{
