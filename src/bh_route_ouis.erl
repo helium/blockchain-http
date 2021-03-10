@@ -168,11 +168,18 @@ oui_list_to_json(Results) ->
 oui_to_json(
     {Height, Oui, Owner, Nonce, Addresses, Subnets, _FirstBlock}
 ) ->
+    MkSubnet = fun
+        ([Base, Mask], Acc) ->
+            [#{base => Base, mask => Mask} | Acc];
+        (_, Acc) ->
+            Acc
+    end,
+
     #{
         block => Height,
         oui => Oui,
         owner => Owner,
         nonce => Nonce,
         addresses => Addresses,
-        subnets => Subnets
+        subnets => lists:foldl(MkSubnet, [], Subnets)
     }.
