@@ -104,6 +104,7 @@ handle(_, _, _Req) ->
 
 -type supported_txn() ::
     #blockchain_txn_oui_v1_pb{}
+    | #blockchain_txn_routing_v1_pb{}
     | #blockchain_txn_add_gateway_v1_pb{}
     | #blockchain_txn_assert_location_v1_pb{}
     | #blockchain_txn_payment_v1_pb{}
@@ -121,9 +122,15 @@ handle(_, _, _Req) ->
 -type nonce_type() :: binary().
 
 -spec insert_pending_txn(supported_txn(), binary()) -> {ok, jiffy:json_object()} | {error, term()}.
-insert_pending_txn(#blockchain_txn_oui_v1_pb{owner = Owner} = Txn, Bin) ->
+insert_pending_txn(#blockchain_txn_oui_v1_pb{oui = Oui} = Txn, Bin) ->
     %% There is no nonce type for that is useful to speculate values for
-    insert_pending_txn(Txn, Owner, 0, <<"none">>, Bin);
+    insert_pending_txn(Txn, Oui, 0, <<"none">>, Bin);
+insert_pending_txn(#blockchain_txn_routing_v1_pb{nonce = Nonce} = Txn, Bin) ->
+    %% oui changes could get their own oui nonce, but since there is no good actor
+    %% address for it (an oui is not a public key which a lot of code relies on, we don't
+    %% track it right now. We can't lean on the owner address since an owner can
+    %% have multipe ouis
+    insert_pending_txn(Txn, undefined, Nonce, <<"none">>, Bin);
 insert_pending_txn(#blockchain_txn_add_gateway_v1_pb{gateway = GatewayAddress} = Txn, Bin) ->
     %% Adding a gateway uses the gateway nonce, even though it's
     %% expected to be 0 (a gateway can only be added once)
@@ -302,6 +309,10 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
     {owner_signature = <<>>, payer_signature = <<>>}
 );
 ?TXN_HASH(
+    blockchain_txn_routing_v1_pb,
+    {signature = <<>>}
+);
+?TXN_HASH(
     blockchain_txn_add_gateway_v1_pb,
     {owner_signature = <<>>, gateway_signature = <<>>}
 );
@@ -337,6 +348,7 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
 ).
 
 ?TXN_TYPE(blockchain_txn_oui_v1_pb, <<"oui_v1">>);
+?TXN_TYPE(blockchain_txn_routing_v1_pb, <<"routing_v1">>);
 ?TXN_TYPE(blockchain_txn_add_gateway_v1_pb, <<"add_gateway_v1">>);
 ?TXN_TYPE(blockchain_txn_assert_location_v1_pb, <<"assert_location_v1">>);
 ?TXN_TYPE(blockchain_txn_payment_v1_pb, <<"payment_v1">>);
