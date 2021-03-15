@@ -9,7 +9,7 @@
 -include("bh_route_handler.hrl").
 
 % Limit for reward list lengths. Note that changing this will impact paging dupe
-% tests. 
+% tests.
 -define(REWARD_LIST_LIMIT, 100).
 -define(S_BLOCK_RANGE, "reward_block_range").
 -define(S_REWARD_LIST_HOTSPOT, "reward_list_hotspot").
@@ -19,9 +19,11 @@
 -define(S_REWARD_SUM_HOTSPOT, "reward_sum_hotstpot").
 -define(S_REWARD_SUM_HOTSPOTS, "reward_sum_hotspots").
 -define(S_REWARD_SUM_ACCOUNT, "reward_sum_account").
+-define(S_REWARD_SUM_NETWORK, "reward_sum_network").
 -define(S_REWARD_BUCKETED_SUM_ACCOUNT, "reward_bucketed_sum_account").
 -define(S_REWARD_BUCKETED_SUM_HOTSPOT, "reward_bucketed_sum_hotstpot").
 -define(S_REWARD_BUCKETED_SUM_HOTSPOTS, "reward_bucketed_sum_hotstpots").
+-define(S_REWARD_BUCKETED_SUM_NETWORK, "reward_bucketed_sum_network").
 
 prepare_conn(Conn) ->
     Loads = [
@@ -90,10 +92,28 @@ prepare_conn(Conn) ->
                 {fields, reward_fields},
                 {scope, "where r.account = $1"},
                 {source, reward_bucketed_hotspot_source}
+            ]}},
+        {?S_REWARD_SUM_NETWORK,
+            {reward_sum_base, [
+                {fields, reward_fields},
+                {scope, "where true = $1"},
+                {source, reward_sum_time_source}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_NETWORK,
+            {reward_bucketed_base, [
+                {fields, reward_fields},
+                {scope, "where true = $1"},
+                {source, reward_bucketed_time_source}
             ]}}
     ],
     bh_db_worker:load_from_eql(Conn, "rewards.sql", Loads).
 
+handle('GET', [<<"sum">>], Req) ->
+    Args = ?GET_ARGS([max_time, min_time, bucket], Req),
+    ?MK_RESPONSE(
+        bh_route_rewards:get_reward_sum(network, Args),
+        block_time
+    );
 handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
 
@@ -119,6 +139,14 @@ get_reward_list({hotspot, Address}, Args = [{cursor, _}, {max_time, _}, {min_tim
 get_reward_list({account, Address}, Args = [{cursor, _}, {max_time, _}, {min_time, _}]) ->
     get_reward_list([Address], {?S_REWARD_LIST_ACCOUNT, ?S_REWARD_LIST_ACCOUNT_REM}, Args).
 
+%% network
+get_reward_sum(
+    network,
+    Args = [{max_time, _}, {min_time, _}, {bucket, undefined}]
+) ->
+    get_reward_sum([true], ?S_REWARD_SUM_NETWORK, Args);
+get_reward_sum(network, Args = [{max_time, _}, {min_time, _}, {bucket, _}]) ->
+    get_reward_bucketed_sum([true], ?S_REWARD_BUCKETED_SUM_NETWORK, Args);
 %% all hotspots
 get_reward_sum(
     {hotspot, all},
@@ -178,9 +206,9 @@ grow_txn_list(
         Query,
         State#state{
             high_block = LowBlock,
-            %% Empirically a 100k block search is slower than 10, 10k searches 
-            %% (which in turn is faster than 100, 1k searches). 
-            %% so cap at 10000 instead of 100000. 
+            %% Empirically a 100k block search is slower than 10, 10k searches
+            %% (which in turn is faster than 100, 1k searches).
+            %% so cap at 10000 instead of 100000.
             low_block = max(
                 EndBlock,
                 LowBlock - min(10000, (HighBlock - LowBlock) * 10)
@@ -210,8 +238,8 @@ calc_low_block(HighBlock, EndBlock) ->
     end.
 
 -spec get_blockspan(High :: binary(), Low :: binary()) ->
-    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}} |
-    {error, term()}.
+    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}}
+    | {error, term()}.
 get_blockspan(MaxTime0, MinTime0) ->
     case ?PARSE_TIMESPAN(MaxTime0, MinTime0) of
         {ok, {MaxTime, MinTime}} ->

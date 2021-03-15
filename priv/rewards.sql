@@ -35,14 +35,21 @@ order by :marker
 from reward_data r
 group by r.gateway)
 
+-- :reward_sum_time_source
+(select
+    sum(r.amount) as amount
+from reward_data r
+group by r.time)
+
 -- :reward_sum_base
 with reward_data as (
-    select 
-        r.amount, 
-        r.gateway
+    select
+        r.amount,
+        r.gateway,
+        r.time
     from rewards r
     :scope
-    and r.time >= extract(epoch from $2::timestamptz) 
+    and r.time >= extract(epoch from $2::timestamptz)
     and r.time <= extract(epoch from $3::timestamptz)
 )
 select
@@ -56,7 +63,7 @@ select
 from :source d
 
 -- Bucket reward_data by timestamp and gateway to be calculate statistics over hotspot totals in a bucket
--- rather than individual rewards. 
+-- rather than individual rewards.
 -- :reward_bucketed_hotspot_source
 (select
     sum(r.amount) as amount,
@@ -64,28 +71,36 @@ from :source d
 from reward_data r
 group by r.time, r.gateway)
 
+-- Bucket global reward_data by timestamp only
+-- :reward_bucketed_time_source
+(select
+    sum(r.amount) as amount,
+    r.time
+from reward_data r
+group by r.time)
+
 -- :reward_bucketed_base
 with time_range as (
-    select 
-        extract(epoch from low)::bigint as low, 
-        extract(epoch from high)::bigint as high 
+    select
+        extract(epoch from low)::bigint as low,
+        extract(epoch from high)::bigint as high
     from (
-        select 
-            timestamp as low, 
+        select
+            timestamp as low,
             lag(timestamp) over (order by timestamp desc) as high
         from generate_series($2::timestamptz, $3::timestamptz, $4::interval) as timestamp) t
     where high is not null
 ),
 reward_data as (
-    select 
-        r.amount, 
-        r.gateway, 
+    select
+        r.amount,
+        r.gateway,
         r.time
     from rewards r
     :scope
     and r.time >= (select min(low) from time_range) and r.time <= (select max(high) from time_range)
 )
-select 
+select
     to_timestamp(t.low) as timestamp,
     coalesce(min(d.amount::float) / 100000000, 0) as min,
     coalesce(max(d.amount::float) / 100000000, 0) as max,
@@ -94,8 +109,8 @@ select
     coalesce(percentile_cont(0.5) within group (order by d.amount) / 100000000, 0)::float as median,
     coalesce(avg(d.amount) / 100000000, 0)::float as avg,
     coalesce(stddev(d.amount) / 100000000, 0)::float as stddev
-from time_range t 
-    left join :source d 
+from time_range t
+    left join :source d
     on d.time >= low and d.time < high
 group by t.low
 order by t.low desc;

@@ -19,8 +19,6 @@
             base64url,
             h3,
             iso8601,
-            observer_cli,
-            telemetry,
             envloader,
             psql_migration,
             helium_proto,
