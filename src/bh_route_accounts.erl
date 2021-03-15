@@ -60,6 +60,12 @@ handle('GET', [<<"rich">>], Req) ->
     ?MK_RESPONSE(get_account_rich_list(Args), block_time);
 handle('GET', [Account], _Req) ->
     ?MK_RESPONSE(get_account(Account), never);
+handle('GET', [Account, <<"ouis">>], Req) ->
+    Args = ?GET_ARGS([cursor], Req),
+    ?MK_RESPONSE(
+        bh_route_ouis:get_oui_list([{owner, Account} | Args]),
+        block_time
+    );
 handle('GET', [Account, <<"hotspots">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(
@@ -141,8 +147,8 @@ mk_cursor(Results) when is_list(Results) ->
         true ->
             undefined;
         false ->
-            {Height, Address, _DCBalance, _DCNonce, _SecBalance, _SecNonce, _Balance,
-                _Nonce, FirstBlock} = lists:last(Results),
+            {Height, Address, _DCBalance, _DCNonce, _SecBalance, _SecNonce, _Balance, _Nonce,
+                FirstBlock} = lists:last(Results),
             #{
                 before_address => Address,
                 before_block => FirstBlock,
@@ -156,7 +162,7 @@ mk_cursor(Results) when is_list(Results) ->
 
 get_stats(Account) ->
     Now = calendar:universal_time(),
-    Interval = fun (B) ->
+    Interval = fun(B) ->
         {ok, {_, V}} = ?PARSE_INTERVAL(B),
         V
     end,
@@ -198,7 +204,7 @@ get_stats(Account) ->
 
 mk_balance_stats({ok, Results}) ->
     lists:map(
-        fun ({Timestamp, Value}) ->
+        fun({Timestamp, Value}) ->
             #{
                 timestamp => iso8601:format(Timestamp),
                 balance => Value
@@ -232,8 +238,7 @@ account_to_json(
         SpecNonce, SpecSecNonce}
 ) ->
     Base = account_to_json(
-        {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce,
-            FirstBlock}
+        {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, Nonce, FirstBlock}
     ),
     Base#{
         <<"speculative_nonce">> => SpecNonce,
