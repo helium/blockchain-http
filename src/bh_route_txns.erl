@@ -12,10 +12,11 @@
     get_txn_list/1,
     get_txn_list_cache_time/1,
     get_actor_txn_list/2,
+    get_activity_count/2,
     get_activity_list/2,
     txn_to_json/1,
     txn_list_to_json/1,
-    filter_types/1
+    filter_types_to_sql/1
 ]).
 
 -define(S_TXN, "txn").
@@ -25,8 +26,10 @@
 -define(S_ACTOR_TXN_LIST_REM, "actor_txn_list_rem").
 -define(S_OWNED_ACTOR_TXN_LIST, "owned_actor_txn_list").
 -define(S_OWNED_ACTOR_TXN_LIST_REM, "owned_actor_txn_list_rem").
+-define(S_ACCOUNT_ACTIVITY_COUNT, "account_activity_count").
 -define(S_ACCOUNT_ACTIVITY_LIST, "account_activity_list").
 -define(S_ACCOUNT_ACTIVITY_LIST_REM, "account_activity_list_rem").
+-define(S_HOTSPOT_ACTIVITY_COUNT, "hotspot_activity_count").
 -define(S_HOTSPOT_ACTIVITY_LIST, "hotspot_activity_list").
 -define(S_HOTSPOT_ACTIVITY_LIST_REM, "hotspot_activity_list_rem").
 -define(S_LOC, "txn_geocode").
@@ -46,9 +49,19 @@
     "where t.hash > $3"
 ]).
 
+-define(SELECT_ACTOR_TXN_COUNT_BASE(E), [
+    "select type, count(*) ",
+    "from (select distinct on (tr.block, tr.hash, a.actor) tr.type ",
+    "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
+    " where a.actor = $1 ",
+    (E),
+    " and tr.type = ANY($2)) as t ",
+    " group by t.type"
+]).
+
 -define(SELECT_ACTOR_TXN_LIST_BASE(F, E), [
     ?SELECT_TXN_FIELDS(F),
-    "from (select distinct on (tr.block, tr.hash) tr.*, a.actor ",
+    "from (select distinct on (tr.block, tr.hash, a.actor) tr.*, a.actor ",
     "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
     " where tr.block >= $3 and tr.block < $4 and a.actor = $1 ",
     (E),
@@ -57,7 +70,7 @@
 
 -define(SELECT_ACTOR_TXN_LIST_REM_BASE(F, E), [
     ?SELECT_TXN_FIELDS(F),
-    "from (select distinct on (tr.hash) tr.*, a.actor ",
+    "from (select distinct on (tr.hash, a.actor) tr.*, a.actor ",
     " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
     " where tr.block = $3 and a.actor = $1 ",
     (E),
@@ -67,7 +80,7 @@
 
 -define(SELECT_OWNED_ACTOR_TXN_LIST_BASE(F, E), [
     ?SELECT_TXN_FIELDS(F),
-    "from (select distinct on (tr.block, tr.hash) tr.*, a.actor ",
+    "from (select distinct on (tr.block, tr.hash, a.actor) tr.*, a.actor ",
     " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
     " where tr.block >= $3 and tr.block < $4",
     "  and a.actor in (select address from gateway_inventory where owner = $1) ",
@@ -77,7 +90,7 @@
 
 -define(SELECT_OWNED_ACTOR_TXN_LIST_REM_BASE(F, E), [
     ?SELECT_TXN_FIELDS(F),
-    "from (select distinct on (tr.hash) tr.*, a.actor ",
+    "from (select distinct on (tr.hash, a.actor) tr.*, a.actor ",
     " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
     " where tr.block = $3",
     "  and a.actor in (select address from gateway_inventory where owner = $1) ",
@@ -93,6 +106,13 @@
     ?SELECT_OWNED_ACTOR_TXN_LIST_REM_BASE("t.fields", "")
 ).
 
+-define(SELECT_ACCOUNT_ACTIVITY_COUNT,
+    %% For account activity we limit the actor roles to just a few.
+    ?SELECT_ACTOR_TXN_COUNT_BASE(
+        "and a.actor_role in ('payer', 'payee', 'owner')"
+    )
+).
+
 -define(SELECT_ACCOUNT_ACTIVITY_LIST,
     %% For account activity we limit the actor roles to just a few.
     ?SELECT_ACTOR_TXN_LIST_BASE(
@@ -106,6 +126,13 @@
     ?SELECT_ACTOR_TXN_LIST_REM_BASE(
         "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
         "and a.actor_role in ('payer', 'payee', 'owner')"
+    )
+).
+
+-define(SELECT_HOTSPOT_ACTIVITY_COUNT,
+    %% For account activity we limit the actor roles to just a few.
+    ?SELECT_ACTOR_TXN_COUNT_BASE(
+        "and a.actor_role not in ('payer', 'payee', 'owner')"
     )
 ).
 
@@ -218,6 +245,12 @@ prepare_conn(Conn) ->
             []
         ),
 
+    {ok, S13} =
+        epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_COUNT, ?SELECT_ACCOUNT_ACTIVITY_COUNT, []),
+
+    {ok, S14} =
+        epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_COUNT, ?SELECT_HOTSPOT_ACTIVITY_COUNT, []),
+
     #{
         ?S_TXN => S1,
         ?S_TXN_LIST => S2,
@@ -230,7 +263,9 @@ prepare_conn(Conn) ->
         ?S_ACCOUNT_ACTIVITY_LIST_REM => S9,
         ?S_HOTSPOT_ACTIVITY_LIST => S10,
         ?S_HOTSPOT_ACTIVITY_LIST_REM => S11,
-        ?S_LOC => S12
+        ?S_LOC => S12,
+        ?S_ACCOUNT_ACTIVITY_COUNT => S13,
+        ?S_HOTSPOT_ACTIVITY_COUNT => S14
     }.
 
 handle('GET', [TxnHash], _Req) ->
@@ -260,6 +295,11 @@ get_activity_list({account, Account}, Args) ->
 get_activity_list({hotspot, Address}, Args) ->
     get_txn_list([Address], {?S_HOTSPOT_ACTIVITY_LIST, ?S_HOTSPOT_ACTIVITY_LIST_REM}, Args).
 
+get_activity_count({account, Account}, Args) ->
+    get_txn_count([Account], ?S_ACCOUNT_ACTIVITY_COUNT, Args);
+get_activity_count({hotspot, Address}, Args) ->
+    get_txn_count([Address], ?S_HOTSPOT_ACTIVITY_COUNT, Args).
+
 -define(TXN_LIST_BLOCK_ALIGN, 100).
 
 -record(state, {
@@ -274,9 +314,7 @@ get_activity_list({hotspot, Address}, Args) ->
 %% Grows a txn list with the given queru until it's the txn list limit
 %% size. We 10x the search space (up to a max) every time we find we don't have
 %% enough transactions.
-grow_txn_list(_Query, State = #state{results = Results}) when
-    length(Results) >= ?TXN_LIST_LIMIT
-->
+grow_txn_list(_Query, State = #state{results = Results}) when length(Results) >= ?TXN_LIST_LIMIT ->
     State;
 grow_txn_list(_Query, State = #state{low_block = 1}) ->
     State;
@@ -288,9 +326,9 @@ grow_txn_list(Query, State = #state{low_block = LowBlock, high_block = HighBlock
     NewState =
         execute_query(Query, State#state{
             high_block = LowBlock,
-            %% Empirically a 100k block search is slower than 10, 10k searches 
-            %% (which in turn is faster than 100, 1k searches). 
-            %% so cap at 10000 instead of 100000. 
+            %% Empirically a 100k block search is slower than 10, 10k searches
+            %% (which in turn is faster than 100, 1k searches).
+            %% so cap at 10000 instead of 100000.
             low_block = max(1, LowBlock - min(10000, (HighBlock - LowBlock) * 10))
         }),
     grow_txn_list(Query, NewState).
@@ -303,7 +341,7 @@ calc_low_block(HighBlock) ->
 
 execute_query(Query, State) ->
     AddedArgs = [
-        filter_types(State#state.types),
+        filter_types_to_sql(State#state.types),
         State#state.low_block,
         State#state.high_block
     ],
@@ -313,7 +351,7 @@ execute_query(Query, State) ->
 execute_rem_query(_Query, _HighBlock, undefined, State) ->
     State;
 execute_rem_query(Query, HighBlock, TxnHash, State) ->
-    AddedArgs = [filter_types(State#state.types), HighBlock, TxnHash],
+    AddedArgs = [filter_types_to_sql(State#state.types), HighBlock, TxnHash],
     {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
     State#state{results = State#state.results ++ Results}.
 
@@ -354,15 +392,24 @@ get_txn_list(Args, {Query, RemQuery}, [{cursor, Cursor}, {filter_types, _}]) ->
             {error, badarg}
     end.
 
-mk_txn_list_result(State = #state{results = Results}) when
-    length(Results) > ?TXN_LIST_LIMIT
-->
+get_txn_count(Args, Query, [{filter_types, Types}]) ->
+    {ok, _, Results} = ?PREPARED_QUERY(Query, Args ++ [filter_types_to_sql(Types)]),
+    InitCounts = [{K, 0} || K <- filter_types_to_list(Types)],
+    {ok,
+        lists:foldl(
+            fun({Key, Count}, Acc) ->
+                maps:put(Key, Count, Acc)
+            end,
+            maps:from_list(InitCounts),
+            Results
+        )}.
+
+mk_txn_list_result(State = #state{results = Results}) when length(Results) > ?TXN_LIST_LIMIT ->
     {Trimmed, _Remainder} = lists:split(?TXN_LIST_LIMIT, Results),
     {Height, _Time, Hash, _Type, _Fields} = lists:last(Trimmed),
     {ok, txn_list_to_json(Trimmed), mk_txn_list_cursor(Height, Hash, State)};
 mk_txn_list_result(State = #state{results = Results}) ->
-    {ok, txn_list_to_json(Results),
-        mk_txn_list_cursor(State#state.low_block, undefined, State)}.
+    {ok, txn_list_to_json(Results), mk_txn_list_cursor(State#state.low_block, undefined, State)}.
 
 mk_txn_list_cursor(1, undefined, #state{}) ->
     undefined;
@@ -430,7 +477,7 @@ txn_to_json(
         #{<<"challenger_location">> := ChallengerLoc, <<"path">> := Path} = Fields}
 ) ->
     %% update challengee lat/lon in a path element
-    LatLon = fun (PathElem = #{<<"challengee_location">> := ChallengeeLoc}) ->
+    LatLon = fun(PathElem = #{<<"challengee_location">> := ChallengeeLoc}) ->
         ?INSERT_LAT_LON(
             ChallengeeLoc,
             {<<"challengee_lat">>, <<"challengee_lon">>},
@@ -438,7 +485,7 @@ txn_to_json(
         )
     end,
     %% Insert geo code infomration for a challengee location in a path element
-    Geocode = fun (PathElem = #{<<"challengee_location">> := ChallengeeLoc}) ->
+    Geocode = fun(PathElem = #{<<"challengee_location">> := ChallengeeLoc}) ->
         case ?PREPARED_QUERY(?S_LOC, [ChallengeeLoc]) of
             {ok, _, [Result]} ->
                 PathElem#{<<"geocode">> => bh_route_hotspots:to_geo_json(Result)};
@@ -497,12 +544,16 @@ txn_to_json({_, Fields}) ->
 %%     lager:error("Unhandled transaction type ~p", [Type]),
 %%     error({unhandled_txn_type, Type}).
 
--spec filter_types(undefined | [binary()] | binary()) -> iolist().
-filter_types(undefined) ->
-    filter_types(?FILTER_TYPES);
-filter_types(Bin) when is_binary(Bin) ->
+filter_types_to_list(undefined) ->
+    ?FILTER_TYPES;
+filter_types_to_list(Bin) when is_binary(Bin) ->
     SplitTypes = binary:split(Bin, <<",">>, [global]),
-    Types = lists:filter(fun (T) -> lists:member(T, ?FILTER_TYPES) end, SplitTypes),
-    filter_types(Types);
-filter_types(Types) when is_list(Types) ->
+    lists:filter(fun(T) -> lists:member(T, ?FILTER_TYPES) end, SplitTypes).
+
+-spec filter_types_to_sql(undefined | [binary()] | binary()) -> iolist().
+filter_types_to_sql(undefined) ->
+    filter_types_to_sql(?FILTER_TYPES);
+filter_types_to_sql(Bin) when is_binary(Bin) ->
+    filter_types_to_sql(filter_types_to_list(Bin));
+filter_types_to_sql(Types) when is_list(Types) ->
     [<<"{">>, lists:join(<<",">>, Types), <<"}">>].
