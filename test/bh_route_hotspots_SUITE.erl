@@ -25,7 +25,9 @@ all() ->
         rewards_buckets_test,
         witnesses_test,
         witnesses_buckets_test,
-        challenges_buckets_test
+        challenges_buckets_test,
+        name_test,
+        name_search_test
     ].
 
 init_per_suite(Config) ->
@@ -56,15 +58,6 @@ get_test(_Config) ->
         }
     } = Json,
     ?assertEqual(FetchAddress, binary_to_list(Address)),
-    ok.
-
-get_named_test(_Config) ->
-    FetchAddress = "1126WubKPpmEW6uCgcuXMfn4tHEp2rPr9sCrR9YXj2Vvg4gL3QC2",
-    {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/", FetchAddress]),
-    #{
-        <<"data">> := Results
-    } = Json,
-    ?assert(length(Results) >= 1),
     ok.
 
 not_found_test(_Config) ->
@@ -289,4 +282,22 @@ challenges_buckets_test(_Config) ->
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),
 
+    ok.
+
+name_test(_Config) ->
+    FetchName = "clever-tan-panther",
+    {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/name/", FetchName]),
+    #{
+        <<"data">> := Results
+    } = Json,
+    ?assert(length(Results) >= 1),
+    ok.
+
+name_search_test(_Config) ->
+    Search = "clever",
+    {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/name?search=", Search]),
+    #{
+        <<"data">> := Results
+    } = Json,
+    ?assert(length(Results) >= 1),
     ok.

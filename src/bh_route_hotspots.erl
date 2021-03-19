@@ -21,15 +21,18 @@
 -define(S_OWNER_HOTSPOT_LIST, "owner_hotspot_list").
 -define(S_HOTSPOT, "hotspot").
 -define(S_HOTSPOTS_NAMED, "hotspots_named").
+-define(S_HOTSPOT_NAME_SEARCH, "hotspots_name_search").
 -define(S_CITY_HOTSPOT_LIST, "hotspot_city_list").
 -define(S_CITY_HOTSPOT_LIST_BEFORE, "hotspot_city_list_before").
 -define(S_HOTSPOT_WITNESS_LIST, "hotspot_witness_list").
 -define(S_HOTSPOT_BUCKETED_SUM_WITNESSES, "hotspot_bucketed_sum_witnesses").
 -define(S_HOTSPOT_BUCKETED_SUM_CHALLENGES, "hotspot_bucketed_sum_challenges").
 -define(HOTSPOT_LIST_LIMIT, 1000).
+-define(HOTSPOT_LIST_SEARCH_LIMIT, 100).
 
 prepare_conn(Conn) ->
     HotspotListLimit = "limit " ++ integer_to_list(?HOTSPOT_LIST_LIMIT),
+    HotspotListSearchLimit = "limit " ++ integer_to_list(?HOTSPOT_LIST_SEARCH_LIMIT),
     Loads = [
         {?S_HOTSPOT_LIST_BEFORE,
             {hotspot_list_base, [
@@ -72,6 +75,13 @@ prepare_conn(Conn) ->
                 {scope, "where g.name = $1"},
                 {order, ""},
                 {limit, ""}
+            ]}},
+        {?S_HOTSPOT_NAME_SEARCH,
+            {hotspot_list_base, [
+                {source, hotspot_name_search_source},
+                {scope, hotspot_name_search_scope},
+                {order, hotspot_name_search_order},
+                {limit, HotspotListSearchLimit}
             ]}},
         {?S_CITY_HOTSPOT_LIST_BEFORE,
             {hotspot_list_base, [
@@ -150,8 +160,9 @@ handle('GET', [<<"elected">>, BlockId], _Req) ->
     end;
 handle('GET', [<<"elected">>, <<"hash">>, TxnHash], _Req) ->
     ?MK_RESPONSE(get_hotspot_elected_list({hash, TxnHash}), infinity);
-handle('GET', [Address], _Req) ->
-    ?MK_RESPONSE(get_hotspot(Address), block_time);
+handle('GET', [<<"name">>], Req) ->
+    Args = ?GET_ARGS([search], Req),
+    ?MK_RESPONSE(get_hotspot_list(Args), block_time);
 handle('GET', [<<"name">>, Name], _Req) ->
     ?MK_RESPONSE(get_hotspots_named(Name), block_time);
 handle('GET', [Address, <<"activity">>], Req) ->
@@ -195,6 +206,8 @@ handle('GET', [Address, <<"witnesses">>], _Req) ->
 handle('GET', [Address, <<"witnesses">>, <<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time, bucket], Req),
     ?MK_RESPONSE(get_witnesses_sum({hotspot, Address}, Args), block_time);
+handle('GET', [Address], _Req) ->
+    ?MK_RESPONSE(get_hotspot(Address), block_time);
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
@@ -250,7 +263,10 @@ get_hotspot_list([{owner, Owner}, {city, City}, {cursor, Cursor}]) ->
             end;
         _ ->
             {error, badarg}
-    end.
+    end;
+get_hotspot_list([{search, Name}]) ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_NAME_SEARCH, [Name]),
+    mk_hotspot_list_from_result(Result).
 
 get_witnesses_sum(
     {hotspot, Address},
