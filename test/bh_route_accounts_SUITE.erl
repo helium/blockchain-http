@@ -9,6 +9,7 @@ all() ->
     [
         get_test,
         not_found_test,
+        activity_count_test,
         activity_result_test,
         activity_low_block_test,
         activity_filter_no_result_test,
@@ -41,6 +42,20 @@ get_test(_Config) ->
 
 not_found_test(_Config) ->
     ?assertMatch({error, {_, 404, _}}, ?json_request("/v1/accounts/no_account/no_path")),
+    ok.
+
+activity_count_test(_Config) ->
+    Account = "1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY",
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/accounts/",
+        Account,
+        "/activity/count?filter_types=payment_v1"
+    ]),
+    #{
+        <<"data">> := Data
+    } = Json,
+    ?assertEqual(1, maps:size(Data)),
+    ?assert(maps:get(<<"payment_v1">>, Data) >= 0),
     ok.
 
 activity_result_test(_Config) ->

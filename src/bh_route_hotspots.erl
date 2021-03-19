@@ -159,6 +159,9 @@ handle('GET', [Address, <<"activity">>], Req) ->
     Result = bh_route_txns:get_activity_list({hotspot, Address}, Args),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);
+handle('GET', [Address, <<"activity">>, <<"count">>], Req) ->
+    Args = ?GET_ARGS([filter_types], Req),
+    ?MK_RESPONSE(bh_route_txns:get_activity_count({hotspot, Address}, Args), block_time);
 handle('GET', [Address, <<"elections">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(
@@ -327,11 +330,10 @@ mk_cursor(Results) when is_list(Results) ->
             undefined;
         false ->
             case lists:last(Results) of
-                {Height, _LastChangeBlock, FirstBlock, _FirstTimestamp, _LastPocChallenge,
-                    Address, _Owner, _Location, _Nonce, _Name, _RewardScale, _OnlineStatus,
-                    _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet, _ShortCity,
-                    _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
-                    _CityId} ->
+                {Height, _LastChangeBlock, FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
+                    _Owner, _Location, _Nonce, _Name, _RewardScale, _OnlineStatus, _BlockStatus,
+                    _ListenAddrs, _ShortStreet, _LongStreet, _ShortCity, _LongCity, _ShortState,
+                    _LongState, _ShortCountry, _LongCountry, _CityId} ->
                     #{
                         before_address => Address,
                         before_block => FirstBlock,
@@ -362,8 +364,8 @@ hotspot_witness_list_to_json(Results) ->
     lists:map(fun hotspot_witness_to_json/1, Results).
 
 to_geo_json(
-    {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
-        LongCountry, CityId}
+    {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry,
+        CityId}
 ) ->
     Base = to_geo_json(
         {ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}
@@ -391,15 +393,15 @@ to_geo_json(
 
 hotspot_witness_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Owner,
-        Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus, ListenAddrs,
-        ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
-        LongCountry, CityId, WitnessFor, WitnessInfo}
+        Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus, ListenAddrs, ShortStreet,
+        LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId,
+        WitnessFor, WitnessInfo}
 ) ->
     Base = hotspot_to_json(
-        {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address,
-            Owner, Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus,
-            ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
-            LongState, ShortCountry, LongCountry, CityId}
+        {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Owner,
+            Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus, ListenAddrs, ShortStreet,
+            LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry,
+            CityId}
     ),
     Base#{
         witness_for => WitnessFor,
@@ -408,9 +410,8 @@ hotspot_witness_to_json(
 
 hotspot_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Owner,
-        Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus, ListenAddrs,
-        ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
-        LongCountry, CityId}
+        Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus, ListenAddrs, ShortStreet,
+        LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}
 ) ->
     MaybeZero = fun
         (null) -> 0;
@@ -424,8 +425,8 @@ hotspot_to_json(
             owner => Owner,
             location => Location,
             geocode => to_geo_json(
-                {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
-                    ShortCountry, LongCountry, CityId}
+                {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
+                    LongCountry, CityId}
             ),
             last_change_block => LastChangeBlock,
             last_poc_challenge => LastPoCChallenge,

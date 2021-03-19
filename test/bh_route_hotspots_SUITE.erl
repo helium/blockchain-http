@@ -10,6 +10,7 @@ all() ->
         list_test,
         get_test,
         not_found_test,
+        activity_count_test,
         activity_result_test,
         activity_low_block_test,
         activity_filter_no_result_test,
@@ -68,6 +69,21 @@ get_named_test(_Config) ->
 
 not_found_test(_Config) ->
     ?assertMatch({error, {_, 404, _}}, ?json_request("/v1/hotspots/no_address")),
+    ok.
+
+activity_count_test(_Config) ->
+    Hotspot = "112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK",
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/hotspots/",
+        Hotspot,
+        "/activity/count?filter_types=add_gateway_v1,assert_location_v1"
+    ]),
+    #{
+        <<"data">> := Data
+    } = Json,
+    ?assertEqual(2, maps:size(Data)),
+    ?assertEqual(maps:get(<<"add_gateway_v1">>, Data), 1),
+    ?assert(maps:get(<<"assert_location_v1">>, Data) >= 0),
     ok.
 
 activity_result_test(_Config) ->
