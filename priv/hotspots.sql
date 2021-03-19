@@ -1,17 +1,17 @@
 -- :hotspot_list_base
-select 
+select
     (select max(height) from blocks) as height,
-    g.last_block, 
-    g.first_block, 
-    g.first_timestamp, 
+    g.last_block,
+    g.first_block,
+    g.first_timestamp,
     g.last_poc_challenge,
     g.address,
-    g.owner, 
-    g.location, 
-    g.nonce, 
+    g.owner,
+    g.location,
+    g.nonce,
     g.name,
     g.reward_scale,
-    s.online as online_status, 
+    s.online as online_status,
     s.block as block_status,
     s.listen_addrs as listen_addrs,
     l.short_street, l.long_street,
@@ -24,7 +24,7 @@ left join locations l on g.location = l.location
 left join gateway_status s on s.address = g.address
 :scope
 :order
-:limit 
+:limit
 
 -- :hotspot_list_order
 order by g.first_block desc, g.address
@@ -53,14 +53,22 @@ and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3))
 where l.city_id = $1
 
 -- :hotspot_witness_list
-with min as (
+with last_assert as (
+    select t.block as height from transactions t inner join transaction_actors a on t.hash = a.transaction_hash
+    where t.type = 'assert_location_v1' and a.actor = $1
+    order by t.block desc limit 1
+),
+five_days as (
     select height from blocks where timestamp > (now() - '5 day'::interval) order by height limit 1
 ),
+min as (
+    select GREATEST((select height from last_assert), (select height from five_days)) as height
+),
 recent_witnesses as (
-     select $1 as address, jsonb_merge_agg(witnesses) as witnesses from 
-        (select * 
-        from gateways 
-        where address = $1 and block >= (select height from min) 
+     select $1 as address, jsonb_merge_agg(witnesses) as witnesses from
+        (select *
+        from gateways
+        where address = $1 and block >= (select height from min)
         order by block) a
  ),
 hotspot_witnesses as (
@@ -78,11 +86,11 @@ with field_members as (
     select fields->'members' as members
     from transactions
     where type = 'consensus_group_v1' :filter
-    order by block desc 
+    order by block desc
     limit 1
 ),
 members as (
-    select * 
+    select *
     from jsonb_array_elements_text((select members from field_members))
 )
 :hotspot_select
@@ -99,34 +107,34 @@ group by w.time, w.address)
 
 -- :hotspot_bucketed_witnesses_base
 with time_range as (
-    select 
-        extract(epoch from low)::bigint as low, 
-        extract(epoch from high)::bigint as high 
+    select
+        extract(epoch from low)::bigint as low,
+        extract(epoch from high)::bigint as high
     from (
-        select 
-            timestamp as low, 
+        select
+            timestamp as low,
             lag(timestamp) over (order by timestamp desc) as high
         from generate_series($2::timestamptz, $3::timestamptz, $4::interval) as timestamp) t
     where high is not null
 ),
 witness_data as (
-    select 
-        g.address, 
+    select
+        g.address,
         g.witnesses,
         g.time
     from gateways g
     :scope
     and g.time >= (select min(low) from time_range) and g.time <= (select max(high) from time_range)
 )
-select 
+select
     to_timestamp(t.low) as timestamp,
     coalesce(min(d.count), 0) as min,
     coalesce(max(d.count), 0) as max,
     coalesce(percentile_cont(0.5) within group (order by d.count), 0)::float as median,
     coalesce(avg(d.count), 0)::float as avg,
     coalesce(stddev(d.count), 0)::float as stddev
-from time_range t 
-    left join :source d 
+from time_range t
+    left join :source d
     on d.time >= low and d.time < high
 group by t.low
 order by t.low desc;
@@ -140,25 +148,25 @@ group by d.time, d.address)
 
 -- :hotspot_bucketed_challenges_base
 with time_range as (
-    select 
-        extract(epoch from low)::bigint as low, 
-        extract(epoch from high)::bigint as high 
+    select
+        extract(epoch from low)::bigint as low,
+        extract(epoch from high)::bigint as high
     from (
-        select 
-            timestamp as low, 
+        select
+            timestamp as low,
             lag(timestamp) over (order by timestamp desc) as high
         from generate_series($2::timestamptz, $3::timestamptz, $4::interval) as timestamp) t
     where high is not null
 ),
 challenge_data as (
-    select 
-        a.actor as address, 
+    select
+        a.actor as address,
         b.time
     from transaction_actors a inner join blocks b on b.height = a.block
     :scope
     and b.time >= (select min(low) from time_range) and b.time <= (select max(high) from time_range)
 )
-select 
+select
     to_timestamp(t.low) as timestamp,
     coalesce(min(d.count), 0) as min,
     coalesce(max(d.count), 0) as max,
@@ -166,8 +174,8 @@ select
     coalesce(percentile_cont(0.5) within group (order by d.count), 0)::float as median,
     coalesce(avg(d.count), 0)::float as avg,
     coalesce(stddev(d.count), 0)::float as stddev
-from time_range t 
-    left join :source d 
+from time_range t
+    left join :source d
     on d.time >= low and d.time < high
 group by t.low
 order by t.low desc;
