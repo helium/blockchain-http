@@ -52,6 +52,15 @@ and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3))
 -- :city_hotspot_list_scope
 where l.city_id = $1
 
+-- :hotspot_name_search_source
+from gateway_inventory g
+
+-- :hotspot_name_search_scope
+where g.name %> lower($1)
+
+-- :hotspot_name_search_order
+order by word_similarity(g.name, $1) desc, name
+
 -- :hotspot_witness_list
 with last_assert as (
     select t.block as height from transactions t inner join transaction_actors a on t.hash = a.transaction_hash
