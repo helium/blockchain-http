@@ -27,7 +27,9 @@ all() ->
         witnesses_buckets_test,
         challenges_buckets_test,
         name_test,
-        name_search_test
+        name_search_test,
+        location_distance_search_test,
+        location_box_search_test
     ].
 
 init_per_suite(Config) ->
@@ -300,4 +302,61 @@ name_search_test(_Config) ->
         <<"data">> := Results
     } = Json,
     ?assert(length(Results) >= 1),
+    ok.
+
+location_distance_search_test(_Config) ->
+    Lat = "38.12129445739087",
+    Lon = "-122.52885074963571",
+    Distance = "100000",
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/hotspots/location/distance?lat=",
+        Lat,
+        "&lon=",
+        Lon,
+        "&distance=",
+        Distance
+    ]),
+    #{
+        <<"data">> := Results,
+        <<"cursor">> := Cursor
+    } = Json,
+    ?assert(length(Results) >= 1),
+    {ok, {_, _, CursorJson}} = ?json_request([
+        "/v1/hotspots/location/distance?cursor=",
+        Cursor
+    ]),
+    #{
+        <<"data">> := CursorResults
+    } = CursorJson,
+    ?assert(length(CursorResults) >= 1),
+    ok.
+
+location_box_search_test(_Config) ->
+    SWLat = "37.7299412",
+    SWLon = "-122.5090477",
+    NELat = "37.8047205",
+    NELon = "-122.3777419",
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/hotspots/location/box?swlat=",
+        SWLat,
+        "&swlon=",
+        SWLon,
+        "&nelat=",
+        NELat,
+        "&nelon=",
+        NELon
+    ]),
+    #{
+        <<"data">> := Results,
+        <<"cursor">> := Cursor
+    } = Json,
+    ?assert(length(Results) >= 1),
+    {ok, {_, _, CursorJson}} = ?json_request([
+        "/v1/hotspots/location/box?cursor=",
+        Cursor
+    ]),
+    #{
+        <<"data">> := CursorResults
+    } = CursorJson,
+    ?assert(length(CursorResults) >= 1),
     ok.

@@ -22,17 +22,24 @@
 -define(S_HOTSPOT, "hotspot").
 -define(S_HOTSPOTS_NAMED, "hotspots_named").
 -define(S_HOTSPOT_NAME_SEARCH, "hotspots_name_search").
+-define(S_HOTSPOT_LOCATION_DISTANCE_SEARCH, "hotspots_location_distance_search").
+-define(S_HOTSPOT_LOCATION_DISTANCE_SEARCH_BEFORE, "hotspots_location_distance_search_before").
+-define(S_HOTSPOT_LOCATION_BOX_SEARCH, "hotspots_location_box_search").
+-define(S_HOTSPOT_LOCATION_BOX_SEARCH_BEFORE, "hotspots_location_box_search_before").
 -define(S_CITY_HOTSPOT_LIST, "hotspot_city_list").
 -define(S_CITY_HOTSPOT_LIST_BEFORE, "hotspot_city_list_before").
 -define(S_HOTSPOT_WITNESS_LIST, "hotspot_witness_list").
 -define(S_HOTSPOT_BUCKETED_SUM_WITNESSES, "hotspot_bucketed_sum_witnesses").
 -define(S_HOTSPOT_BUCKETED_SUM_CHALLENGES, "hotspot_bucketed_sum_challenges").
 -define(HOTSPOT_LIST_LIMIT, 1000).
--define(HOTSPOT_LIST_SEARCH_LIMIT, 100).
+-define(HOTSPOT_LIST_NAME_SEARCH_LIMIT, 100).
+-define(HOTSPOT_LIST_LOCATION_SEARCH_LIMIT, 500).
 
 prepare_conn(Conn) ->
     HotspotListLimit = "limit " ++ integer_to_list(?HOTSPOT_LIST_LIMIT),
-    HotspotListSearchLimit = "limit " ++ integer_to_list(?HOTSPOT_LIST_SEARCH_LIMIT),
+    HotspotListNameSearchLimit = "limit " ++ integer_to_list(?HOTSPOT_LIST_NAME_SEARCH_LIMIT),
+    HotspotListLocationSearchLimit =
+        "limit " ++ integer_to_list(?HOTSPOT_LIST_LOCATION_SEARCH_LIMIT),
     Loads = [
         {?S_HOTSPOT_LIST_BEFORE,
             {hotspot_list_base, [
@@ -81,7 +88,35 @@ prepare_conn(Conn) ->
                 {source, hotspot_name_search_source},
                 {scope, hotspot_name_search_scope},
                 {order, hotspot_name_search_order},
-                {limit, HotspotListSearchLimit}
+                {limit, HotspotListNameSearchLimit}
+            ]}},
+        {?S_HOTSPOT_LOCATION_BOX_SEARCH,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, hotspot_location_box_search_scope},
+                {order, hotspot_location_box_search_order},
+                {limit, HotspotListLocationSearchLimit}
+            ]}},
+        {?S_HOTSPOT_LOCATION_BOX_SEARCH_BEFORE,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, hotspot_location_box_search_before_scope},
+                {order, hotspot_location_box_search_order},
+                {limit, HotspotListLocationSearchLimit}
+            ]}},
+        {?S_HOTSPOT_LOCATION_DISTANCE_SEARCH,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, hotspot_location_distance_search_scope},
+                {order, hotspot_location_distance_search_order},
+                {limit, HotspotListLocationSearchLimit}
+            ]}},
+        {?S_HOTSPOT_LOCATION_DISTANCE_SEARCH_BEFORE,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, hotspot_location_distance_search_before_scope},
+                {order, hotspot_location_distance_search_order},
+                {limit, HotspotListLocationSearchLimit}
             ]}},
         {?S_CITY_HOTSPOT_LIST_BEFORE,
             {hotspot_list_base, [
@@ -165,6 +200,12 @@ handle('GET', [<<"name">>], Req) ->
     ?MK_RESPONSE(get_hotspot_list(Args), block_time);
 handle('GET', [<<"name">>, Name], _Req) ->
     ?MK_RESPONSE(get_hotspots_named(Name), block_time);
+handle('GET', [<<"location">>, <<"box">>], Req) ->
+    Args = ?GET_ARGS([swlon, swlat, nelon, nelat, cursor], Req),
+    ?MK_RESPONSE(get_hotspot_list_in_box(Args), block_time);
+handle('GET', [<<"location">>, <<"distance">>], Req) ->
+    Args = ?GET_ARGS([lat, lon, distance, cursor], Req),
+    ?MK_RESPONSE(get_hotspot_list_by_distance(Args), block_time);
 handle('GET', [Address, <<"activity">>], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
     Result = bh_route_txns:get_activity_list({hotspot, Address}, Args),
@@ -218,6 +259,42 @@ get_hotspot_elected_list({hash, TxnHash}) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_ELECTION_LIST, [TxnHash]),
     mk_hotspot_list_from_result(Result).
 
+get_hotspot_list_in_box([
+    {swlon, SWLon},
+    {swlat, SWLat},
+    {nelon, NELon},
+    {nelat, NELat},
+    {cursor, undefined}
+]) ->
+    Args =
+        try
+            [?PARSE_FLOAT(SWLon), ?PARSE_FLOAT(SWLat), ?PARSE_FLOAT(NELon), ?PARSE_FLOAT(NELat)]
+        catch
+            _:_ ->
+                throw(?RESPONSE_400)
+        end,
+    get_hotspot_list([{search_box, Args}, {cursor, undefined}]);
+get_hotspot_list_in_box([
+    {swlon, _},
+    {swlat, _},
+    {nelon, _},
+    {nelat, _},
+    {cursor, Cursor}
+]) ->
+    get_hotspot_list([{search_box, []}, {cursor, Cursor}]).
+
+get_hotspot_list_by_distance([{lat, Lat}, {lon, Lon}, {distance, Distance}, {cursor, undefined}]) ->
+    Args =
+        try
+            [?PARSE_FLOAT(Lat), ?PARSE_FLOAT(Lon), ?PARSE_INT(Distance)]
+        catch
+            _:_ ->
+                throw(?RESPONSE_400)
+        end,
+    get_hotspot_list([{search_distance, Args}, {cursor, undefined}]);
+get_hotspot_list_by_distance([{lat, _}, {lon, _}, {distance, _}, {cursor, Cursor}]) ->
+    get_hotspot_list([{search_distance, []}, {cursor, Cursor}]).
+
 get_hotspot_list([{witnesses_for, Address}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESS_LIST, [Address]),
     mk_hotspot_witness_list_from_result(Result);
@@ -261,6 +338,62 @@ get_hotspot_list([{owner, Owner}, {city, City}, {cursor, Cursor}]) ->
                 {_, _} ->
                     {error, badarg}
             end;
+        _ ->
+            {error, badarg}
+    end;
+get_hotspot_list([{search_distance, [Lat, Lon, Distance]}, {cursor, undefined}]) ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_LOCATION_DISTANCE_SEARCH, [Lon, Lat, Distance]),
+    mk_hotspot_list_from_result(
+        ?HOTSPOT_LIST_LOCATION_SEARCH_LIMIT,
+        #{lat => Lat, lon => Lon, distance => Distance},
+        Result
+    );
+get_hotspot_list([{search_distance, _}, {cursor, Cursor}]) ->
+    case ?CURSOR_DECODE(Cursor) of
+        {ok, #{
+            <<"lat">> := Lat,
+            <<"lon">> := Lon,
+            <<"distance">> := Distance,
+            <<"before_address">> := BeforeAddress,
+            <<"before_block">> := BeforeBlock,
+            <<"height">> := _Height
+        }} ->
+            Result = ?PREPARED_QUERY(
+                ?S_HOTSPOT_LOCATION_DISTANCE_SEARCH_BEFORE,
+                [Lon, Lat, Distance] ++ [BeforeAddress, BeforeBlock]
+            ),
+            mk_hotspot_list_from_result(
+                ?HOTSPOT_LIST_LOCATION_SEARCH_LIMIT,
+                #{lat => Lat, lon => Lon, distance => Distance},
+                Result
+            );
+        _ ->
+            {error, badarg}
+    end;
+get_hotspot_list([{search_box, Corners}, {cursor, undefined}]) ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_LOCATION_BOX_SEARCH, Corners),
+    mk_hotspot_list_from_result(
+        ?HOTSPOT_LIST_LOCATION_SEARCH_LIMIT,
+        #{corners => Corners},
+        Result
+    );
+get_hotspot_list([{search_box, _}, {cursor, Cursor}]) ->
+    case ?CURSOR_DECODE(Cursor) of
+        {ok, #{
+            <<"corners">> := Corners,
+            <<"before_address">> := BeforeAddress,
+            <<"before_block">> := BeforeBlock,
+            <<"height">> := _Height
+        }} ->
+            Result = ?PREPARED_QUERY(
+                ?S_HOTSPOT_LOCATION_BOX_SEARCH_BEFORE,
+                Corners ++ [BeforeAddress, BeforeBlock]
+            ),
+            mk_hotspot_list_from_result(
+                ?HOTSPOT_LIST_LOCATION_SEARCH_LIMIT,
+                #{corners => Corners},
+                Result
+            );
         _ ->
             {error, badarg}
     end;
@@ -334,14 +467,17 @@ get_hotspots_named(Name) ->
             {error, not_found}
     end.
 
-mk_hotspot_list_from_result({ok, _, Results}) ->
-    {ok, hotspot_list_to_json(Results), mk_cursor(Results)}.
+mk_hotspot_list_from_result(Results) ->
+    mk_hotspot_list_from_result(?HOTSPOT_LIST_LIMIT, #{}, Results).
+
+mk_hotspot_list_from_result(Limit, CursorBase, {ok, _, Results}) ->
+    {ok, hotspot_list_to_json(Results), mk_cursor(Limit, CursorBase, Results)}.
 
 mk_hotspot_witness_list_from_result({ok, _, Results}) ->
     {ok, hotspot_witness_list_to_json(Results)}.
 
-mk_cursor(Results) when is_list(Results) ->
-    case length(Results) < ?HOTSPOT_LIST_LIMIT of
+mk_cursor(Limit, CursorBase, Results) when is_list(Results) ->
+    case length(Results) < Limit of
         true ->
             undefined;
         false ->
@@ -350,7 +486,7 @@ mk_cursor(Results) when is_list(Results) ->
                     _Owner, _Location, _Nonce, _Name, _RewardScale, _OnlineStatus, _BlockStatus,
                     _ListenAddrs, _ShortStreet, _LongStreet, _ShortCity, _LongCity, _ShortState,
                     _LongState, _ShortCountry, _LongCountry, _CityId} ->
-                    #{
+                    CursorBase#{
                         before_address => Address,
                         before_block => FirstBlock,
                         %% Add height to the cursor to avoid overlap between the
