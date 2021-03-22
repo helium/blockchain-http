@@ -14,11 +14,12 @@
     lat_lon/2,
     lat_lon/3,
     cursor_encode/1,
-    cursor_decode/1
+    cursor_decode/1,
+    parse_float/1,
+    parse_int/1
 ]).
 
--callback handle(elli:http_method(), Path :: [binary()], Req :: elli:req()) ->
-    elli:result().
+-callback handle(elli:http_method(), Path :: [binary()], Req :: elli:req()) -> elli:result().
 
 -type arg_spec() :: Key :: atom() | {Key :: atom(), Default :: any()}.
 -type arg() :: {Key :: atom(), Value :: any()}.
@@ -26,11 +27,11 @@
 -type timespan() :: {Max :: calendar:datetime(), Min :: calendar:datetime()}.
 -type blockspan() :: {MaxBlock :: non_neg_integer(), Min :: non_neg_integer()}.
 -type cache_time() ::
-    infinity |
-    never |
-    undefined |
-    block_time |
-    {block_time, pos_integer()}.
+    infinity
+    | never
+    | undefined
+    | block_time
+    | {block_time, pos_integer()}.
 
 -export_type([cache_time/0, timespan/0, blockspan/0, interval_spec/0]).
 
@@ -50,11 +51,11 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
         end,
     get_args(Tail, Req, [{Key, V} | Acc]).
 
-%% Parse a given binary timestamp. Returns the given `Now' time if passed 
+%% Parse a given binary timestamp. Returns the given `Now' time if passed
 %% <<"now">> or undefined. Otherwise an attempt is made to parse an interval relative
 %% to `Now', like "-1 week", or "-30 days". If an interval is parsed `Now' +
 %% the interval is returned. Failing all, a standard iso8601 parsing attempt is
-%% made. 
+%% made.
 -spec parse_timestamp(Now :: calendar:datetime(), binary() | undefined) ->
     {ok, calendar:datetime()} | {error, term()}.
 parse_timestamp(Now, undefined) ->
@@ -70,17 +71,17 @@ parse_timestamp(Now, Bin) ->
                         interval_to_seconds(Interval)
                 )};
         {error, _} ->
-            try {ok, iso8601:parse(Bin)}
+            try
+                {ok, iso8601:parse(Bin)}
             catch
                 error:badarg ->
                     {error, badarg}
             end
     end.
 
--spec parse_timespan(High :: binary(), Low :: binary()) ->
-    {ok, timespan()} | {error, term()}.
+-spec parse_timespan(High :: binary(), Low :: binary()) -> {ok, timespan()} | {error, term()}.
 parse_timespan(MaxTime0, MinTime0) ->
-    Validate = fun (Max, Min) ->
+    Validate = fun(Max, Min) ->
         calendar:datetime_to_gregorian_seconds(Max) >=
             calendar:datetime_to_gregorian_seconds(Min)
     end,
@@ -141,8 +142,8 @@ interval_to_seconds({{H, M, S}, D, 0}) ->
     TimeSecs + DaySecs.
 
 -spec parse_bucketed_timespan(High :: binary(), Low :: binary(), Step :: binary()) ->
-    {ok, {timespan(), interval_spec()}} |
-    {error, term()}.
+    {ok, {timespan(), interval_spec()}}
+    | {error, term()}.
 parse_bucketed_timespan(MaxTime0, MinTime0, Bucket0) ->
     case parse_timespan(MaxTime0, MinTime0) of
         {ok, {MaxTime, MinTime}} ->
@@ -158,13 +159,12 @@ parse_bucketed_timespan(MaxTime0, MinTime0, Bucket0) ->
 %% optional cursor if needed. Given an error tuple, it will respond
 %% with a pre-configured error code.
 -spec mk_response(
-    {ok, Json :: (map() | list()), Cursor :: map() | undefined, Meta :: map | undefined} |
-    {ok, Json :: (map() | list()), Cursor :: map() | undefined} |
-    {ok, Json :: (map() | list())} |
-    {error, term()},
+    {ok, Json :: (map() | list()), Cursor :: map() | undefined, Meta :: map | undefined}
+    | {ok, Json :: (map() | list()), Cursor :: map() | undefined}
+    | {ok, Json :: (map() | list())}
+    | {error, term()},
     cache_time()
-) ->
-    {ok | elli:response_code(), elli:headers(), elli:body()}.
+) -> {ok | elli:response_code(), elli:headers(), elli:body()}.
 mk_response({ok, Json, Cursor, Meta}, CacheTime) ->
     Result0 = #{data => Json},
     Result1 =
@@ -249,6 +249,21 @@ cursor_decode(_) ->
 cursor_encode(Map) ->
     ?BIN_TO_B64(jiffy:encode(Map)).
 
+-spec parse_float(null | binary() | float()) -> float().
+parse_float(null) ->
+    null;
+parse_float(Bin) when is_binary(Bin) ->
+    binary_to_float(Bin);
+parse_float(Num) when is_float(Num) ->
+    Num.
+
+parse_int(null) ->
+    null;
+parse_int(Bin) when is_binary(Bin) ->
+    binary_to_integer(Bin);
+parse_int(Num) when is_integer(Num) ->
+    Num.
+
 -ifdef(TEST).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -272,6 +287,18 @@ parse_timestamp_test() ->
     ?assertMatch({ok, {{2021, 1, 27}, {0, 0, 0}}}, parse_timestamp(Now, <<"-1 day">>)),
     ?assertMatch({ok, {{2021, 1, 21}, {0, 0, 0}}}, parse_timestamp(Now, <<"-1 week">>)),
     ?assertMatch({ok, {{2021, 1, 26}, {0, 0, 0}}}, parse_timestamp(Now, <<"-48 hour">>)),
+    ok.
+
+parse_float_test() ->
+    ?assertEqual(null, parse_float(null)),
+    ?assertEqual(22.2, parse_float(<<"22.2">>)),
+    ?assertEqual(22.2, parse_float(22.2)),
+    ok.
+
+parse_int_test() ->
+    ?assertEqual(null, parse_int(null)),
+    ?assertEqual(22, parse_int(<<"22">>)),
+    ?assertEqual(22, parse_int(22)),
     ok.
 
 -endif.

@@ -61,6 +61,26 @@ where g.name %> lower($1)
 -- :hotspot_name_search_order
 order by word_similarity(g.name, $1) desc, name
 
+-- :hotspot_location_box_search_order
+order by g.first_block desc, g.address
+
+-- :hotspot_location_box_search_scope
+where ST_Intersects(ST_MakeEnvelope($1, $2, $3, $4, 4326), l.geometry)
+
+-- :hotspot_location_box_search_before_scope
+where ST_Intersects(ST_MakeEnvelope($1, $2, $3, $4, 4326), l.geometry)
+and ((g.address > $5 and g.first_block = $6) or (g.first_block < $6))
+
+-- :hotspot_location_distance_search_order
+order by ST_Distance(ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, l.geometry::geography), g.address
+
+-- :hotspot_location_distance_search_scope
+where ST_DWithin(ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, l.geometry::geography, $3)
+
+-- :hotspot_location_distance_search_before_scope
+where ST_DWithin(ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, l.geometry::geography, $3)
+and ((g.address > $4 and g.first_block = $5) or (g.first_block < $5))
+
 -- :hotspot_witness_list
 with last_assert as (
     select t.block as height from transactions t inner join transaction_actors a on t.hash = a.transaction_hash

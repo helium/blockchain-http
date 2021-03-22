@@ -85,10 +85,10 @@ mk_stats_from_time_results(
     ]}
 ) ->
     #{
-        last_hour => #{avg => mk_float(LastHrAvg), stddev => mk_float(LastHrStddev)},
-        last_day => #{avg => mk_float(LastDayAvg), stddev => mk_float(LastDayStddev)},
-        last_week => #{avg => mk_float(LastWeekAvg), stddev => mk_float(LastWeekStddev)},
-        last_month => #{avg => mk_float(LastMonthAvg), stddev => mk_float(LastMonthStddev)}
+        last_hour => #{avg => ?PARSE_FLOAT(LastHrAvg), stddev => ?PARSE_FLOAT(LastHrStddev)},
+        last_day => #{avg => ?PARSE_FLOAT(LastDayAvg), stddev => ?PARSE_FLOAT(LastDayStddev)},
+        last_week => #{avg => ?PARSE_FLOAT(LastWeekAvg), stddev => ?PARSE_FLOAT(LastWeekStddev)},
+        last_month => #{avg => ?PARSE_FLOAT(LastMonthAvg), stddev => ?PARSE_FLOAT(LastMonthStddev)}
     }.
 
 mk_stats_from_state_channel_results(
@@ -97,9 +97,15 @@ mk_stats_from_state_channel_results(
     ]}
 ) ->
     #{
-        last_day => #{num_packets => mk_int(LastDayPackets), num_dcs => mk_int(LastDayDCs)},
-        last_week => #{num_packets => mk_int(LastWeekPackets), num_dcs => mk_int(LastWeekDCs)},
-        last_month => #{num_packets => mk_int(LastMonthPackets), num_dcs => mk_int(LastMonthDCs)}
+        last_day => #{num_packets => ?PARSE_INT(LastDayPackets), num_dcs => ?PARSE_INT(LastDayDCs)},
+        last_week => #{
+            num_packets => ?PARSE_INT(LastWeekPackets),
+            num_dcs => ?PARSE_INT(LastWeekDCs)
+        },
+        last_month => #{
+            num_packets => ?PARSE_INT(LastMonthPackets),
+            num_dcs => ?PARSE_INT(LastMonthDCs)
+        }
     }.
 
 mk_stats_from_fee_results(
@@ -110,16 +116,16 @@ mk_stats_from_fee_results(
 ) ->
     #{
         last_day => #{
-            transaction => mk_int(LastDayTxnFees),
-            staking => mk_int(LastDayStakingFees)
+            transaction => ?PARSE_INT(LastDayTxnFees),
+            staking => ?PARSE_INT(LastDayStakingFees)
         },
         last_week => #{
-            transaction => mk_int(LastWeekTxnFees),
-            staking => mk_int(LastWeekStakingFees)
+            transaction => ?PARSE_INT(LastWeekTxnFees),
+            staking => ?PARSE_INT(LastWeekStakingFees)
         },
         last_month => #{
-            transaction => mk_int(LastMonthTxnFees),
-            staking => mk_int(LastMonthStakingFees)
+            transaction => ?PARSE_INT(LastMonthTxnFees),
+            staking => ?PARSE_INT(LastMonthStakingFees)
         }
     }.
 
@@ -128,42 +134,11 @@ mk_stats_from_counts_results({ok, CountsResults}) ->
 
 mk_stats_from_challenge_results({ok, [{ActiveChallenges, LastDayChallenges}]}) ->
     #{
-        active => mk_int(ActiveChallenges),
-        last_day => mk_int(LastDayChallenges)
+        active => ?PARSE_INT(ActiveChallenges),
+        last_day => ?PARSE_INT(LastDayChallenges)
     }.
-
-mk_float(null) ->
-    null;
-mk_float(Bin) when is_binary(Bin) ->
-    binary_to_float(Bin);
-mk_float(Num) when is_float(Num) ->
-    Num.
-
-mk_int(null) ->
-    null;
-mk_int(Bin) when is_binary(Bin) ->
-    binary_to_integer(Bin);
-mk_int(Num) when is_integer(Num) ->
-    Num.
 
 mk_token_supply_from_result({ok, _, Result}) ->
     mk_token_supply_from_result({ok, Result});
 mk_token_supply_from_result({ok, [{TokenSupply}]}) ->
-    mk_float(TokenSupply).
-
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
-
-mk_int_test() ->
-    ?assertEqual(null, mk_int(null)),
-    ?assertEqual(22, mk_int(<<"22">>)),
-    ?assertEqual(22, mk_int(22)),
-    ok.
-
-mk_float_test() ->
-    ?assertEqual(null, mk_float(null)),
-    ?assertEqual(22.2, mk_float(<<"22.2">>)),
-    ?assertEqual(22.2, mk_float(22.2)),
-    ok.
-
--endif.
+    ?PARSE_FLOAT(TokenSupply).

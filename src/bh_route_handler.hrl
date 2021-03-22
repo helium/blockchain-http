@@ -14,6 +14,8 @@
 -define(PARSE_BUCKETED_TIMESPAN(H, L, B),
     bh_route_handler:parse_bucketed_timespan((H), (L), (B))
 ).
+-define(PARSE_FLOAT(F), bh_route_handler:parse_float((F))).
+-define(PARSE_INT(I), bh_route_handler:parse_int((I))).
 
 -define(MK_RESPONSE(R), ?MK_RESPONSE(R, undefined)).
 -define(MK_RESPONSE(R, C), bh_route_handler:mk_response((R), (C))).
