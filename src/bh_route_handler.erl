@@ -266,7 +266,7 @@ parse_int(Num) when is_integer(Num) ->
     Num.
 
 try_or_else(TryFun, Fun, OrElse) ->
-    try TryFun of
+    try TryFun() of
         V -> Fun(V)
     catch
         _:_ ->
