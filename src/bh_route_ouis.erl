@@ -73,12 +73,13 @@ handle('GET', [<<"stats">>], _Req) ->
 handle('GET', [<<"last">>], _Req) ->
     ?MK_RESPONSE(get_last_oui(), block_time);
 handle('GET', [OuiBin], _Req) ->
-    try binary_to_integer(OuiBin) of
-        Oui -> ?MK_RESPONSE(get_oui(Oui), infinity)
-    catch
-        _:_ ->
-            ?RESPONSE_400
-    end;
+    bh_route_handler:try_or_else(
+        fun() -> binary_to_integer(OuiBin) end,
+        fun(Oui) ->
+            ?MK_RESPONSE(get_oui(Oui), infinity)
+        end,
+        ?RESPONSE_400
+    );
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 

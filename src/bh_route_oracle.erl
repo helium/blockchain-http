@@ -40,12 +40,13 @@ handle('GET', [<<"prices">>], Req) ->
 handle('GET', [<<"prices">>, <<"current">>], _Req) ->
     ?MK_RESPONSE(get_price_at_block(undefined), block_time);
 handle('GET', [<<"prices">>, Block], _Req) ->
-    try binary_to_integer(Block) of
-        Height -> ?MK_RESPONSE(get_price_at_block(Height), infinity)
-    catch
-        _:_ ->
-            ?RESPONSE_400
-    end;
+    bh_route_handler:try_or_else(
+        fun() -> binary_to_integer(Block) end,
+        fun(Height) ->
+            ?MK_RESPONSE(get_price_at_block(Height), infinity)
+        end,
+        ?RESPONSE_400
+    );
 handle('GET', [<<"predictions">>], _Req) ->
     ?MK_RESPONSE(get_price_predictions(), block_time);
 handle('GET', [<<"activity">>], Req) ->

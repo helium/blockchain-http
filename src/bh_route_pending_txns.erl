@@ -95,11 +95,19 @@ handle('GET', [TxnHash], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(get_pending_txn_list({hash, TxnHash}, Args), block_time);
 handle('POST', [], Req) ->
-    #{<<"txn">> := EncodedTxn} = jiffy:decode(elli_request:body(Req), [return_maps]),
-    BinTxn = base64:decode(EncodedTxn),
-    Txn = txn_unwrap(blockchain_txn_pb:decode_msg(BinTxn, blockchain_txn_pb)),
-    Result = insert_pending_txn(Txn, BinTxn),
-    ?MK_RESPONSE(Result, never);
+    bh_route_handler:try_or_else(
+        fun() ->
+            #{<<"txn">> := EncodedTxn} = jiffy:decode(elli_request:body(Req), [return_maps]),
+            BinTxn = base64:decode(EncodedTxn),
+            Txn = txn_unwrap(blockchain_txn_pb:decode_msg(BinTxn, blockchain_txn_pb)),
+            {Txn, BinTxn}
+        end,
+        fun({Txn, BinTxn}) ->
+            Result = insert_pending_txn(Txn, BinTxn),
+            ?MK_RESPONSE(Result, never)
+        end,
+        ?RESPONSE_400
+    );
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 

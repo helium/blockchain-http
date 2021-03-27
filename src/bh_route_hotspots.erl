@@ -187,12 +187,13 @@ handle('GET', [<<"elected">>], _Req) ->
     {ok, #{height := Height}} = bh_route_blocks:get_block_height(),
     ?MK_RESPONSE(get_hotspot_elected_list({height, Height}), block_time);
 handle('GET', [<<"elected">>, BlockId], _Req) ->
-    try binary_to_integer(BlockId) of
-        Height -> ?MK_RESPONSE(get_hotspot_elected_list({height, Height}), infinity)
-    catch
-        _:_ ->
-            ?RESPONSE_400
-    end;
+    bh_route_handler:try_or_else(
+        fun() -> binary_to_integer(BlockId) end,
+        fun(Height) ->
+            ?MK_RESPONSE(get_hotspot_elected_list({height, Height}), infinity)
+        end,
+        ?RESPONSE_400
+    );
 handle('GET', [<<"elected">>, <<"hash">>, TxnHash], _Req) ->
     ?MK_RESPONSE(get_hotspot_elected_list({hash, TxnHash}), infinity);
 handle('GET', [<<"name">>], Req) ->
