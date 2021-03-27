@@ -8,6 +8,7 @@ all() ->
     [
         price_test,
         price_at_block_test,
+        price_at_invalid_block_test,
         list_test,
         activity_list_test,
         price_predictions_test
@@ -34,6 +35,11 @@ price_at_block_test(_Config) ->
         #{<<"data">> := #{<<"block">> := _, <<"price">> := _, <<"timestamp">> := _}},
         Json
     ),
+
+    ok.
+
+price_at_invalid_block_test(_Config) ->
+    ?assertMatch({error, {_, 400, _}}, ?json_request("/v1/oracle/prices/not_int")),
 
     ok.
 

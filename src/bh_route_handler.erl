@@ -16,7 +16,8 @@
     cursor_encode/1,
     cursor_decode/1,
     parse_float/1,
-    parse_int/1
+    parse_int/1,
+    try_or_else/3
 ]).
 
 -callback handle(elli:http_method(), Path :: [binary()], Req :: elli:req()) -> elli:result().
@@ -263,6 +264,14 @@ parse_int(Bin) when is_binary(Bin) ->
     binary_to_integer(Bin);
 parse_int(Num) when is_integer(Num) ->
     Num.
+
+try_or_else(TryFun, Fun, OrElse) ->
+    try TryFun() of
+        V -> Fun(V)
+    catch
+        _:_ ->
+            OrElse
+    end.
 
 -ifdef(TEST).
 

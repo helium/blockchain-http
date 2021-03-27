@@ -17,6 +17,7 @@ all() ->
         elections_test,
         elected_test,
         elected_block_test,
+        elected_invalid_block_test,
         elected_hash_test,
         challenges_test,
         rewards_test,
@@ -157,6 +158,11 @@ elected_block_test(_Config) ->
         <<"data">> := Data
     } = Json,
     ?assert(length(Data) > 0),
+
+    ok.
+
+elected_invalid_block_test(_Config) ->
+    ?assertMatch({error, {_, 400, _}}, ?json_request("/v1/hotspots/elected/not_int")),
 
     ok.
 
