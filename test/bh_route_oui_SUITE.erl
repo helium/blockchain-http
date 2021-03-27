@@ -6,6 +6,8 @@
 
 all() ->
     [
+        get_test,
+        get_invalid_test,
         list_test,
         last_test,
         stats_test
@@ -16,6 +18,17 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     ?end_bh(Config).
+
+get_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/ouis/1"),
+    #{<<"data">> := _} = Json,
+
+    ok.
+
+get_invalid_test(_Config) ->
+    ?assertMatch({error, {_, 400, _}}, ?json_request("/v1/ouis/not_int")),
+
+    ok.
 
 last_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/ouis/last"),
