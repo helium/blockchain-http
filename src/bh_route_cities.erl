@@ -119,14 +119,14 @@ handle('GET', [], Req) ->
     ?MK_RESPONSE(Result, block_time);
 handle('GET', [City, <<"hotspots">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    bh_route_handler:try_or_else(
-        fun() -> ?B64_TO_BIN(City) end,
-        fun(CityId) ->
-            Result = bh_route_hotspots:get_hotspot_list([{owner, undefined}, {city, CityId} | Args]),
-            ?MK_RESPONSE(Result, block_time)
-        end,
-        ?RESPONSE_400
-    );
+    CityId = ?B64_TO_BIN(City),
+    try
+        Result = bh_route_hotspots:get_hotspot_list([{owner, undefined}, {city, CityId} | Args]),
+        ?MK_RESPONSE(Result, block_time)
+    catch
+        _:_ ->
+            ?RESPONSE_404
+    end;
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 

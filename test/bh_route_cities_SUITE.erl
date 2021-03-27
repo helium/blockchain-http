@@ -56,6 +56,8 @@ city_hotspots_test(_Config) ->
     ok.
 
 invalid_city_hotspots_test(_Config) ->
-    ?assertMatch({error, {_, 400, _}}, ?json_request("/v1/cities/not_b64/hotspots")),
+    %% base64 always decodes but will cause sql to fail. We ensure here that
+    %% it's always interpreted as a not_found
+    ?assertMatch({error, {_, 404, _}}, ?json_request("/v1/cities/not_city/hotspots")),
 
     ok.
