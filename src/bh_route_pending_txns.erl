@@ -77,7 +77,8 @@ prepare_conn(Conn) ->
             [
                 "insert into pending_transactions ",
                 "(hash, type, address, nonce, nonce_type, status, data) values ",
-                "($1, $2, $3, $4, $5, $6, $7)"
+                "($1, $2, $3, $4, $5, $6, $7) ",
+                "returning created_at"
             ],
             []
         ),
@@ -197,8 +198,11 @@ insert_pending_txn(Txn, Address, Nonce, NonceType, Bin) ->
         Bin
     ],
     case ?PREPARED_QUERY(?DB_RW_POOL, ?S_INSERT_PENDING_TXN, Params) of
-        {ok, _} ->
-            {ok, #{<<"hash">> => TxnHash}};
+        {ok, _, _, [{CreatedAt}]} ->
+            {ok, #{
+                hash => TxnHash,
+                created_at => iso8601:format(CreatedAt)
+            }};
         {error, {error, error, _, unique_violation, _, _}} ->
             {error, conflict}
     end.
