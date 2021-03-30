@@ -30,7 +30,7 @@ prepare_conn(Conn) ->
     bh_db_worker:load_from_eql(Conn, "stats.sql", Loads).
 
 handle('GET', [], _Req) ->
-    ?MK_RESPONSE(get_stats(), block_time);
+    ?MK_RESPONSE(get_stats(), {block_time, 5});
 handle('GET', [<<"token_supply">>], Req) ->
     Args = ?GET_ARGS([format], Req),
     get_token_supply(Args, block_time);
