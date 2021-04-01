@@ -8,7 +8,8 @@
 
 all() ->
     [
-        city_list_test,
+        city_list_name_test,
+        city_list_count_test,
         city_search_test,
         city_hotspots_test,
         invalid_city_hotspots_test
@@ -20,8 +21,21 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     ?end_bh(Config).
 
-city_list_test(_Config) ->
+city_list_name_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request(["/v1/cities"]),
+    #{
+        <<"data">> := Data,
+        <<"cursor">> := Cursor
+    } = Json,
+    ?assert(length(Data) >= 0),
+
+    {ok, {_, _, NextJson}} = ?json_request(["/v1/cities?cursor=", Cursor]),
+    #{<<"data">> := NextData} = NextJson,
+    ?assert(length(NextData) >= 0),
+    ok.
+
+city_list_count_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request(["/v1/cities?order=hotspot_count"]),
     #{
         <<"data">> := Data,
         <<"cursor">> := Cursor
