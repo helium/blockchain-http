@@ -165,6 +165,7 @@
     <<"consensus_group_v1">>,
     <<"add_gateway_v1">>,
     <<"assert_location_v1">>,
+    <<"assert_location_v2">>,
     <<"create_htlc_v1">>,
     <<"redeem_htlc_v1">>,
     <<"poc_request_v1">>,
@@ -517,6 +518,13 @@ txn_to_json({<<"add_gateway_v1">>, Fields}) ->
     };
 txn_to_json(
     {<<"assert_location_v1">>,
+        #{
+            <<"location">> := Location
+        } = Fields}
+) ->
+    ?INSERT_LAT_LON(Location, Fields);
+txn_to_json(
+    {<<"assert_location_v2">>,
         #{
             <<"location">> := Location
         } = Fields}
