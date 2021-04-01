@@ -84,7 +84,7 @@ and ((g.address > $4 and g.first_block = $5) or (g.first_block < $5))
 -- :hotspot_witness_list
 with last_assert as (
     select t.block as height from transactions t inner join transaction_actors a on t.hash = a.transaction_hash
-    where t.type = 'assert_location_v1' and a.actor = $1
+    where (t.type = 'assert_location_v1' or t.type = 'assert_location_v2') and a.actor = $1
     order by t.block desc limit 1
 ),
 five_days as (

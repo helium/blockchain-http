@@ -116,6 +116,7 @@ handle(_, _, _Req) ->
     | #blockchain_txn_routing_v1_pb{}
     | #blockchain_txn_add_gateway_v1_pb{}
     | #blockchain_txn_assert_location_v1_pb{}
+    | #blockchain_txn_assert_location_v2_pb{}
     | #blockchain_txn_payment_v1_pb{}
     | #blockchain_txn_payment_v2_pb{}
     | #blockchain_txn_create_htlc_v1_pb{}
@@ -143,6 +144,12 @@ insert_pending_txn(#blockchain_txn_add_gateway_v1_pb{gateway = GatewayAddress} =
     insert_pending_txn(Txn, GatewayAddress, 0, <<"gateway">>, Bin);
 insert_pending_txn(
     #blockchain_txn_assert_location_v1_pb{nonce = Nonce, gateway = GatewayAddress} = Txn,
+    Bin
+) ->
+    %% Asserting a location uses the gatway nonce
+    insert_pending_txn(Txn, GatewayAddress, Nonce, <<"gateway">>, Bin);
+insert_pending_txn(
+    #blockchain_txn_assert_location_v2_pb{nonce = Nonce, gateway = GatewayAddress} = Txn,
     Bin
 ) ->
     %% Asserting a location uses the gatway nonce
@@ -314,6 +321,10 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
     blockchain_txn_assert_location_v1_pb,
     {owner_signature = <<>>, gateway_signature = <<>>}
 );
+?TXN_HASH(
+    blockchain_txn_assert_location_v2_pb,
+    {owner_signature = <<>>}
+);
 ?TXN_HASH(blockchain_txn_payment_v1_pb, {signature = <<>>});
 ?TXN_HASH(blockchain_txn_payment_v2_pb, {signature = <<>>});
 ?TXN_HASH(blockchain_txn_create_htlc_v1_pb, {signature = <<>>});
@@ -330,6 +341,7 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
 ?TXN_TYPE(blockchain_txn_routing_v1_pb, <<"routing_v1">>);
 ?TXN_TYPE(blockchain_txn_add_gateway_v1_pb, <<"add_gateway_v1">>);
 ?TXN_TYPE(blockchain_txn_assert_location_v1_pb, <<"assert_location_v1">>);
+?TXN_TYPE(blockchain_txn_assert_location_v2_pb, <<"assert_location_v2">>);
 ?TXN_TYPE(blockchain_txn_payment_v1_pb, <<"payment_v1">>);
 ?TXN_TYPE(blockchain_txn_payment_v2_pb, <<"payment_v2">>);
 ?TXN_TYPE(blockchain_txn_create_htlc_v1_pb, <<"create_htlc_v1">>);
