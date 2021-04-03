@@ -172,6 +172,7 @@
     <<"poc_receipts_v1">>,
     <<"vars_v1">>,
     <<"rewards_v1">>,
+    <<"rewards_v2">>,
     <<"token_burn_v1">>,
     <<"dc_coinbase_v1">>,
     <<"token_burn_exchange_rate_v1">>,
