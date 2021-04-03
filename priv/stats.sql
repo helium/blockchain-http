@@ -143,7 +143,7 @@ month_interval as (
         sum(coalesce((t.fields->>'staking_fee')::numeric, 0)) as staking_fees
     from transactions t
     where t.block > (select month from heights)
-        and t.type not in ('poc_receipts_v1', 'poc_request_v1', 'rewards_v1', 'consensus_group_v1')
+        and t.type not in ('poc_receipts_v1', 'poc_request_v1', 'rewards_v1', 'rewards_v2', 'consensus_group_v1')
     group by t.block
 ),
 week_interval as (
