@@ -56,7 +56,7 @@ handle('GET', [<<"activity">>], Req) ->
     ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [Address, <<"activity">>], Req) ->
     Args = add_filter_types(?GET_ARGS([cursor], Req)),
-    Result = bh_route_txns:get_actor_txn_list({actor, Address}, Args),
+    Result = bh_route_txns:get_actor_txn_list({oracle, Address}, Args),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);
 handle(_, _, _Req) ->
