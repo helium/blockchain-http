@@ -32,6 +32,11 @@
 -define(S_HOTSPOT_ACTIVITY_COUNT, "hotspot_activity_count").
 -define(S_HOTSPOT_ACTIVITY_LIST, "hotspot_activity_list").
 -define(S_HOTSPOT_ACTIVITY_LIST_REM, "hotspot_activity_list_rem").
+-define(S_HOTSPOT_MIN_BLOCK, "hotspot_activity_min_block").
+-define(S_ACCOUNT_MIN_BLOCK, "account_activity_min_block").
+-define(S_ORACLE_MIN_BLOCK, "oracle_activity_min_block").
+-define(S_TXN_MIN_BLOCK, "txn_list_min_block").
+
 -define(S_LOC, "txn_geocode").
 -define(SELECT_TXN_LIST, [
     ?SELECT_TXN_BASE,
@@ -253,6 +258,49 @@ prepare_conn(Conn) ->
     {ok, S14} =
         epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_COUNT, ?SELECT_HOTSPOT_ACTIVITY_COUNT, []),
 
+    {ok, S15} =
+        epgsql:parse(
+            Conn,
+            ?S_HOTSPOT_MIN_BLOCK,
+            [
+                "select min(block) from transaction_actors ",
+                "where actor = $1 and actor_role = 'gateway'"
+            ],
+            []
+        ),
+
+    {ok, S16} =
+        epgsql:parse(
+            Conn,
+            ?S_ACCOUNT_MIN_BLOCK,
+            [
+                "select min(block) from transaction_actors ",
+                "where actor = $1 and actor_role in ('payer', 'payee', 'owner')"
+            ],
+            []
+        ),
+
+    {ok, S17} =
+        epgsql:parse(
+            Conn,
+            ?S_ORACLE_MIN_BLOCK,
+            [
+                "select min(block) from transaction_actors ",
+                "where actor = $1 and actor_role = 'oracle'"
+            ],
+            []
+        ),
+
+    {ok, S18} =
+        epgsql:parse(
+            Conn,
+            ?S_TXN_MIN_BLOCK,
+            [
+                "select 1"
+            ],
+            []
+        ),
+
     #{
         ?S_TXN => S1,
         ?S_TXN_LIST => S2,
@@ -267,7 +315,11 @@ prepare_conn(Conn) ->
         ?S_HOTSPOT_ACTIVITY_LIST_REM => S11,
         ?S_LOC => S12,
         ?S_ACCOUNT_ACTIVITY_COUNT => S13,
-        ?S_HOTSPOT_ACTIVITY_COUNT => S14
+        ?S_HOTSPOT_ACTIVITY_COUNT => S14,
+        ?S_HOTSPOT_MIN_BLOCK => S15,
+        ?S_ACCOUNT_MIN_BLOCK => S16,
+        ?S_ORACLE_MIN_BLOCK => S17,
+        ?S_TXN_MIN_BLOCK => S18
     }.
 
 handle('GET', [TxnHash], _Req) ->
@@ -285,17 +337,31 @@ get_txn(Key) ->
     end.
 
 get_txn_list(Args = [{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([], {?S_TXN_LIST, ?S_TXN_LIST_REM}, Args).
+    get_txn_list([], {?S_TXN_MIN_BLOCK, ?S_TXN_LIST, ?S_TXN_LIST_REM}, Args).
 
-get_actor_txn_list({actor, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([Address], {?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
-get_actor_txn_list({owned, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([Address], {?S_OWNED_ACTOR_TXN_LIST, ?S_OWNED_ACTOR_TXN_LIST_REM}, Args).
+get_actor_txn_list({hotspot, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
+    get_txn_list([Address], {?S_HOTSPOT_MIN_BLOCK, ?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
+get_actor_txn_list({oracle, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
+    get_txn_list([Address], {?S_ORACLE_MIN_BLOCK, ?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
+get_actor_txn_list({account, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
+    get_txn_list(
+        [Address],
+        {?S_ACCOUNT_MIN_BLOCK, ?S_OWNED_ACTOR_TXN_LIST, ?S_OWNED_ACTOR_TXN_LIST_REM},
+        Args
+    ).
 
 get_activity_list({account, Account}, Args) ->
-    get_txn_list([Account], {?S_ACCOUNT_ACTIVITY_LIST, ?S_ACCOUNT_ACTIVITY_LIST_REM}, Args);
+    get_txn_list(
+        [Account],
+        {?S_ACCOUNT_MIN_BLOCK, ?S_ACCOUNT_ACTIVITY_LIST, ?S_ACCOUNT_ACTIVITY_LIST_REM},
+        Args
+    );
 get_activity_list({hotspot, Address}, Args) ->
-    get_txn_list([Address], {?S_HOTSPOT_ACTIVITY_LIST, ?S_HOTSPOT_ACTIVITY_LIST_REM}, Args).
+    get_txn_list(
+        [Address],
+        {?S_HOTSPOT_MIN_BLOCK, ?S_HOTSPOT_ACTIVITY_LIST, ?S_HOTSPOT_ACTIVITY_LIST_REM},
+        Args
+    ).
 
 get_activity_count({account, Account}, Args) ->
     get_txn_count([Account], ?S_ACCOUNT_ACTIVITY_COUNT, Args);
@@ -308,6 +374,7 @@ get_activity_count({hotspot, Address}, Args) ->
     anchor_block = undefined :: pos_integer() | undefined,
     high_block :: pos_integer(),
     low_block :: pos_integer(),
+    min_block = 1 :: pos_integer(),
     args :: list(term()),
     types :: iolist(),
     results = [] :: list(term())
@@ -318,27 +385,30 @@ get_activity_count({hotspot, Address}, Args) ->
 %% enough transactions.
 grow_txn_list(_Query, State = #state{results = Results}) when length(Results) >= ?TXN_LIST_LIMIT ->
     State;
-grow_txn_list(_Query, State = #state{low_block = 1}) ->
+grow_txn_list(_Query, State = #state{low_block = MinBlock, min_block = MinBlock}) ->
     State;
-grow_txn_list(_Query, #state{low_block = LowBlock, high_block = HighBlock}) when
-    LowBlock == HighBlock
+grow_txn_list(_Query, #state{low_block = LowBlock, high_block = HighBlock, min_block = MinBlock}) when
+    LowBlock >= HighBlock orelse MinBlock > LowBlock
 ->
     error(bad_arg);
-grow_txn_list(Query, State = #state{low_block = LowBlock, high_block = HighBlock}) ->
+grow_txn_list(
+    Query,
+    State = #state{low_block = LowBlock, high_block = HighBlock, min_block = MinBlock}
+) ->
     NewState =
         execute_query(Query, State#state{
             high_block = LowBlock,
             %% Empirically a 100k block search is slower than 10, 10k searches
             %% (which in turn is faster than 100, 1k searches).
             %% so cap at 10000 instead of 100000.
-            low_block = max(1, LowBlock - min(10000, (HighBlock - LowBlock) * 10))
+            low_block = max(MinBlock, LowBlock - min(10000, (HighBlock - LowBlock) * 10))
         }),
     grow_txn_list(Query, NewState).
 
-calc_low_block(HighBlock) ->
+calc_low_block(HighBlock, MinBlock) ->
     case HighBlock - (HighBlock rem ?TXN_LIST_BLOCK_ALIGN) of
-        HighBlock -> max(1, HighBlock - ?TXN_LIST_BLOCK_ALIGN);
-        Other -> max(1, Other)
+        HighBlock -> max(MinBlock, HighBlock - ?TXN_LIST_BLOCK_ALIGN);
+        Other -> max(MinBlock, Other)
     end.
 
 execute_query(Query, State) ->
@@ -357,26 +427,37 @@ execute_rem_query(Query, HighBlock, TxnHash, State) ->
     {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
     State#state{results = State#state.results ++ Results}.
 
-get_txn_list(Args, {Query, _RemQuery}, [{cursor, undefined}, {filter_types, Types}]) ->
+get_txn_list(Args, {MinQuery, Query, _RemQuery}, [{cursor, undefined}, {filter_types, Types}]) ->
     {ok, #{height := CurrentBlock}} = bh_route_blocks:get_block_height(),
     %% High block is exclusive so start past the tip
     HighBlock = CurrentBlock + 1,
-    State = #state{
-        high_block = HighBlock,
-        %% Aim for block alignment
-        low_block = calc_low_block(HighBlock),
-        args = Args,
-        types = Types
-    },
-    mk_txn_list_result(execute_query(Query, State));
-get_txn_list(Args, {Query, RemQuery}, [{cursor, Cursor}, {filter_types, _}]) ->
+    case ?PREPARED_QUERY(MinQuery, Args) of
+        {ok, _, [{MinBlock}]} ->
+            State = #state{
+                high_block = HighBlock,
+                %% Aim for block alignment
+                low_block = calc_low_block(HighBlock, MinBlock),
+                min_block = MinBlock,
+                args = Args,
+                types = Types
+            },
+            mk_txn_list_result(execute_query(Query, State));
+        _ ->
+            throw(?RESPONSE_404)
+    end;
+get_txn_list(Args, {_MinQuery, Query, RemQuery}, [{cursor, Cursor}, {filter_types, _}]) ->
     case ?CURSOR_DECODE(Cursor) of
-        {ok, C = #{<<"block">> := HighBlock}} ->
+        {ok,
+            C = #{
+                <<"block">> := HighBlock,
+                <<"min_block">> := MinBlock
+            }} ->
             State0 = #state{
                 high_block = HighBlock,
                 anchor_block = maps:get(<<"anchor_block">>, C, undefined),
                 types = maps:get(<<"types">>, C, undefined),
-                low_block = calc_low_block(HighBlock),
+                min_block = MinBlock,
+                low_block = calc_low_block(HighBlock, MinBlock),
                 args = Args
             },
             %% Construct the a partial list of results if we were
@@ -413,7 +494,7 @@ mk_txn_list_result(State = #state{results = Results}) when length(Results) > ?TX
 mk_txn_list_result(State = #state{results = Results}) ->
     {ok, txn_list_to_json(Results), mk_txn_list_cursor(State#state.low_block, undefined, State)}.
 
-mk_txn_list_cursor(1, undefined, #state{}) ->
+mk_txn_list_cursor(MinBlock, undefined, #state{min_block = MinBlock}) ->
     undefined;
 mk_txn_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
     %% Check if we didn't have an anchor block before and we've reached an anchor point
@@ -435,7 +516,8 @@ mk_txn_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
             {block, BeforeBlock},
             {txn, BeforeAddr},
             {anchor_block, AnchorBlock},
-            {types, State#state.types}
+            {types, State#state.types},
+            {min_block, State#state.min_block}
         ]
     ).
 

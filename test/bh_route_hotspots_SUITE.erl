@@ -97,7 +97,10 @@ activity_result_test(_Config) ->
     ?assert(length(Data) =< ?TXN_LIST_LIMIT).
 
 activity_low_block_test(_Config) ->
-    GetCursor = #{block => 50},
+    GetCursor = #{
+        block => 50,
+        min_block => 1
+    },
     {ok, {_, _, Json}} = ?json_request(
         [
             "/v1/hotspots/112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK/activity",
@@ -114,6 +117,7 @@ activity_filter_no_result_test(_Config) ->
     %% Filter for no rewards, which the given hotspot should not have
     GetCursor = #{
         block => 50,
+        min_block => 1,
         types => <<"rewards_v1">>
     },
     {ok, {_, _, Json}} = ?json_request(

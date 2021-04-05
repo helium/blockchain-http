@@ -73,7 +73,10 @@ activity_result_test(_Config) ->
     ?assert(length(Data) =< ?TXN_LIST_LIMIT).
 
 activity_low_block_test(_Config) ->
-    GetCursor = #{block => 50},
+    GetCursor = #{
+        block => 50,
+        min_block => 1
+    },
     {ok, {_, _, Json}} = ?json_request(
         [
             "/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/activity",
@@ -91,6 +94,7 @@ activity_filter_no_result_test(_Config) ->
     %% so filtering for rewards should return no data.
     GetCursor = #{
         block => 50,
+        min_block => 1,
         types => <<"rewards_v1">>
     },
     {ok, {_, _, Json}} = ?json_request(
