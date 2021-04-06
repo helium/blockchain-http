@@ -170,10 +170,10 @@ transaction(From, Fun, State = #state{db_conn = Conn, prepared_statements = Stmt
         What:Why:Stack ->
             lager:warning("Transaction failed: ~p", [{What, Why, Stack}])
     end,
-    {ok, maybe_recycle_connection(State)}.
+    {ok, State}.
 
 checkin(Conn, State = #state{db_conn = Conn, given = true}) ->
-    {ok, maybe_recycle_connection(State#state{given=false})};
+    {ok, State#state{given=false}};
 checkin(Conn, State) ->
     lager:warning("unexpected checkin of ~p when we have ~p", [Conn, State#state.db_conn]),
     {ignore, State}.
@@ -198,18 +198,6 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
-
-maybe_recycle_connection(State) ->
-    RecycleChance = application:get_env(blockchain_http, db_worker_recyle_connection_chance, 10),
-    case RecycleChance < 1 orelse rand:uniform(RecycleChance) /= 1 of
-        true ->
-            State;
-        false ->
-            Self = self(),
-            spawn(fun() -> Self ! {reconnect, connect(State)} end),
-            State
-    end.
-
 
 connect(State=#state{db_opts=DBOpts, handlers=Handlers}) ->
     {ok, Conn} = epgsql:connect(DBOpts),
