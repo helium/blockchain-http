@@ -73,20 +73,9 @@ last_day_challenges as (
     select hash from transactions
     where block between (select min from block_last_day_range) and (select max from block_last_day_range)
           and type = 'poc_receipts_v1'
-),
-poc_receipts as (
-    select hash, fields->>'onion_key_hash' as challenge_id from transactions
-    where block between (select min from block_poc_range) and (select max from block_poc_range)
-          and type = 'poc_receipts_v1'
-),
-poc_requests as (
-    select hash, fields->>'onion_key_hash' as challenge_id from transactions
-    where block between (select min from block_poc_range) and (select max from block_poc_range)
-          and type = 'poc_request_v1'
 )
 select * from
-    (select count(*) as active_challenges from poc_requests
-     where challenge_id not in (select challenge_id from poc_receipts)) as active,
+    (select 0) as active,
     (select count(*) as last_day_challenges from last_day_challenges) as last_day
 
 -- Get token supply
