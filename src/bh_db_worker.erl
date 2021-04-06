@@ -164,11 +164,22 @@ checkout(_From, State = #state{db_conn = Conn}) ->
     {ok, Conn, State#state{given = true}}.
 
 transaction(From, Fun, State = #state{db_conn = Conn, prepared_statements = Stmts}) ->
-    try Fun(From, {Stmts, Conn}) of
-        _ -> ok
-    catch
-        What:Why:Stack ->
-            lager:warning("Transaction failed: ~p", [{What, Why, Stack}])
+    Self = self(),
+    Ref = make_ref(),
+    Pid = spawn(fun() ->
+                        try Fun(From, {Stmts, Conn}) of
+                            _ -> ok
+                        catch
+                            What:Why:Stack ->
+                                lager:warning("Transaction failed: ~p", [{What, Why, Stack}])
+                        end,
+                        Self ! {done, Ref}
+                end),
+    receive
+        {done, Ref} ->
+            ok
+    after ?POOL_QUERY_TIMEOUT ->
+              exit(Pid, kill)
     end,
     {ok, State}.
 
