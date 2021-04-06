@@ -181,10 +181,6 @@ checkin(Conn, State) ->
 dead(State) ->
     {ok, State#state{given = false}}.
 
-handle_info({reconnect, NewState}, _OldState) ->
-    %% new state is computed, just discard the old one
-    %% and hope the GC will close any dangling connections
-    {ok, NewState};
 handle_info({'EXIT', Conn, Reason}, State = #state{db_conn = Conn}) ->
     lager:info("dispcount worker's db connection exited ~p", [Reason]),
     {stop, Reason, State};
@@ -208,6 +204,8 @@ connect(State=#state{db_opts=DBOpts, handlers=Handlers}) ->
         #{},
         Handlers
     ),
+    %% set the statement timeout to 1 second less than POOL_QUERY_TIMEOUT
+    {ok, [], []} = epgsql:squery(Conn, io_lib:format("SET statement_timeout = '~bs';", [(?POOL_QUERY_TIMEOUT div 1000) - 1])),
     State#state{db_conn=Conn, prepared_statements=PreparedStatements}.
 
 
