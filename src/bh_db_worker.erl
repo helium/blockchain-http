@@ -37,6 +37,7 @@
 
 -record(state, {
     given = false :: boolean(),
+    db_opts :: map(),
     db_conn :: epgsql:connection(),
     handlers :: [atom()],
     prepared_statements :: map()
@@ -147,9 +148,9 @@ init(Args) ->
             {_, V} -> V
         end
     end,
-    DBOpts = GetOpt(db_opts),
     Codecs = [{epgsql_codec_json, {jiffy, [], [return_maps]}}],
-    {ok, Conn} = epgsql:connect(DBOpts#{codecs => Codecs}),
+    DBOpts = (GetOpt(db_opts))#{codecs => Codecs},
+    {ok, Conn} = epgsql:connect(DBOpts),
     Handlers = GetOpt(db_handlers),
     PreparedStatements = lists:foldl(
         fun(Mod, Acc) ->
@@ -159,6 +160,7 @@ init(Args) ->
         Handlers
     ),
     {ok, #state{
+        db_opts = DBOpts,
         db_conn = Conn,
         given = false,
         handlers = Handlers,
@@ -181,7 +183,16 @@ transaction(From, Fun, State = #state{db_conn = Conn, prepared_statements = Stmt
     {ok, State}.
 
 checkin(Conn, State = #state{db_conn = Conn, given = true}) ->
-    {ok, State#state{given = false}};
+    %% default to 1/10 chance, set to 0 to disable
+    RecycleChance = application:get_env(blockchain_http, db_worker_recyle_connection_chance, 10),
+    case RecycleChance < 1 orelse rand:uniform(RecycleChance) /= 1 of
+        true ->
+            {ok, State#state{given = false}};
+        false ->
+            epgsql:close(Conn),
+            {ok, NewConn} = epgsql:connect(State#state.db_opts),
+            {ok, State#state{given = false, db_conn = NewConn}}
+    end;
 checkin(Conn, State) ->
     lager:warning("unexpected checkin of ~p when we have ~p", [Conn, State#state.db_conn]),
     {ignore, State}.
