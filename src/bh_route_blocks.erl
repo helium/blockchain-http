@@ -12,7 +12,8 @@
     get_block_list/1,
     get_block_list_cache_time/1,
     get_block/1,
-    get_block_txn_list/2
+    get_block_txn_list/2,
+    get_block_stats/0
 ]).
 
 -define(S_BLOCK_HEIGHT, "block_height").
@@ -25,6 +26,7 @@
 -define(S_BLOCK_HEIGHT_TXN_LIST_BEFORE, "block_height_txn_list_before").
 -define(S_BLOCK_HASH_TXN_LIST, "block_hash_txn_list_list").
 -define(S_BLOCK_HASH_TXN_LIST_BEFORE, "block_hash_txn_list_before").
+-define(S_BLOCK_TIMES, "block_times").
 
 -define(SELECT_BLOCK_BASE,
     "select b.height, b.time, b.block_hash, b.prev_hash, b.transaction_count, b.snapshot_hash from blocks b "
@@ -123,7 +125,9 @@ prepare_conn(Conn) ->
         []
     ),
 
-    #{
+    M = bh_db_worker:load_from_eql(Conn, "blocks.sql", [?S_BLOCK_TIMES]),
+
+    maps:merge(#{
         ?S_BLOCK_HEIGHT => S1,
         ?S_BLOCK_LIST_BEFORE => S3,
         ?S_BLOCK_BY_HEIGHT => S4,
@@ -132,7 +136,7 @@ prepare_conn(Conn) ->
         ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE => S7,
         ?S_BLOCK_HASH_TXN_LIST => S8,
         ?S_BLOCK_HASH_TXN_LIST_BEFORE => S9
-    }.
+    }, M).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
@@ -163,6 +167,9 @@ handle('GET', [BlockId, <<"transactions">>], Req) ->
         end,
         ?RESPONSE_400
     );
+handle('GET', [<<"stats">>], _Req) ->
+    ?MK_RESPONSE({ok, bh_route_stats:mk_stats_from_time_results(
+                   get_block_stats())}, block_time);
 handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
 
@@ -245,6 +252,12 @@ get_block_txn_list(Block, {_StartQuery, CursorQuery}, [{cursor, Cursor}]) ->
             Result = ?PREPARED_QUERY(CursorQuery, [Block, Hash]),
             mk_txn_list_from_result(Result)
     end.
+
+get_block_stats() ->
+    bh_cache:get({?MODULE, block_stats}, fun() ->
+                                                 {ok, _Columns, Data} = ?PREPARED_QUERY(?S_BLOCK_TIMES, []),
+                                                 Data
+                                         end).
 
 mk_txn_list_from_result({ok, _, Results}) ->
     {ok, ?TXN_LIST_TO_JSON(Results), mk_txn_list_cursor(Results)}.

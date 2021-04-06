@@ -56,6 +56,7 @@ init([]) ->
     ],
     ChildSpecs =
         [
+            ?WORKER(bh_cache, []),
             ?WORKER(bh_pool_watcher, [PoolNames]),
             ?WORKER(elli, [
                 [
