@@ -36,7 +36,9 @@ prepare_conn(Conn) ->
 
 handle('GET', [<<"prices">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
-    ?MK_RESPONSE(get_price_list(Args), block_time);
+    Result = get_price_list(Args),
+    CacheTime = get_price_list_cache_time(Args),
+    ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [<<"prices">>, <<"current">>], _Req) ->
     ?MK_RESPONSE(get_price_at_block(undefined), block_time);
 handle('GET', [<<"prices">>, Block], _Req) ->
@@ -79,6 +81,13 @@ get_price_list([{cursor, Cursor}]) ->
         _ ->
             {error, badarg}
     end.
+
+%% If the request had a cursor in it we can cache the response for that request
+%% for a long time since the cursor makes the response stable.
+get_price_list_cache_time([{cursor, undefined}]) ->
+    block_time;
+get_price_list_cache_time([{cursor, _}]) ->
+    infinity.
 
 mk_price_list_cursor(PrevCursor, Results) when is_list(Results) ->
     case length(Results) of
