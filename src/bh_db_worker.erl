@@ -38,9 +38,9 @@
 -record(state, {
     given = false :: boolean(),
     db_opts :: map(),
-    db_conn :: epgsql:connection(),
+    db_conn :: undefined | epgsql:connection(),
     handlers :: [atom()],
-    prepared_statements :: map()
+    prepared_statements = #{} :: map()
 }).
 
 -spec prepared_query(Pool :: term(), Name :: string(), Params :: [epgsql:bind_param()]) ->
@@ -150,22 +150,12 @@ init(Args) ->
     end,
     Codecs = [{epgsql_codec_json, {jiffy, [], [return_maps]}}],
     DBOpts = (GetOpt(db_opts))#{codecs => Codecs},
-    {ok, Conn} = epgsql:connect(DBOpts),
     Handlers = GetOpt(db_handlers),
-    PreparedStatements = lists:foldl(
-        fun(Mod, Acc) ->
-            maps:merge(Mod:prepare_conn(Conn), Acc)
-        end,
-        #{},
-        Handlers
-    ),
-    {ok, #state{
+    {ok, connect(#state{
         db_opts = DBOpts,
-        db_conn = Conn,
         given = false,
-        handlers = Handlers,
-        prepared_statements = PreparedStatements
-    }}.
+        handlers = Handlers
+    })}.
 
 checkout(_From, State = #state{given = true}) ->
     lager:warning("unexpected checkout when already checked out"),
@@ -180,19 +170,10 @@ transaction(From, Fun, State = #state{db_conn = Conn, prepared_statements = Stmt
         What:Why:Stack ->
             lager:warning("Transaction failed: ~p", [{What, Why, Stack}])
     end,
-    {ok, State}.
+    {ok, maybe_recycle_connection(State)}.
 
 checkin(Conn, State = #state{db_conn = Conn, given = true}) ->
-    %% default to 1/10 chance, set to 0 to disable
-    RecycleChance = application:get_env(blockchain_http, db_worker_recyle_connection_chance, 10),
-    case RecycleChance < 1 orelse rand:uniform(RecycleChance) /= 1 of
-        true ->
-            {ok, State#state{given = false}};
-        false ->
-            epgsql:close(Conn),
-            {ok, NewConn} = epgsql:connect(State#state.db_opts),
-            {ok, State#state{given = false, db_conn = NewConn}}
-    end;
+    {ok, maybe_recycle_connection(State#state{given=false})};
 checkin(Conn, State) ->
     lager:warning("unexpected checkin of ~p when we have ~p", [Conn, State#state.db_conn]),
     {ignore, State}.
@@ -213,6 +194,29 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+maybe_recycle_connection(State=#state{db_conn=Conn}) ->
+    RecycleChance = application:get_env(blockchain_http, db_worker_recyle_connection_chance, 10),
+    case RecycleChance < 1 orelse rand:uniform(RecycleChance) /= 1 of
+        true ->
+            State;
+        false ->
+            epgsql:close(Conn),
+            connect(State)
+    end.
+
+
+connect(State=#state{db_opts=DBOpts, handlers=Handlers}) ->
+    {ok, Conn} = epgsql:connect(DBOpts),
+    PreparedStatements = lists:foldl(
+        fun(Mod, Acc) ->
+            maps:merge(Mod:prepare_conn(Conn), Acc)
+        end,
+        #{},
+        Handlers
+    ),
+    State#state{db_conn=Conn, prepared_statements=PreparedStatements}.
+
 
 -ifdef(TEST).
 
