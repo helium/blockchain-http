@@ -15,7 +15,7 @@
 -define(S_ACCOUNT_BALANCE_SERIES, "account_balance_series").
 -define(S_ACCOUNT_RICH_LIST, "account_rich_list").
 -define(ACCOUNT_LIST_LIMIT, 100).
--define(ACCOUNT_RICH_LIST_LIMIT, 1000).
+-define(ACCOUNT_RICH_LIST_LIMIT, 100).
 
 prepare_conn(Conn) ->
     AccountListLimit = "limit " ++ integer_to_list(?ACCOUNT_LIST_LIMIT),
