@@ -1,11 +1,12 @@
 -include("bh_db_worker.hrl").
 
--define(RESPONSE_404, {404, [], jiffy:encode(#{error => <<"Not Found">>})}).
--define(RESPONSE_409, {409, [], jiffy:encode(#{error => <<"Conflict">>})}).
--define(RESPONSE_503, {503, [], jiffy:encode(#{error => <<"Too Busy">>})}).
--define(RESPONSE_503_SHUTDOWN, {503, [], jiffy:encode(#{error => <<"Stopping">>})}).
+-define(JSON_CONTENT, {<<"Content-Type">>, <<"application/json; charset=utf-8">>}).
+-define(RESPONSE_404, {404, [?JSON_CONTENT], jiffy:encode(#{error => <<"Not Found">>})}).
+-define(RESPONSE_409, {409, [?JSON_CONTENT], jiffy:encode(#{error => <<"Conflict">>})}).
+-define(RESPONSE_503, {503, [?JSON_CONTENT], jiffy:encode(#{error => <<"Too Busy">>})}).
+-define(RESPONSE_503_SHUTDOWN, {503, [?JSON_CONTENT], jiffy:encode(#{error => <<"Stopping">>})}).
 -define(RESPONSE_400, ?RESPONSE_400("Bad Request")).
--define(RESPONSE_400(S), {400, [], jiffy:encode(#{error => list_to_binary((S))})}).
+-define(RESPONSE_400(S), {400, [?JSON_CONTENT], jiffy:encode(#{error => list_to_binary((S))})}).
 -define(MAX_LIMIT, 1000).
 -define(DEFAULT_ARG_LIMIT, <<"100">>).
 -define(GET_ARGS(A, R), bh_route_handler:get_args((A), (R))).
