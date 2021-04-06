@@ -181,6 +181,10 @@ checkin(Conn, State) ->
 dead(State) ->
     {ok, State#state{given = false}}.
 
+handle_info({reconnect, NewState}, _OldState) ->
+    %% new state is computed, just discard the old one
+    %% and hope the GC will close any dangling connections
+    {ok, NewState};
 handle_info({'EXIT', Conn, Reason}, State = #state{db_conn = Conn}) ->
     lager:info("dispcount worker's db connection exited ~p", [Reason]),
     {stop, Reason, State};
@@ -195,14 +199,15 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-maybe_recycle_connection(State=#state{db_conn=Conn}) ->
+maybe_recycle_connection(State) ->
     RecycleChance = application:get_env(blockchain_http, db_worker_recyle_connection_chance, 10),
     case RecycleChance < 1 orelse rand:uniform(RecycleChance) /= 1 of
         true ->
             State;
         false ->
-            epgsql:close(Conn),
-            connect(State)
+            Self = self(),
+            spawn(fun() -> Self ! {reconnect, connect(State)} end),
+            State
     end.
 
 
