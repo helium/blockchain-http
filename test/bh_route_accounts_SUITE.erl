@@ -77,6 +77,7 @@ activity_low_block_test(_Config) ->
         block => 50,
         min_block => 1
     },
+    ct:pal("~p", [binary_to_list(?CURSOR_ENCODE(GetCursor))]),
     {ok, {_, _, Json}} = ?json_request(
         [
             "/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/activity",
