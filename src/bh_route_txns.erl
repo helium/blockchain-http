@@ -24,8 +24,8 @@
 -define(S_TXN_LIST_REM, "txn_list_rem").
 -define(S_ACTOR_TXN_LIST, "actor_txn_list").
 -define(S_ACTOR_TXN_LIST_REM, "actor_txn_list_rem").
--define(S_OWNED_ACTOR_TXN_LIST, "owned_actor_txn_list").
--define(S_OWNED_ACTOR_TXN_LIST_REM, "owned_actor_txn_list_rem").
+-define(S_ACCOUNT_HOTSPOTS_TXN_LIST, "account_hotspots_txn_list").
+-define(S_ACCOUNT_HOTSPOTS_TXN_LIST_REM, "account_hotspots_txn_list_rem").
 -define(S_ACCOUNT_ACTIVITY_COUNT, "account_activity_count").
 -define(S_ACCOUNT_ACTIVITY_LIST, "account_activity_list").
 -define(S_ACCOUNT_ACTIVITY_LIST_REM, "account_activity_list_rem").
@@ -35,127 +35,8 @@
 -define(S_HOTSPOT_MIN_BLOCK, "hotspot_activity_min_block").
 -define(S_ACCOUNT_MIN_BLOCK, "account_activity_min_block").
 -define(S_ORACLE_MIN_BLOCK, "oracle_activity_min_block").
--define(S_TXN_MIN_BLOCK, "txn_list_min_block").
-
--define(S_LOC, "txn_geocode").
--define(SELECT_TXN_LIST, [
-    ?SELECT_TXN_BASE,
-    "from transactions t ",
-    "where t.type = ANY($1)",
-    " and block >= $2 and block < $3"
-    " order by t.block desc, t.hash"
-]).
-
--define(SELECT_TXN_LIST_REM, [
-    ?SELECT_TXN_BASE,
-    "from (select * from transactions tr",
-    "      where tr.type = ANY($1)",
-    "      and tr.block = $2 order by tr.hash) t ",
-    "where t.hash > $3"
-]).
-
--define(SELECT_ACTOR_TXN_COUNT_BASE(E), [
-    "select type, count(*) ",
-    "from (select distinct on (tr.block, tr.hash, a.actor) tr.type ",
-    "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-    " where a.actor = $1 ",
-    (E),
-    " and tr.type = ANY($2)) as t ",
-    " group by t.type"
-]).
-
--define(SELECT_ACTOR_TXN_LIST_BASE(F, E), [
-    ?SELECT_TXN_FIELDS(F),
-    "from (select distinct on (tr.block, tr.hash, a.actor) tr.*, a.actor ",
-    "from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-    " where tr.block >= $3 and tr.block < $4 and a.actor = $1 ",
-    (E),
-    " and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
-]).
-
--define(SELECT_ACTOR_TXN_LIST_REM_BASE(F, E), [
-    ?SELECT_TXN_FIELDS(F),
-    "from (select distinct on (tr.hash, a.actor) tr.*, a.actor ",
-    " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-    " where tr.block = $3 and a.actor = $1 ",
-    (E),
-    "  and tr.type = ANY($2) order by tr.hash) as t ",
-    "where t.hash > $4 "
-]).
-
--define(SELECT_OWNED_ACTOR_TXN_LIST_BASE(F, E), [
-    ?SELECT_TXN_FIELDS(F),
-    "from (select distinct on (tr.block, tr.hash, a.actor) tr.*, a.actor ",
-    " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-    " where tr.block >= $3 and tr.block < $4",
-    "  and a.actor in (select address from gateway_inventory where owner = $1) ",
-    (E),
-    "  and tr.type = ANY($2) order by tr.block desc, tr.hash) as t "
-]).
-
--define(SELECT_OWNED_ACTOR_TXN_LIST_REM_BASE(F, E), [
-    ?SELECT_TXN_FIELDS(F),
-    "from (select distinct on (tr.hash, a.actor) tr.*, a.actor ",
-    " from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash ",
-    " where tr.block = $3",
-    "  and a.actor in (select address from gateway_inventory where owner = $1) ",
-    (E),
-    "  and tr.type = ANY($2) order by tr.hash) as t ",
-    "where t.hash > $4"
-]).
-
--define(SELECT_ACTOR_TXN_LIST, ?SELECT_ACTOR_TXN_LIST_BASE("t.fields", "")).
--define(SELECT_ACTOR_TXN_LIST_REM, ?SELECT_ACTOR_TXN_LIST_REM_BASE("t.fields", "")).
--define(SELECT_OWNED_ACTOR_TXN_LIST, ?SELECT_OWNED_ACTOR_TXN_LIST_BASE("t.fields", "")).
--define(SELECT_OWNED_ACTOR_TXN_LIST_REM,
-    ?SELECT_OWNED_ACTOR_TXN_LIST_REM_BASE("t.fields", "")
-).
-
--define(SELECT_ACCOUNT_ACTIVITY_COUNT,
-    %% For account activity we limit the actor roles to just a few.
-    ?SELECT_ACTOR_TXN_COUNT_BASE(
-        "and a.actor_role in ('payer', 'payee', 'owner')"
-    )
-).
-
--define(SELECT_ACCOUNT_ACTIVITY_LIST,
-    %% For account activity we limit the actor roles to just a few.
-    ?SELECT_ACTOR_TXN_LIST_BASE(
-        "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
-        "and a.actor_role in ('payer', 'payee', 'owner')"
-    )
-).
-
--define(SELECT_ACCOUNT_ACTIVITY_LIST_REM,
-    %% For account activity we limit the actor roles to just a few.
-    ?SELECT_ACTOR_TXN_LIST_REM_BASE(
-        "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
-        "and a.actor_role in ('payer', 'payee', 'owner')"
-    )
-).
-
--define(SELECT_HOTSPOT_ACTIVITY_COUNT,
-    %% For account activity we limit the actor roles to just a few.
-    ?SELECT_ACTOR_TXN_COUNT_BASE(
-        "and a.actor_role not in ('payer', 'payee', 'owner')"
-    )
-).
-
--define(SELECT_HOTSPOT_ACTIVITY_LIST,
-    %% Filter out gateway roles that should be in accounts
-    ?SELECT_ACTOR_TXN_LIST_BASE(
-        "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
-        "and a.actor_role not in ('payer', 'payee', 'owner')"
-    )
-).
-
--define(SELECT_HOTSPOT_ACTIVITY_LIST_REM,
-    %% Filter out gateway roles that should be in accounts
-    ?SELECT_ACTOR_TXN_LIST_REM_BASE(
-        "txn_filter_actor_activity(t.actor, t.type, t.fields) as fields",
-        "and a.actor_role not in ('payer', 'payee', 'owner')"
-    )
-).
+-define(S_GENESIS_MIN_BLOCK, "txn_genesis_min_block").
+-define(S_LOC, "txn_location").
 
 -define(FILTER_TYPES, [
     <<"coinbase_v1">>,
@@ -187,140 +68,122 @@
 ]).
 
 prepare_conn(Conn) ->
-    {ok, S1} =
-        epgsql:parse(
-            Conn,
-            ?S_TXN,
-            [?SELECT_TXN_BASE, "from transactions t ", "where t.hash = $1"],
-            []
-        ),
+    Loads = [
+        {?S_TXN,
+            {txn_list_base, [
+                {source, txn_list_source},
+                {fields, txn_list_fields},
+                {scope, txn_get_scope},
+                {order, ""},
+                {limit, ""}
+            ]}},
+        {?S_TXN_LIST,
+            {txn_list_base, [
+                {source, txn_list_source},
+                {fields, txn_list_fields},
+                {scope, txn_list_scope},
+                {order, txn_list_order},
+                {limit, {txn_list_limit, []}}
+            ]}},
+        {?S_TXN_LIST_REM,
+            {txn_list_base, [
+                {source, txn_list_rem_source},
+                {fields, txn_list_fields},
+                {scope, txn_list_rem_scope},
+                {order, txn_list_order},
+                {limit, {txn_list_limit, []}}
+            ]}},
+        {?S_ACTOR_TXN_LIST,
+            {txn_list_base, [
+                {source, {txn_actor_list_source, [{actor_scope, txn_actor_scope}]}},
+                {fields, txn_list_fields},
+                {scope, ""},
+                {order, txn_list_order},
+                {limit, ""}
+            ]}},
+        {?S_ACTOR_TXN_LIST_REM,
+            {txn_list_base, [
+                {source, {txn_actor_list_source, [{actor_scope, txn_actor_scope}]}},
+                {fields, txn_list_fields},
+                {scope, ""},
+                {order, txn_list_order},
+                {limit, ""}
+            ]}},
 
-    {ok, S2} = epgsql:parse(Conn, ?S_TXN_LIST, ?SELECT_TXN_LIST, []),
+        {?S_ACCOUNT_HOTSPOTS_TXN_LIST,
+            {txn_list_base, [
+                {source, {txn_actor_list_source, [{actor_scope, txn_owned_hotspot_actor_scope}]}},
+                {fields, txn_list_fields},
+                {scope, ""},
+                {order, txn_list_order},
+                {limit, ""}
+            ]}},
+        {?S_ACCOUNT_HOTSPOTS_TXN_LIST_REM,
+            {txn_list_base, [
+                {source,
+                    {txn_actor_list_rem_source, [{actor_scope, txn_owned_hotspot_actor_scope}]}},
+                {fields, txn_list_fields},
+                {scope, ""},
+                {order, txn_list_order},
+                {limit, ""}
+            ]}},
 
-    {ok, S3} = epgsql:parse(Conn, ?S_TXN_LIST_REM, ?SELECT_TXN_LIST_REM, []),
+        {?S_ACCOUNT_ACTIVITY_LIST,
+            {txn_list_base, [
+                {source,
+                    {txn_actor_list_source, [{actor_scope, txn_account_activity_actor_scope}]}},
+                {fields, txn_activity_list_fields},
+                {scope, ""},
+                {order, txn_list_order},
+                {limit, ""}
+            ]}},
+        {?S_ACCOUNT_ACTIVITY_LIST_REM,
+            {txn_list_base, [
+                {source,
+                    {txn_actor_list_rem_source, [{actor_scope, txn_account_activity_actor_scope}]}},
+                {fields, txn_activity_list_fields},
+                {scope, ""},
+                {order, txn_list_order},
+                {limit, ""}
+            ]}},
 
-    {ok, S4} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST, ?SELECT_ACTOR_TXN_LIST, []),
-    {ok, S5} = epgsql:parse(Conn, ?S_ACTOR_TXN_LIST_REM, ?SELECT_ACTOR_TXN_LIST_REM, []),
+        {?S_HOTSPOT_ACTIVITY_LIST,
+            {txn_list_base, [
+                {source,
+                    {txn_actor_list_source, [{actor_scope, txn_hotspot_activity_actor_scope}]}},
+                {fields, txn_activity_list_fields},
+                {scope, ""},
+                {order, txn_list_order},
+                {limit, ""}
+            ]}},
+        {?S_HOTSPOT_ACTIVITY_LIST_REM,
+            {txn_list_base, [
+                {source,
+                    {txn_actor_list_rem_source, [{actor_scope, txn_hotspot_activity_actor_scope}]}},
+                {fields, txn_activity_list_fields},
+                {scope, ""},
+                {order, txn_list_order},
+                {limit, ""}
+            ]}},
 
-    {ok, S6} =
-        epgsql:parse(Conn, ?S_OWNED_ACTOR_TXN_LIST, ?SELECT_OWNED_ACTOR_TXN_LIST, []),
+        {?S_LOC, {txn_location, []}},
 
-    {ok, S7} =
-        epgsql:parse(
-            Conn,
-            ?S_OWNED_ACTOR_TXN_LIST_REM,
-            ?SELECT_OWNED_ACTOR_TXN_LIST_REM,
-            []
-        ),
+        {?S_ACCOUNT_ACTIVITY_COUNT,
+            {txn_actor_count_base, [
+                {actor_scope, txn_account_activity_actor_scope}
+            ]}},
+        {?S_HOTSPOT_ACTIVITY_COUNT,
+            {txn_actor_count_base, [
+                {actor_scope, txn_hotspot_activity_actor_scope}
+            ]}},
 
-    {ok, S8} =
-        epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_LIST, ?SELECT_ACCOUNT_ACTIVITY_LIST, []),
+        {?S_HOTSPOT_MIN_BLOCK, {txn_hotspot_activity_min_block, []}},
+        {?S_ACCOUNT_MIN_BLOCK, {txn_account_activity_min_block, []}},
+        {?S_ORACLE_MIN_BLOCK, {txn_oracle_activity_min_block, []}},
+        {?S_GENESIS_MIN_BLOCK, {txn_genesis_min_block, []}}
+    ],
 
-    {ok, S9} =
-        epgsql:parse(
-            Conn,
-            ?S_ACCOUNT_ACTIVITY_LIST_REM,
-            ?SELECT_ACCOUNT_ACTIVITY_LIST_REM,
-            []
-        ),
-
-    {ok, S10} =
-        epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_LIST, ?SELECT_HOTSPOT_ACTIVITY_LIST, []),
-
-    {ok, S11} =
-        epgsql:parse(
-            Conn,
-            ?S_HOTSPOT_ACTIVITY_LIST_REM,
-            ?SELECT_HOTSPOT_ACTIVITY_LIST_REM,
-            []
-        ),
-
-    {ok, S12} =
-        epgsql:parse(
-            Conn,
-            ?S_LOC,
-            [
-                "select ",
-                " l.short_street, l.long_street, ",
-                " l.short_city, l.long_city, ",
-                " l.short_state, l.long_state, ",
-                " l.short_country, l.long_country, ",
-                " l.city_id ",
-                "from locations l ",
-                "where location = $1"
-            ],
-            []
-        ),
-
-    {ok, S13} =
-        epgsql:parse(Conn, ?S_ACCOUNT_ACTIVITY_COUNT, ?SELECT_ACCOUNT_ACTIVITY_COUNT, []),
-
-    {ok, S14} =
-        epgsql:parse(Conn, ?S_HOTSPOT_ACTIVITY_COUNT, ?SELECT_HOTSPOT_ACTIVITY_COUNT, []),
-
-    {ok, S15} =
-        epgsql:parse(
-            Conn,
-            ?S_HOTSPOT_MIN_BLOCK,
-            [
-                "select min(block) from transaction_actors ",
-                "where actor = $1 and actor_role = 'gateway'"
-            ],
-            []
-        ),
-
-    {ok, S16} =
-        epgsql:parse(
-            Conn,
-            ?S_ACCOUNT_MIN_BLOCK,
-            [
-                "select min(block) from transaction_actors ",
-                "where actor = $1 and actor_role in ('payer', 'payee', 'owner')"
-            ],
-            []
-        ),
-
-    {ok, S17} =
-        epgsql:parse(
-            Conn,
-            ?S_ORACLE_MIN_BLOCK,
-            [
-                "select min(block) from transaction_actors ",
-                "where actor = $1 and actor_role = 'oracle'"
-            ],
-            []
-        ),
-
-    {ok, S18} =
-        epgsql:parse(
-            Conn,
-            ?S_TXN_MIN_BLOCK,
-            [
-                "select 1"
-            ],
-            []
-        ),
-
-    #{
-        ?S_TXN => S1,
-        ?S_TXN_LIST => S2,
-        ?S_TXN_LIST_REM => S3,
-        ?S_ACTOR_TXN_LIST => S4,
-        ?S_ACTOR_TXN_LIST_REM => S5,
-        ?S_OWNED_ACTOR_TXN_LIST => S6,
-        ?S_OWNED_ACTOR_TXN_LIST_REM => S7,
-        ?S_ACCOUNT_ACTIVITY_LIST => S8,
-        ?S_ACCOUNT_ACTIVITY_LIST_REM => S9,
-        ?S_HOTSPOT_ACTIVITY_LIST => S10,
-        ?S_HOTSPOT_ACTIVITY_LIST_REM => S11,
-        ?S_LOC => S12,
-        ?S_ACCOUNT_ACTIVITY_COUNT => S13,
-        ?S_HOTSPOT_ACTIVITY_COUNT => S14,
-        ?S_HOTSPOT_MIN_BLOCK => S15,
-        ?S_ACCOUNT_MIN_BLOCK => S16,
-        ?S_ORACLE_MIN_BLOCK => S17,
-        ?S_TXN_MIN_BLOCK => S18
-    }.
+    bh_db_worker:load_from_eql(Conn, "txns.sql", Loads).
 
 handle('GET', [TxnHash], _Req) ->
     ?MK_RESPONSE(get_txn(TxnHash), infinity);
@@ -337,7 +200,7 @@ get_txn(Key) ->
     end.
 
 get_txn_list(Args = [{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([], {?S_TXN_MIN_BLOCK, ?S_TXN_LIST, ?S_TXN_LIST_REM}, Args).
+    get_txn_list([], {?S_GENESIS_MIN_BLOCK, ?S_TXN_LIST, ?S_TXN_LIST_REM}, Args).
 
 get_actor_txn_list({hotspot, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
     get_txn_list([Address], {?S_HOTSPOT_MIN_BLOCK, ?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
@@ -346,7 +209,7 @@ get_actor_txn_list({oracle, Address}, Args = [{cursor, _}, {filter_types, _}]) -
 get_actor_txn_list({account, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
     get_txn_list(
         [Address],
-        {?S_ACCOUNT_MIN_BLOCK, ?S_OWNED_ACTOR_TXN_LIST, ?S_OWNED_ACTOR_TXN_LIST_REM},
+        {?S_ACCOUNT_MIN_BLOCK, ?S_ACCOUNT_HOTSPOTS_TXN_LIST, ?S_ACCOUNT_HOTSPOTS_TXN_LIST_REM},
         Args
     ).
 
@@ -369,6 +232,7 @@ get_activity_count({hotspot, Address}, Args) ->
     get_txn_count([Address], ?S_HOTSPOT_ACTIVITY_COUNT, Args).
 
 -define(TXN_LIST_BLOCK_ALIGN, 100).
+-define(TXN_LIST_GROW_MAX, 100000).
 
 -record(state, {
     anchor_block = undefined :: pos_integer() | undefined,
@@ -387,6 +251,12 @@ grow_txn_list(_Query, State = #state{results = Results}) when length(Results) >=
     State;
 grow_txn_list(_Query, State = #state{low_block = MinBlock, min_block = MinBlock}) ->
     State;
+grow_txn_list(_Query, State = #state{low_block = LowBlock, high_block = HighBlock}) when
+    HighBlock - LowBlock >= ?TXN_LIST_GROW_MAX
+->
+    %% Cap at only one max growth before returning a cursor in an attempt to
+    %% shed load sooner
+    State;
 grow_txn_list(_Query, #state{low_block = LowBlock, high_block = HighBlock, min_block = MinBlock}) when
     LowBlock >= HighBlock orelse MinBlock > LowBlock
 ->
@@ -401,7 +271,10 @@ grow_txn_list(
             %% Empirically a 100k block search is slower than 10, 10k searches
             %% (which in turn is faster than 100, 1k searches).
             %% so cap at 10000 instead of 100000.
-            low_block = max(MinBlock, LowBlock - min(10000, (HighBlock - LowBlock) * 10))
+            low_block = max(
+                MinBlock,
+                LowBlock - min(?TXN_LIST_GROW_MAX, (HighBlock - LowBlock) * 10)
+            )
         }),
     grow_txn_list(Query, NewState).
 
@@ -415,7 +288,8 @@ execute_query(Query, State) ->
     AddedArgs = [
         filter_types_to_sql(State#state.types),
         State#state.low_block,
-        State#state.high_block
+        State#state.high_block,
+        max(0, ?TXN_LIST_LIMIT - length(State#state.results))
     ],
     {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
     State#state{results = State#state.results ++ Results}.
@@ -423,7 +297,12 @@ execute_query(Query, State) ->
 execute_rem_query(_Query, _HighBlock, undefined, State) ->
     State;
 execute_rem_query(Query, HighBlock, TxnHash, State) ->
-    AddedArgs = [filter_types_to_sql(State#state.types), HighBlock, TxnHash],
+    AddedArgs = [
+        filter_types_to_sql(State#state.types),
+        HighBlock,
+        TxnHash,
+        max(0, ?TXN_LIST_LIMIT - length(State#state.results))
+    ],
     {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
     State#state{results = State#state.results ++ Results}.
 
@@ -468,8 +347,7 @@ get_txn_list(Args, {_MinQuery, Query, RemQuery}, [{cursor, Cursor}, {filter_type
                 maps:get(<<"txn">>, C, undefined),
                 State0
             ),
-            %% Collect the initial set of results before the highblock
-            %% annd start growing from there
+            %% and start growing from there
             mk_txn_list_result(grow_txn_list(Query, execute_query(Query, State1)));
         _ ->
             {error, badarg}
@@ -522,19 +400,17 @@ mk_txn_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
     ).
 
 get_txn_list_cache_time({ok, _, undefined}) ->
-    %% Undefined cursor means we're at block 1. Technically we could
-    %% store these for a longer time since head realignment would
-    %% create new cache entries, but we try to be nice to the cache.
-    {block_time, ?TXN_LIST_BLOCK_ALIGN};
+    %% Undefined cursor means we're at block 1. We assume a cursor got us here
+    %% so cache forever (is this assumption too much?)
+    infinity;
 get_txn_list_cache_time({ok, _, Cursor = #{block := BeforeBlock}}) ->
-    %% If we're on an aligned block we can cache for a longer time
-    %% since it's likely to be more stable (at least for the next
-    %% ?TXN_LIST_BLOCK_ALIGN blocks).
-    %% If not we cache for one block time
+    %% If we have an anchor block we have aligned at some point -> cache forever.
+    %% therwise we're still trying to get to an anchor block. If the anchor
+    %% block was just found (i.e. equal to BeforeBlock) we can't cache long
     case maps:get(anchor_block, Cursor, undefined) of
         undefined -> block_time;
-        AnchorBlock when BeforeBlock == AnchorBlock -> block_time;
-        _AnchorBlock -> {block_time, ?TXN_LIST_BLOCK_ALIGN}
+        BeforeBlock -> block_time;
+        _AnchorBlock -> infinity
     end;
 get_txn_list_cache_time(_) ->
     never.
