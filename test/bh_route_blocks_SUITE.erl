@@ -12,7 +12,8 @@ all() ->
         block_for_invalid_height_txns_test,
         block_for_hash_test,
         block_for_hash_txns_test,
-        block_for_invalid_hash_txns_test
+        block_for_invalid_hash_txns_test,
+        block_stats_test
     ].
 
 init_per_suite(Config) ->
@@ -78,4 +79,11 @@ block_for_hash_txns_test(_Config) ->
 
 block_for_invalid_hash_txns_test(_Config) ->
     ?assertMatch({error, {_, 404, _}}, ?json_request("/v1/blocks/hash/no_such_hash/transactions")),
+    ok.
+
+block_stats_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/blocks/stats"),
+    #{<<"data">> := Stats} = Json,
+    ?assert(maps:size(Stats) > 0),
+
     ok.
