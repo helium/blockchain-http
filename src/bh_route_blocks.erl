@@ -127,16 +127,19 @@ prepare_conn(Conn) ->
 
     M = bh_db_worker:load_from_eql(Conn, "blocks.sql", [?S_BLOCK_TIMES]),
 
-    maps:merge(#{
-        ?S_BLOCK_HEIGHT => S1,
-        ?S_BLOCK_LIST_BEFORE => S3,
-        ?S_BLOCK_BY_HEIGHT => S4,
-        ?S_BLOCK_BY_HASH => S5,
-        ?S_BLOCK_HEIGHT_TXN_LIST => S6,
-        ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE => S7,
-        ?S_BLOCK_HASH_TXN_LIST => S8,
-        ?S_BLOCK_HASH_TXN_LIST_BEFORE => S9
-    }, M).
+    maps:merge(
+        #{
+            ?S_BLOCK_HEIGHT => S1,
+            ?S_BLOCK_LIST_BEFORE => S3,
+            ?S_BLOCK_BY_HEIGHT => S4,
+            ?S_BLOCK_BY_HASH => S5,
+            ?S_BLOCK_HEIGHT_TXN_LIST => S6,
+            ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE => S7,
+            ?S_BLOCK_HASH_TXN_LIST => S8,
+            ?S_BLOCK_HASH_TXN_LIST_BEFORE => S9
+        },
+        M
+    ).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
@@ -150,6 +153,14 @@ handle('GET', [<<"hash">>, BlockHash], _Req) ->
 handle('GET', [<<"hash">>, BlockHash, <<"transactions">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(get_block_txn_list({hash, BlockHash}, Args), infinity);
+handle('GET', [<<"stats">>], _Req) ->
+    ?MK_RESPONSE(
+        {ok,
+            bh_route_stats:mk_stats_from_time_results(
+                get_block_stats()
+            )},
+        block_time
+    );
 handle('GET', [BlockId], _Req) ->
     bh_route_handler:try_or_else(
         fun() -> binary_to_integer(BlockId) end,
@@ -167,9 +178,6 @@ handle('GET', [BlockId, <<"transactions">>], Req) ->
         end,
         ?RESPONSE_400
     );
-handle('GET', [<<"stats">>], _Req) ->
-    ?MK_RESPONSE({ok, bh_route_stats:mk_stats_from_time_results(
-                   get_block_stats())}, block_time);
 handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
 
@@ -255,9 +263,9 @@ get_block_txn_list(Block, {_StartQuery, CursorQuery}, [{cursor, Cursor}]) ->
 
 get_block_stats() ->
     bh_cache:get({?MODULE, block_stats}, fun() ->
-                                                 {ok, _Columns, Data} = ?PREPARED_QUERY(?S_BLOCK_TIMES, []),
-                                                 Data
-                                         end).
+        {ok, _Columns, Data} = ?PREPARED_QUERY(?S_BLOCK_TIMES, []),
+        Data
+    end).
 
 mk_txn_list_from_result({ok, _, Results}) ->
     {ok, ?TXN_LIST_TO_JSON(Results), mk_txn_list_cursor(Results)}.
