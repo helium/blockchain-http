@@ -11,6 +11,8 @@ select
     g.nonce,
     g.name,
     g.reward_scale,
+    g.elevation,
+    g.gain,
     s.online as online_status,
     s.block as block_status,
     s.listen_addrs as listen_addrs,

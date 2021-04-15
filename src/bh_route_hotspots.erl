@@ -484,9 +484,10 @@ mk_cursor(Limit, CursorBase, Results) when is_list(Results) ->
         false ->
             case lists:last(Results) of
                 {Height, _LastChangeBlock, FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
-                    _Owner, _Location, _Nonce, _Name, _RewardScale, _OnlineStatus, _BlockStatus,
-                    _ListenAddrs, _ShortStreet, _LongStreet, _ShortCity, _LongCity, _ShortState,
-                    _LongState, _ShortCountry, _LongCountry, _CityId} ->
+                    _Owner, _Location, _Nonce, _Name, _RewardScale, _Elevation, _Gain,
+                    _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet,
+                    _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
+                    _CityId} ->
                     CursorBase#{
                         before_address => Address,
                         before_block => FirstBlock,
@@ -546,15 +547,15 @@ to_geo_json(
 
 hotspot_witness_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Owner,
-        Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus, ListenAddrs, ShortStreet,
-        LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId,
-        WitnessFor, WitnessInfo}
+        Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus, ListenAddrs,
+        ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
+        LongCountry, CityId, WitnessFor, WitnessInfo}
 ) ->
     Base = hotspot_to_json(
         {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Owner,
-            Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus, ListenAddrs, ShortStreet,
-            LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry,
-            CityId}
+            Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus,
+            ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
+            ShortCountry, LongCountry, CityId}
     ),
     Base#{
         witness_for => WitnessFor,
@@ -563,8 +564,9 @@ hotspot_witness_to_json(
 
 hotspot_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Owner,
-        Location, Nonce, Name, RewardScale, OnlineStatus, BlockStatus, ListenAddrs, ShortStreet,
-        LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}
+        Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus, ListenAddrs,
+        ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
+        LongCountry, CityId}
 ) ->
     MaybeZero = fun
         (null) -> 0;
@@ -577,6 +579,8 @@ hotspot_to_json(
             name => Name,
             owner => Owner,
             location => Location,
+            elevation => Elevation,
+            gain => Gain,
             geocode => to_geo_json(
                 {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
                     LongCountry, CityId}
