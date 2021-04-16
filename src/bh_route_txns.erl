@@ -365,7 +365,7 @@ get_txn_count(Args, Query, [{filter_types, Types}]) ->
             Results
         )}.
 
-mk_txn_list_result(State = #state{results = Results}) when length(Results) > ?TXN_LIST_LIMIT ->
+mk_txn_list_result(State = #state{results = Results}) when length(Results) >= ?TXN_LIST_LIMIT ->
     {Trimmed, _Remainder} = lists:split(?TXN_LIST_LIMIT, Results),
     {Height, _Time, Hash, _Type, _Fields} = lists:last(Trimmed),
     {ok, txn_list_to_json(Trimmed), mk_txn_list_cursor(Height, Hash, State)};
