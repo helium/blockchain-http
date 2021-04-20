@@ -9,6 +9,7 @@
 %% Utilities
 -export([
     get_block_height/0,
+    get_block_height/1,
     get_block_list/1,
     get_block_list_cache_time/1,
     get_block/1,
@@ -17,6 +18,7 @@
 ]).
 
 -define(S_BLOCK_HEIGHT, "block_height").
+-define(S_BLOCK_HEIGHT_BY_TIME, "block_height_by_time").
 
 -define(S_BLOCK_LIST_BEFORE, "block_list_before").
 
@@ -125,6 +127,18 @@ prepare_conn(Conn) ->
         []
     ),
 
+    {ok, S10} = epgsql:parse(
+        Conn,
+        ?S_BLOCK_HEIGHT_BY_TIME,
+        [
+            "select height from blocks ",
+            "where time < extract(epoch from $1::timestamptz) ",
+            "order by height desc ",
+            "limit 1"
+        ],
+        []
+    ),
+
     M = bh_db_worker:load_from_eql(Conn, "blocks.sql", [?S_BLOCK_TIMES]),
 
     maps:merge(
@@ -136,7 +150,8 @@ prepare_conn(Conn) ->
             ?S_BLOCK_HEIGHT_TXN_LIST => S6,
             ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE => S7,
             ?S_BLOCK_HASH_TXN_LIST => S8,
-            ?S_BLOCK_HASH_TXN_LIST_BEFORE => S9
+            ?S_BLOCK_HASH_TXN_LIST_BEFORE => S9,
+            ?S_BLOCK_HEIGHT_BY_TIME => S10
         },
         M
     ).
@@ -146,8 +161,9 @@ handle('GET', [], Req) ->
     Result = get_block_list(Args),
     CacheTime = get_block_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);
-handle('GET', [<<"height">>], _Req) ->
-    ?MK_RESPONSE(get_block_height(), block_time);
+handle('GET', [<<"height">>], Req) ->
+    Args = ?GET_ARGS([max_time], Req),
+    ?MK_RESPONSE(get_block_height(Args), block_time);
 handle('GET', [<<"hash">>, BlockHash], _Req) ->
     ?MK_RESPONSE(get_block({hash, BlockHash}), infinity);
 handle('GET', [<<"hash">>, BlockHash, <<"transactions">>], Req) ->
@@ -217,8 +233,32 @@ mk_block_list_cursor(Before) ->
     #{before => Before}.
 
 get_block_height() ->
-    {ok, _, [{Height}]} = ?PREPARED_QUERY(?S_BLOCK_HEIGHT, []),
-    {ok, #{height => Height}}.
+    {ok, Result, _, _} = get_block_height([{max_time, undefined}]),
+    {ok, Result}.
+
+get_block_height([{max_time, undefined}]) ->
+    mk_block_height_result(undefined, ?PREPARED_QUERY(?S_BLOCK_HEIGHT, []));
+get_block_height([{max_time, Time0}]) ->
+    case ?PARSE_TIMESTAMP(Time0) of
+        {ok, Timestamp} ->
+            mk_block_height_result(
+                Timestamp,
+                ?PREPARED_QUERY(
+                    ?S_BLOCK_HEIGHT_BY_TIME,
+                    [Timestamp]
+                )
+            );
+        {error, _} = Error ->
+            Error
+    end.
+
+mk_block_height_result(Timestamp, {ok, _, [{Height}]}) ->
+    Meta =
+        case Timestamp of
+            undefined -> undefined;
+            _ -> #{max_time => iso8601:format(Timestamp)}
+        end,
+    {ok, #{height => Height}, undefined, Meta}.
 
 get_block({height, Height}) ->
     Result = ?PREPARED_QUERY(?S_BLOCK_BY_HEIGHT, [Height]),
