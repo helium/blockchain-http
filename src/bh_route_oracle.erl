@@ -11,6 +11,7 @@
 
 -define(S_PRICE_LIST_BEFORE, "oeracle_price_list_befor").
 -define(S_PRICE_LIST, "oracle_price_list").
+-define(S_PRICE_STATS, "oracle_price_stats").
 -define(S_PRICE_AT_BLOCK, "oracle_price_at_block").
 -define(S_PRICE_PREDICTIONS, "oracle_price_predictions").
 -define(PRICE_LIST_LIMIT, 100).
@@ -30,7 +31,8 @@ prepare_conn(Conn) ->
                 {scope, "where block <= coalesce($1, (select max(height) from blocks))"},
                 {limit, "1"}
             ]}},
-        ?S_PRICE_PREDICTIONS
+        ?S_PRICE_PREDICTIONS,
+        ?S_PRICE_STATS
     ],
     bh_db_worker:load_from_eql(Conn, "oracles.sql", Loads).
 
@@ -41,6 +43,9 @@ handle('GET', [<<"prices">>], Req) ->
     ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [<<"prices">>, <<"current">>], _Req) ->
     ?MK_RESPONSE(get_price_at_block(undefined), block_time);
+handle('GET', [<<"prices">>, <<"stats">>], Req) ->
+    Args = ?GET_ARGS([max_time, min_time], Req),
+    ?MK_RESPONSE(get_price_stats(Args), block_time);
 handle('GET', [<<"prices">>, Block], _Req) ->
     bh_route_handler:try_or_else(
         fun() -> binary_to_integer(Block) end,
@@ -114,6 +119,23 @@ get_price_predictions() ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_PRICE_PREDICTIONS, []),
     {ok, price_predictions_to_json(Results)}.
 
+get_price_stats([{max_time, MaxTime0}, {min_time, MinTime0}]) ->
+    case ?PARSE_TIMESPAN(MaxTime0, MinTime0) of
+        {ok, {MaxTime, MinTime}} ->
+            Result = ?PREPARED_QUERY(?S_PRICE_STATS, [MinTime, MaxTime]),
+            mk_price_stats_result(MaxTime, MinTime, Result);
+        {error, _} = Error ->
+            Error
+    end.
+
+mk_price_stats_result(MaxTime, MinTime, {ok, _, [Result]}) ->
+    Meta = #{
+        max_time => iso8601:format(MaxTime),
+        min_time => iso8601:format(MinTime)
+    },
+    %% Result is expected to have the same fields as a stat results
+    {ok, price_stat_to_json(Result), undefined, Meta}.
+
 %%
 %% json
 %%
@@ -135,4 +157,13 @@ price_prediction_to_json({Time, Price}) ->
     #{
         time => Time,
         price => Price
+    }.
+
+price_stat_to_json({Min, Max, Median, Avg, StdDev}) ->
+    #{
+        min => Min,
+        max => Max,
+        median => Median,
+        avg => Avg,
+        stddev => StdDev
     }.

@@ -11,7 +11,8 @@ all() ->
         price_at_invalid_block_test,
         list_test,
         activity_list_test,
-        price_predictions_test
+        price_predictions_test,
+        price_stats_test
     ].
 
 init_per_suite(Config) ->
@@ -68,4 +69,10 @@ price_predictions_test(_Config) ->
     #{<<"data">> := AllData} = AllJson,
     ?assert(length(AllData) >= 0),
 
+    ok.
+
+price_stats_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/oracle/prices/stats?min_time=-30%20day"),
+    #{<<"data">> := #{<<"max">> := Max}} = Json,
+    ?assert(Max >= 0),
     ok.
