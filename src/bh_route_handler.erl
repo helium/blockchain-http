@@ -4,6 +4,7 @@
 
 -export([
     get_args/2,
+    parse_timestamp/1,
     parse_timespan/2,
     parse_bucket/2,
     parse_interval/1,
@@ -51,6 +52,11 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
             Arg -> Arg
         end,
     get_args(Tail, Req, [{Key, V} | Acc]).
+
+
+-spec parse_timestamp(binary() | undefined) -> {ok, calendar:datetime()} | {error, term()}.
+parse_timestamp(Timestamp) ->
+    parse_timestamp(calendar:universal_time(), Timestamp).
 
 %% Parse a given binary timestamp. Returns the given `Now' time if passed
 %% <<"now">> or undefined. Otherwise an attempt is made to parse an interval relative

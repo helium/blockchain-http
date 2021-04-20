@@ -15,6 +15,7 @@
 -define(PARSE_BUCKETED_TIMESPAN(H, L, B),
     bh_route_handler:parse_bucketed_timespan((H), (L), (B))
 ).
+-define(PARSE_TIMESTAMP(T), bh_route_handler:parse_timestamp((T))).
 -define(PARSE_FLOAT(F), bh_route_handler:parse_float((F))).
 -define(PARSE_INT(I), bh_route_handler:parse_int((I))).
 

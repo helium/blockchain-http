@@ -6,6 +6,7 @@
 all() ->
     [
         height_test,
+        height_by_time_test,
         block_for_height_test,
         block_for_invalid_height_test,
         block_for_height_txns_test,
@@ -24,6 +25,12 @@ end_per_suite(Config) ->
 
 height_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/blocks/height"),
+    ?assertMatch(#{<<"data">> := #{<<"height">> := _}}, Json),
+
+    ok.
+
+height_by_time_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/blocks/height?max_time=2021-04-20"),
     ?assertMatch(#{<<"data">> := #{<<"height">> := _}}, Json),
 
     ok.
