@@ -37,7 +37,7 @@ prepare_conn(Conn) ->
     bh_db_worker:load_from_eql(Conn, "oracles.sql", Loads).
 
 handle('GET', [<<"prices">>], Req) ->
-    Args = ?GET_ARGS([cursor], Req),
+    Args = ?GET_ARGS([max_block, cursor], Req),
     Result = get_price_list(Args),
     CacheTime = get_price_list_cache_time(Args),
     ?MK_RESPONSE(Result, CacheTime);
@@ -72,16 +72,28 @@ handle(_, _, _Req) ->
 add_filter_types(Args) ->
     Args ++ [{filter_types, <<"price_oracle_v1">>}].
 
-get_price_list([{cursor, undefined}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(?S_PRICE_LIST, []),
-    {ok, price_list_to_json(Results), mk_price_list_cursor(undefined, Results)};
-get_price_list([{cursor, Cursor}]) ->
+get_price_list([{max_block, BeforeBlock}, {cursor, undefined}]) ->
+    try
+        {ok, _, Results} =
+            case BeforeBlock of
+                undefined ->
+                    ?PREPARED_QUERY(?S_PRICE_LIST, []);
+                _ ->
+                    Before = binary_to_integer(BeforeBlock),
+                    ?PREPARED_QUERY(?S_PRICE_LIST_BEFORE, [
+                        Before - (Before rem ?PRICE_LIST_LIMIT)
+                    ])
+            end,
+        {ok, price_list_to_json(Results), mk_price_list_cursor(undefined, Results)}
+    catch
+        error:badarg -> {error, badarg}
+    end;
+get_price_list([{max_block, _}, {cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, #{<<"before">> := Before}} ->
-            {ok, _, Results} =
-                ?PREPARED_QUERY(?S_PRICE_LIST_BEFORE, [
-                    Before - (Before rem ?PRICE_LIST_LIMIT)
-                ]),
+            {ok, _, Results} = ?PREPARED_QUERY(?S_PRICE_LIST_BEFORE, [
+                Before - (Before rem ?PRICE_LIST_LIMIT)
+            ]),
             {ok, price_list_to_json(Results), mk_price_list_cursor(Cursor, Results)};
         _ ->
             {error, badarg}
@@ -89,9 +101,9 @@ get_price_list([{cursor, Cursor}]) ->
 
 %% If the request had a cursor in it we can cache the response for that request
 %% for a long time since the cursor makes the response stable.
-get_price_list_cache_time([{cursor, undefined}]) ->
+get_price_list_cache_time([{max_block, _}, {cursor, undefined}]) ->
     block_time;
-get_price_list_cache_time([{cursor, _}]) ->
+get_price_list_cache_time([{max_block, _}, {cursor, _}]) ->
     infinity.
 
 mk_price_list_cursor(PrevCursor, Results) when is_list(Results) ->
