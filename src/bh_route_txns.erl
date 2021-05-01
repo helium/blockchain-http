@@ -103,7 +103,7 @@ prepare_conn(Conn) ->
             ]}},
         {?S_ACTOR_TXN_LIST_REM,
             {txn_list_base, [
-                {source, {txn_actor_list_source, [{actor_scope, txn_actor_scope}]}},
+                {source, {txn_actor_list_rem_source, [{actor_scope, txn_actor_scope}]}},
                 {fields, txn_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
