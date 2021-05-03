@@ -10,6 +10,7 @@ all() ->
         price_at_block_test,
         price_at_invalid_block_test,
         list_test,
+        list_block_test,
         activity_list_test,
         price_predictions_test,
         price_stats_test
@@ -46,6 +47,13 @@ price_at_invalid_block_test(_Config) ->
 
 list_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/oracle/prices"),
+    #{<<"data">> := Data} = Json,
+    ?assert(length(Data) >= 0),
+
+    ok.
+
+list_block_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request("/v1/oracle/prices?max_block=500000"),
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),
 

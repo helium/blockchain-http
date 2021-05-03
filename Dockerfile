@@ -10,7 +10,7 @@ COPY rebar3 rebar.config rebar.lock ./
 RUN ./rebar3 compile
 
 COPY . .
-RUN rebar3 compile
+RUN ./rebar3 compile
 
 RUN mkdir -p /opt/rel && \
     ./rebar3 as prod tar && \
