@@ -103,7 +103,7 @@ prepare_conn(Conn) ->
             ]}},
         {?S_ACTOR_TXN_LIST_REM,
             {txn_list_base, [
-                {source, {txn_actor_list_source, [{actor_scope, txn_actor_scope}]}},
+                {source, {txn_actor_list_rem_source, [{actor_scope, txn_actor_scope}]}},
                 {fields, txn_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
@@ -232,13 +232,14 @@ get_activity_count({hotspot, Address}, Args) ->
     get_txn_count([Address], ?S_HOTSPOT_ACTIVITY_COUNT, Args).
 
 -define(TXN_LIST_BLOCK_ALIGN, 100).
--define(TXN_LIST_GROW_MAX, 100000).
+-define(TXN_LIST_MAX_STEP, 10000).
 
 -record(state, {
     anchor_block = undefined :: pos_integer() | undefined,
     high_block :: pos_integer(),
     low_block :: pos_integer(),
     min_block = 1 :: pos_integer(),
+    step = 100 :: pos_integer(),
     args :: list(term()),
     types :: iolist(),
     results = [] :: list(term())
@@ -252,7 +253,7 @@ grow_txn_list(_Query, State = #state{results = Results}) when length(Results) >=
 grow_txn_list(_Query, State = #state{low_block = MinBlock, min_block = MinBlock}) ->
     State;
 grow_txn_list(_Query, State = #state{low_block = LowBlock, high_block = HighBlock}) when
-    HighBlock - LowBlock >= ?TXN_LIST_GROW_MAX
+    HighBlock - LowBlock >= ?TXN_LIST_MAX_STEP
 ->
     %% Cap at only one max growth before returning a cursor in an attempt to
     %% shed load sooner
@@ -263,18 +264,19 @@ grow_txn_list(_Query, #state{low_block = LowBlock, high_block = HighBlock, min_b
     error(bad_arg);
 grow_txn_list(
     Query,
-    State = #state{low_block = LowBlock, high_block = HighBlock, min_block = MinBlock}
+    State = #state{
+        low_block = LowBlock,
+        min_block = MinBlock,
+        step = Step
+    }
 ) ->
     NewState =
         execute_query(Query, State#state{
             high_block = LowBlock,
             %% Empirically a 100k block search is slower than 10, 10k searches
             %% (which in turn is faster than 100, 1k searches).
-            %% so cap at 10000 instead of 100000.
-            low_block = max(
-                MinBlock,
-                LowBlock - min(?TXN_LIST_GROW_MAX, (HighBlock - LowBlock) * 10)
-            )
+            step = min(?TXN_LIST_MAX_STEP, Step * 10),
+            low_block = max(MinBlock, LowBlock - Step)
         }),
     grow_txn_list(Query, NewState).
 
