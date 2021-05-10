@@ -71,7 +71,7 @@ prepare_conn(Conn) ->
             ]}},
         {?S_HOTSPOT,
             {hotspot_list_base, [
-                {source, hotspot_list_source},
+                {source, hotspot_source},
                 {scope, "where g.address = $1"},
                 {order, ""},
                 {limit, ""}
@@ -562,6 +562,21 @@ hotspot_witness_to_json(
         witness_info => WitnessInfo
     }.
 
+hotspot_to_json(
+    {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Owner,
+        Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus, ListenAddrs,
+        ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
+        LongCountry, CityId, SpecNonce}
+) ->
+    Base = hotspot_to_json(
+        {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Owner,
+            Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus,
+            ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
+            ShortCountry, LongCountry, CityId}
+    ),
+    Base#{
+        <<"speculative_nonce">> => SpecNonce
+    };
 hotspot_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Owner,
         Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus, ListenAddrs,

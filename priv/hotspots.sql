@@ -34,6 +34,13 @@ order by g.first_block desc, g.address
 -- :hotspot_list_source
 from gateway_inventory g
 
+-- :hotspot_source
+, (select greatest(g.nonce, coalesce(max(p.nonce), g.nonce))
+    from pending_transactions p
+    where p.address = g.address and nonce_type = 'gateway' and status != 'failed'
+ ) as speculative_nonce
+ from gateway_inventory g
+
 -- :hotspot_list_before_scope
 where ((g.address > $1 and g.first_block = $2) or (g.first_block < $2))
 
