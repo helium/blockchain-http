@@ -32,9 +32,13 @@
 -define(S_HOTSPOT_ACTIVITY_COUNT, "hotspot_activity_count").
 -define(S_HOTSPOT_ACTIVITY_LIST, "hotspot_activity_list").
 -define(S_HOTSPOT_ACTIVITY_LIST_REM, "hotspot_activity_list_rem").
+-define(S_VALIDATOR_ACTIVITY_COUNT, "validator_activity_count").
+-define(S_VALIDATOR_ACTIVITY_LIST, "validator_activity_list").
+-define(S_VALIDATOR_ACTIVITY_LIST_REM, "validator_activity_list_rem").
 -define(S_HOTSPOT_MIN_BLOCK, "hotspot_activity_min_block").
 -define(S_ACCOUNT_MIN_BLOCK, "account_activity_min_block").
 -define(S_ORACLE_MIN_BLOCK, "oracle_activity_min_block").
+-define(S_VALIDATOR_MIN_BLOCK, "validator_activity_min_block").
 -define(S_GENESIS_MIN_BLOCK, "txn_genesis_min_block").
 -define(S_LOC, "txn_location").
 
@@ -170,6 +174,25 @@ prepare_conn(Conn) ->
                 {limit, ""}
             ]}},
 
+        {?S_VALIDATOR_ACTIVITY_LIST,
+            {txn_list_base, [
+                {source,
+                    {txn_actor_list_source, [{actor_scope, txn_validator_activity_actor_scope}]}},
+                {fields, txn_activity_list_fields},
+                {scope, ""},
+                {order, txn_list_order},
+                {limit, ""}
+            ]}},
+        {?S_VALIDATOR_ACTIVITY_LIST_REM,
+            {txn_list_base, [
+                {source,
+                    {txn_actor_list_rem_source, [{actor_scope, txn_validator_activity_actor_scope}]}},
+                {fields, txn_activity_list_fields},
+                {scope, ""},
+                {order, txn_list_order},
+                {limit, ""}
+            ]}},
+
         {?S_LOC, {txn_location, []}},
 
         {?S_ACCOUNT_ACTIVITY_COUNT,
@@ -180,10 +203,15 @@ prepare_conn(Conn) ->
             {txn_actor_count_base, [
                 {actor_scope, txn_hotspot_activity_actor_scope}
             ]}},
+        {?S_VALIDATOR_ACTIVITY_COUNT,
+            {txn_actor_count_base, [
+                {actor_scope, txn_validator_activity_actor_scope}
+            ]}},
 
         {?S_HOTSPOT_MIN_BLOCK, {txn_hotspot_activity_min_block, []}},
         {?S_ACCOUNT_MIN_BLOCK, {txn_account_activity_min_block, []}},
         {?S_ORACLE_MIN_BLOCK, {txn_oracle_activity_min_block, []}},
+        {?S_VALIDATOR_MIN_BLOCK, {txn_validator_activity_min_block, []}},
         {?S_GENESIS_MIN_BLOCK, {txn_genesis_min_block, []}}
     ],
 
@@ -228,12 +256,20 @@ get_activity_list({hotspot, Address}, Args) ->
         [Address],
         {?S_HOTSPOT_MIN_BLOCK, ?S_HOTSPOT_ACTIVITY_LIST, ?S_HOTSPOT_ACTIVITY_LIST_REM},
         Args
+    );
+get_activity_list({validator, Address}, Args) ->
+    get_txn_list(
+        [Address],
+        {?S_VALIDATOR_MIN_BLOCK, ?S_VALIDATOR_ACTIVITY_LIST, ?S_VALIDATOR_ACTIVITY_LIST_REM},
+        Args
     ).
 
 get_activity_count({account, Account}, Args) ->
     get_txn_count([Account], ?S_ACCOUNT_ACTIVITY_COUNT, Args);
 get_activity_count({hotspot, Address}, Args) ->
-    get_txn_count([Address], ?S_HOTSPOT_ACTIVITY_COUNT, Args).
+    get_txn_count([Address], ?S_HOTSPOT_ACTIVITY_COUNT, Args);
+get_activity_count({validator, Address}, Args) ->
+    get_txn_count([Address], ?S_VALIDATOR_ACTIVITY_COUNT, Args).
 
 -define(TXN_LIST_BLOCK_ALIGN, 100).
 -define(TXN_LIST_MAX_STEP, 10000).

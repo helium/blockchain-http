@@ -122,6 +122,14 @@ handle('GET', [<<"name">>, Name], _Req) ->
     ?MK_RESPONSE(get_validators_named(Name), block_time);
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_validator(Address), never);
+handle('GET', [Address, <<"activity">>], Req) ->
+    Args = ?GET_ARGS([cursor, filter_types], Req),
+    Result = bh_route_txns:get_activity_list({validator, Address}, Args),
+    CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
+    ?MK_RESPONSE(Result, CacheTime);
+handle('GET', [Address, <<"activity">>, <<"count">>], Req) ->
+    Args = ?GET_ARGS([filter_types], Req),
+    ?MK_RESPONSE(bh_route_txns:get_activity_count({validator, Address}, Args), block_time);
 handle('GET', [Address, <<"rewards">>], Req) ->
     Args = ?GET_ARGS([cursor, max_time, min_time], Req),
     ?MK_RESPONSE(bh_route_rewards:get_reward_list({validator, Address}, Args), block_time);
