@@ -18,13 +18,18 @@
 -define(S_OWNER_VALIDATOR_LIST_BEFORE, "owner_validator_list_before").
 -define(S_OWNER_VALIDATOR_LIST, "owner_validator_list").
 -define(S_VALIDATOR, "validator").
+-define(S_VALIDATORS_NAMED, "validator_named").
+-define(S_VALIDATOR_NAME_SEARCH, "validators_name_search").
 -define(S_VALIDATOR_STATS, "validators_stats").
 -define(S_ACTIVE_VALIDATORS, "active_validators").
 
 -define(VALIDATOR_LIST_LIMIT, 100).
+-define(VALIDATOR_LIST_NAME_SEARCH_LIMIT, 100).
 
 prepare_conn(Conn) ->
     ValidatorListLimit = "limit " ++ integer_to_list(?VALIDATOR_LIST_LIMIT),
+    ValidatorListNameSearchLimit = "limit " ++ integer_to_list(?VALIDATOR_LIST_NAME_SEARCH_LIMIT),
+
     Loads = [
         {?S_VALIDATOR_LIST_BEFORE,
             {validator_list_base, [
@@ -76,6 +81,18 @@ prepare_conn(Conn) ->
                 {order, ""},
                 {limit, ""}
             ]}},
+        {?S_VALIDATORS_NAMED,
+            {validator_list_base, [
+                {scope, "where l.name = $1"},
+                {order, ""},
+                {limit, ""}
+            ]}},
+        {?S_VALIDATOR_NAME_SEARCH,
+            {validator_list_base, [
+                {scope, validator_name_search_scope},
+                {order, ""},
+                {limit, ValidatorListNameSearchLimit}
+            ]}},
         {?S_VALIDATOR_STATS, {validator_stats, []}},
         {?S_ACTIVE_VALIDATORS, {validator_active, []}}
     ],
@@ -98,6 +115,11 @@ handle('GET', [<<"elected">>, BlockId], _Req) ->
     end;
 handle('GET', [<<"elected">>, <<"hash">>, TxnHash], _Req) ->
     ?MK_RESPONSE(get_validator_elected_list({hash, TxnHash}), infinity);
+handle('GET', [<<"name">>], Req) ->
+    Args = ?GET_ARGS([search], Req),
+    ?MK_RESPONSE(get_validator_list(Args), block_time);
+handle('GET', [<<"name">>, Name], _Req) ->
+    ?MK_RESPONSE(get_validators_named(Name), block_time);
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_validator(Address), never);
 handle('GET', [Address, <<"rewards">>], Req) ->
@@ -148,7 +170,10 @@ get_validator_list([{owner, Owner}, {cursor, Cursor}]) ->
             end;
         _ ->
             {error, badarg}
-    end.
+    end;
+get_validator_list([{search, Name}]) ->
+    Result = ?PREPARED_QUERY(?S_VALIDATOR_NAME_SEARCH, [Name]),
+    mk_validator_list_from_result(Result).
 
 get_validator_elected_list({height, Height}) ->
     Result = ?PREPARED_QUERY(?S_VALIDATOR_ELECTED_LIST, [Height]),
@@ -165,6 +190,13 @@ get_validator(Address) ->
             {error, not_found}
     end.
 
+get_validators_named(Name) ->
+    case ?PREPARED_QUERY(?S_VALIDATORS_NAMED, [Name]) of
+        {ok, _, Results} ->
+            {ok, validator_list_to_json(Results)};
+        _ ->
+            {error, not_found}
+    end.
 get_validator_stats() ->
     bh_cache:get({?MODULE, block_stats}, fun() ->
         {ok, _Columns, Data} = ?PREPARED_QUERY(?S_VALIDATOR_STATS, []),
@@ -196,8 +228,8 @@ mk_cursor(Results) when is_list(Results) ->
         true ->
             undefined;
         false ->
-            {Height, Address, _Owner, _Stake, _Status, _LastHeartbeat, _VersionHeartBeat, _Penalty,
-                _Penalties, _Nonce, FirstBlock, _OnlineStatus, _BlockStatus,
+            {Height, Address, _Name, _Owner, _Stake, _Status, _LastHeartbeat, _VersionHeartBeat,
+                _Penalty, _Penalties, _Nonce, FirstBlock, _OnlineStatus, _BlockStatus,
                 _ListenAddrs} = lists:last(Results),
             #{
                 before_address => Address,
@@ -214,12 +246,13 @@ validator_list_to_json(Results) ->
     lists:map(fun validator_to_json/1, Results).
 
 validator_to_json(
-    {Height, Address, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Penalty, Penalties,
-        _Nonce, FirstBlock, OnlineStatus, BlockStatus, ListenAddrs}
+    {Height, Address, Name, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Penalty,
+        Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, ListenAddrs}
 ) ->
     %% Excluded nonce for now as it is unused
     #{
         address => Address,
+        name => Name,
         owner => Owner,
         stake => Stake,
         stake_status => Status,

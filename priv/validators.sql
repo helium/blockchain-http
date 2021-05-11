@@ -2,6 +2,7 @@
 select
     (select max(height) from blocks) as height,
     l.address,
+    l.name,
     l.owner,
     l.stake,
     l.status,
@@ -50,6 +51,9 @@ members as (
 
 -- :validator_elected_list_scope
 where l.address in (select * from members)
+
+-- :validator_name_search_scope
+where l.name %> lower($1)
 
 -- Validator stats
 -- :validator_stats
