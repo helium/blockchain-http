@@ -28,6 +28,8 @@
 -define(S_HOTSPOT_LOCATION_BOX_SEARCH_BEFORE, "hotspots_location_box_search_before").
 -define(S_CITY_HOTSPOT_LIST, "hotspot_city_list").
 -define(S_CITY_HOTSPOT_LIST_BEFORE, "hotspot_city_list_before").
+-define(S_HEX_HOTSPOT_LIST, "hotspot_hex_list").
+-define(S_HEX_HOTSPOT_LIST_BEFORE, "hotspot_hexlist_before").
 -define(S_HOTSPOT_WITNESS_LIST, "hotspot_witness_list").
 -define(S_HOTSPOT_BUCKETED_SUM_WITNESSES, "hotspot_bucketed_sum_witnesses").
 -define(S_HOTSPOT_BUCKETED_SUM_CHALLENGES, "hotspot_bucketed_sum_challenges").
@@ -132,6 +134,20 @@ prepare_conn(Conn) ->
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
             ]}},
+        {?S_HEX_HOTSPOT_LIST_BEFORE,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, hex_hotspot_list_before_scope},
+                {order, hotspot_list_order},
+                {limit, HotspotListLimit}
+            ]}},
+        {?S_HEX_HOTSPOT_LIST,
+            {hotspot_list_base, [
+                {source, hotspot_list_source},
+                {scope, hex_hotspot_list_scope},
+                {order, hotspot_list_order},
+                {limit, HotspotListLimit}
+            ]}},
         {?S_HOTSPOT_WITNESS_LIST,
             {hotspot_witness_list, [
                 {hotspot_select,
@@ -207,6 +223,9 @@ handle('GET', [<<"location">>, <<"box">>], Req) ->
 handle('GET', [<<"location">>, <<"distance">>], Req) ->
     Args = ?GET_ARGS([lat, lon, distance, cursor], Req),
     ?MK_RESPONSE(get_hotspot_list_by_distance(Args), block_time);
+handle('GET', [<<"hex">>, Location], Req) ->
+    Args = ?GET_ARGS([cursor], Req),
+    ?MK_RESPONSE(get_hotspot_list([{location_hex, Location}] ++ Args), block_time);
 handle('GET', [Address, <<"activity">>], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
     Result = bh_route_txns:get_activity_list({hotspot, Address}, Args),
@@ -400,7 +419,24 @@ get_hotspot_list([{search_box, _}, {cursor, Cursor}]) ->
     end;
 get_hotspot_list([{search, Name}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_NAME_SEARCH, [Name]),
-    mk_hotspot_list_from_result(Result).
+    mk_hotspot_list_from_result(Result);
+get_hotspot_list([{location_hex, Location}, {cursor, undefined}]) ->
+    Result = ?PREPARED_QUERY(?S_HEX_HOTSPOT_LIST, [Location]),
+    mk_hotspot_list_from_result(Result);
+get_hotspot_list([{location_hex, _}, {cursor, Cursor}]) ->
+    case ?CURSOR_DECODE(Cursor) of
+        {ok, #{
+            <<"location">> := Location,
+            <<"before_address">> := BeforeAddress,
+            <<"before_block">> := BeforeBlock,
+            <<"height">> := _Height
+        }} ->
+            Result =
+                ?PREPARED_QUERY(?S_HEX_HOTSPOT_LIST_BEFORE, [Location, BeforeAddress, BeforeBlock]),
+            mk_hotspot_list_from_result(Result);
+        _ ->
+            {error, badarg}
+    end.
 
 get_witnesses_sum(
     {hotspot, Address},
