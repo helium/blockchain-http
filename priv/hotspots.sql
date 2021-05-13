@@ -54,12 +54,15 @@ where ((g.address > $2 and g.first_block = $3) or (g.first_block < $3))
 where l.city_id = $1
 and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3))
 
--- :city_hotspot_list_before_scope
-where l.city_id = $1
-and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3))
-
 -- :city_hotspot_list_scope
 where l.city_id = $1
+
+-- :hex_hotspot_list_scope
+where g.location_hex = $1
+
+-- :hex_hotspot_list_before_scope
+where g.location_hex = $1
+and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3))
 
 -- :hotspot_name_search_source
 from gateway_inventory g

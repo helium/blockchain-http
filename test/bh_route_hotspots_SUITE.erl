@@ -30,7 +30,8 @@ all() ->
         name_test,
         name_search_test,
         location_distance_search_test,
-        location_box_search_test
+        location_box_search_test,
+        location_hex_test
     ].
 
 init_per_suite(Config) ->
@@ -369,4 +370,14 @@ location_box_search_test(_Config) ->
         <<"data">> := CursorResults
     } = CursorJson,
     ?assert(length(CursorResults) >= 1),
+    ok.
+
+location_hex_test(_Config) ->
+    %% San Francisco should have a few in res 8
+    FetchLocation = "88283082a3fffff",
+    {ok, {_, _, Json}} = ?json_request(["/v1/hotspots/hex/", FetchLocation]),
+    #{
+        <<"data">> := Results
+    } = Json,
+    ?assert(length(Results) >= 1),
     ok.
