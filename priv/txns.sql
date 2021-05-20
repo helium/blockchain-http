@@ -42,24 +42,26 @@ where t.hash > $3
 
 -- :txn_actor_list_source
 from (
-    select distinct on (tr.block, tr.hash, a.actor) tr.*, a.actor
+    select a.block, last(tr.time) as time, a.transaction_hash as hash, last(tr.type) as type, a.actor, last(tr.fields) as fields 
     from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash
-    where tr.block >= $3 and tr.block < $4
+    where a.block >= $3 and a.block < $4
     :actor_scope
     and tr.type = ANY($2)
-    order by tr.block desc, tr.hash
+    group by (a.transaction_hash, a.actor, a.block)
+    order by a.block desc, a.transaction_hash
     limit $5
     ) as t
 
 -- :txn_actor_list_rem_source
 from (
-    select distinct on (tr.block, tr.hash, a.actor) tr.*, a.actor
+    select a.block, last(tr.time) as time, a.transaction_hash as hash, last(tr.type) as type, a.actor, last(tr.fields) as fields 
     from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash
-    where tr.block = $3
+    where a.block = $3
     :actor_scope
     and tr.type = ANY($2)
     and tr.hash > $4
-    order by tr.hash
+    group by (a.transaction_hash, a.actor, a.block)
+    order by a.transaction_hash
     limit $5
     ) as t
 
