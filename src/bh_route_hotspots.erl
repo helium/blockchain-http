@@ -108,14 +108,14 @@ prepare_conn(Conn) ->
             ]}},
         {?S_HOTSPOT_LOCATION_DISTANCE_SEARCH,
             {hotspot_list_base, [
-                {source, hotspot_list_source},
+                {source, hotspot_location_distance_search_source},
                 {scope, hotspot_location_distance_search_scope},
                 {order, hotspot_location_distance_search_order},
                 {limit, HotspotListLocationSearchLimit}
             ]}},
         {?S_HOTSPOT_LOCATION_DISTANCE_SEARCH_BEFORE,
             {hotspot_list_base, [
-                {source, hotspot_list_source},
+                {source, hotspot_location_distance_search_source},
                 {scope, hotspot_location_distance_search_before_scope},
                 {order, hotspot_location_distance_search_order},
                 {limit, HotspotListLocationSearchLimit}
@@ -375,12 +375,12 @@ get_hotspot_list([{search_distance, _}, {cursor, Cursor}]) ->
             <<"lon">> := Lon,
             <<"distance">> := Distance,
             <<"before_address">> := BeforeAddress,
-            <<"before_block">> := BeforeBlock,
+            <<"before_distance">> := BeforeDistance,
             <<"height">> := _Height
         }} ->
             Result = ?PREPARED_QUERY(
                 ?S_HOTSPOT_LOCATION_DISTANCE_SEARCH_BEFORE,
-                [Lon, Lat, Distance] ++ [BeforeAddress, BeforeBlock]
+                [Lon, Lat, Distance] ++ [BeforeAddress, BeforeDistance]
             ),
             mk_hotspot_list_from_result(
                 ?HOTSPOT_LIST_LOCATION_SEARCH_LIMIT,
@@ -527,6 +527,19 @@ mk_cursor(Limit, CursorBase, Results) when is_list(Results) ->
                     CursorBase#{
                         before_address => Address,
                         before_block => FirstBlock,
+                        %% Add height to the cursor to avoid overlap between the
+                        %% same address/block and a page of hotspot data at a
+                        %% different height
+                        height => Height
+                    };
+                {Height, _LastChangeBlock, _FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
+                    _Owner, _Location, _Nonce, _Name, _RewardScale, _Elevation, _Gain,
+                    _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet,
+                    _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
+                    _CityId, Distance} ->
+                    CursorBase#{
+                        before_address => Address,
+                        before_distance => Distance,
                         %% Add height to the cursor to avoid overlap between the
                         %% same address/block and a page of hotspot data at a
                         %% different height

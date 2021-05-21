@@ -86,12 +86,17 @@ and ((g.address > $5 and g.first_block = $6) or (g.first_block < $6))
 -- :hotspot_location_distance_search_order
 order by ST_Distance(ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, l.geometry::geography), g.address
 
+-- :hotspot_location_distance_search_source
+, ST_Distance(ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, l.geometry::geography) as distance
+from gateway_inventory g
+
 -- :hotspot_location_distance_search_scope
 where ST_DWithin(ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, l.geometry::geography, $3)
 
 -- :hotspot_location_distance_search_before_scope
 where ST_DWithin(ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, l.geometry::geography, $3)
-and ((g.address > $4 and g.first_block = $5) or (g.first_block < $5))
+and ((g.address > $4 and ST_Distance(ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, l.geometry::geography) = $5) 
+    or (ST_Distance(ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, l.geometry::geography) > $5))
 
 -- :hotspot_witness_list
 with last_assert as (
