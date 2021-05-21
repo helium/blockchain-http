@@ -518,34 +518,19 @@ mk_cursor(Limit, CursorBase, Results) when is_list(Results) ->
         true ->
             undefined;
         false ->
-            case lists:last(Results) of
-                {Height, _LastChangeBlock, FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
-                    _Mode, _Owner, _Location, _Nonce, _Name, _RewardScale, _Elevation, _Gain,
-                    _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet,
-                    _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
-                    _CityId} ->
-                    CursorBase#{
-                        before_address => Address,
-                        before_block => FirstBlock,
-                        %% Add height to the cursor to avoid overlap between the
-                        %% same address/block and a page of hotspot data at a
-                        %% different height
-                        height => Height
-                    };
-                {Height, _LastChangeBlock, _FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
-                    _Owner, _Location, _Nonce, _Name, _RewardScale, _Elevation, _Gain,
-                    _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet,
-                    _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
-                    _CityId, Distance} ->
-                    CursorBase#{
-                        before_address => Address,
-                        before_distance => Distance,
-                        %% Add height to the cursor to avoid overlap between the
-                        %% same address/block and a page of hotspot data at a
-                        %% different height
-                        height => Height
-                    }
-            end
+            {Height, _LastChangeBlock, FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
+                _Mode, _Owner, _Location, _Nonce, _Name, _RewardScale, _Elevation, _Gain,
+                _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet, _ShortCity,
+                _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
+                _CityId} = lists:last(Results),
+            CursorBase#{
+                before_address => Address,
+                before_block => FirstBlock,
+                %% Add height to the cursor to avoid overlap between the
+                %% same address/block and a page of hotspot data at a
+                %% different height
+                height => Height
+            }
     end.
 
 mk_buckets_result(Fun, MaxTime, MinTime, BucketType, {ok, _, Results}) ->
