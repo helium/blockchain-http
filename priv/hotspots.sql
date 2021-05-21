@@ -6,6 +6,7 @@ select
     g.first_timestamp,
     g.last_poc_challenge,
     g.address,
+    g.mode,
     g.owner,
     g.location,
     g.nonce,
