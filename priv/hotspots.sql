@@ -102,7 +102,8 @@ and ((g.address > $4 and ST_Distance(ST_SetSRID(ST_MakePoint($1, $2), 4326)::geo
 -- :hotspot_witness_list
 with last_assert as (
     select t.block as height from transactions t inner join transaction_actors a on t.hash = a.transaction_hash
-    where (t.type = 'assert_location_v1' or t.type = 'assert_location_v2') and a.actor = $1
+    where (t.type = 'assert_location_v1' or t.type = 'assert_location_v2') 
+        and a.actor = $1 and a.actor_role = 'gateway'
     order by t.block desc limit 1
 ),
 five_days as (
