@@ -72,6 +72,8 @@ var_to_json({<<"staking_keys">> = Name, <<"binary">>, Value}) ->
     {Name, b64_to_keys(Value)};
 var_to_json({<<"price_oracle_public_keys">> = Name, <<"binary">>, Value}) ->
     {Name, b64_to_keys(Value)};
+var_to_json({<<"staking_keys_to_mode_mappings">> = Name, <<"binary">>, Value}) ->
+    {Name, maps:from_list([{?BIN_TO_B58(Key), Mode} || {Key, Mode} <- b64_to_props(Value, 8)])};
 var_to_json({<<"hip17_res_", _/binary>> = Name, <<"binary">>, Value}) ->
     {Name, [binary_to_integer(N) || N <- string:split(?B64_TO_BIN(Value), ",", all)]};
 var_to_json({Name, <<"binary">>, Value}) ->
@@ -81,3 +83,11 @@ b64_to_keys(Value) ->
     Bin = ?B64_TO_BIN(Value),
     BinKeys = [Key || <<Len:8/unsigned-integer, Key:Len/binary>> <= Bin],
     [?BIN_TO_B58(Key) || Key <- BinKeys].
+
+b64_to_props(B64Value, Size) ->
+    Bin = ?B64_TO_BIN(B64Value),
+    [
+        {Key, Value}
+     || <<KeyLen:Size/unsigned-integer, Key:KeyLen/binary, ValueLen:Size/unsigned-integer,
+            Value:ValueLen/binary>> <= Bin
+    ].
