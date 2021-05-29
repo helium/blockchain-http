@@ -6,6 +6,7 @@
 -define(ETS_OPTS, [named_table, {keypos, 2}, {read_concurrency, true}]).
 -define(DEFAULT_TTL, 60). % seconds
 -define(TICK_INTERVAL, 15000). % milliseconds
+-define(TO_MILLIS, 1000). % 1000 microseconds to 1 millisecond
 
 %% public API
 -export([start_link/0,
@@ -25,7 +26,10 @@
 
 -record(state, {
           tid = undefined :: ets:tid(),
-          tref = undefined :: reference()
+          tref = undefined :: reference(),
+          hits = 0 :: non_neg_integer(),
+          misses = [] :: [ non_neg_integer() ] % input is microsecs,
+                                               % but list is milliseconds
          }).
 
 -record(entry, {
@@ -69,9 +73,12 @@ get(Key, LookupFun) ->
 get(Key, LookupFun, Opts) ->
     case ?MODULE:get(Key) of
         not_found ->
-            Value = LookupFun(),
+            {MicroSecs, Value} = timer:tc(fun() -> LookupFun() end),
+            log_miss(Key, MicroSecs),
             ?MODULE:put(Key, Value, Opts);
-        V -> V
+        V ->
+            log_hit(Key),
+            V
     end.
 
 -spec put( Key :: term(),
@@ -93,6 +100,19 @@ put(Key, Value) ->
 put(Key, Value, Opts) ->
     gen_server:call(?MODULE, {put, Key, Value, Opts}).
 
+-spec log_hit(Key :: term()) -> ok.
+%% @doc (Asynchronously) record a cache hit for the given key
+log_hit(Key) ->
+    gen_server:cast(?MODULE, {hit, Key}).
+
+-spec log_miss(Key :: term(),
+               MicroSecs :: non_neg_integer() ) -> ok.
+%% @doc (Asynchronously) record a cache miss for the given key;
+%% record the amount of computation time to generate the cached
+%% answer
+log_miss(Key, MicroSecs) ->
+    gen_server:cast(?MODULE, {miss, Key, MicroSecs}).
+
 %% gen server callbacks
 init([]) ->
     Tid = ets:new(?TBL_NAME, ?ETS_OPTS),
@@ -111,14 +131,19 @@ handle_call(Call, From, State) ->
     lager:warning("Unexpected call ~p from ~p", [Call, From]),
     {reply, diediedie, State}.
 
+handle_cast({hit, _Key}, #state{hits = H} = State) ->
+    {noreply, State#state{ hits = H + 1 }};
+handle_cast({miss, _Key, Micros}, #state{misses = M} = State) ->
+    {noreply, State#state{ misses = [ Micros div ?TO_MILLIS | M ]}};
 handle_cast(Cast, State) ->
     lager:warning("Unexpected cast ~p", [Cast]),
     {noreply, State}.
 
 handle_info(bh_cache_tick, State) ->
     ok = expire_cache(),
+    NewState = compute_cache_stats(State),
     Tref = schedule_new_tick(),
-    {noreply, State#state{tref=Tref}};
+    {noreply, NewState#state{tref=Tref}};
 handle_info(Info, State) ->
     lager:warning("Unexpected info ~p", [Info]),
     {noreply, State}.
@@ -144,5 +169,23 @@ expire_cache() ->
                         end,
                         0,
                         ?TBL_NAME),
-    lager:info("Removed ~p cache entries this tick.", [Removed]),
-    ok.
+    case Removed of
+        0 ->
+            ok;
+        _ ->
+            lager:info("Removed ~p cache entries this tick.", [Removed]),
+            ok
+    end.
+
+compute_cache_stats(#state{ hits = 0, misses = [] } = State) -> State;
+compute_cache_stats(#state{ hits = H, misses = [] } = State) ->
+    lager:info("Cache hits: ~p", [H]),
+    State#state{ hits = 0 };
+compute_cache_stats(#state{ hits = H, misses = M } = State) ->
+    Misses = length(M),
+    Max = lists:max(M),
+    Min = lists:min(M),
+    Avg = lists:sum(M) div Misses,
+    lager:info("Cache hits: ~p, misses count: ~p, max ms: ~p, min ms: ~p, avg ms: ~p",
+               [H, Misses, Max, Min, Avg]),
+    State#state{ hits = 0, misses = [] }.
