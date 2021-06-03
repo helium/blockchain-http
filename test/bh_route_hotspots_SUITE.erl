@@ -205,7 +205,7 @@ rewards_test(_Config) ->
         ?json_request([
             "/v1/hotspots/",
             Hotspot,
-            "/rewards?max_time=2020-08-27&min_time=2019-01-01"
+            "/rewards?max_time=2020-09-27&min_time=2020-08-27"
         ]),
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),

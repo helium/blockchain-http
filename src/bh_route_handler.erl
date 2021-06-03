@@ -18,7 +18,9 @@
     cursor_decode/1,
     parse_float/1,
     parse_int/1,
-    try_or_else/3
+    try_or_else/3,
+    filter_types_to_list/2,
+    filter_types_to_sql/2
 ]).
 
 -callback handle(elli:http_method(), Path :: [binary()], Req :: elli:req()) -> elli:result().
@@ -52,7 +54,6 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
             Arg -> Arg
         end,
     get_args(Tail, Req, [{Key, V} | Acc]).
-
 
 -spec parse_timestamp(binary() | undefined) -> {ok, calendar:datetime()} | {error, term()}.
 parse_timestamp(Timestamp) ->
@@ -166,7 +167,7 @@ parse_bucketed_timespan(MaxTime0, MinTime0, Bucket0) ->
 %% optional cursor if needed. Given an error tuple, it will respond
 %% with a pre-configured error code.
 -spec mk_response(
-    {ok, Json :: (map() | list()), Cursor :: map() | undefined, Meta :: map | undefined}
+    {ok, Json :: (map() | list()), Cursor :: map() | undefined, Meta :: map() | undefined}
     | {ok, Json :: (map() | list()), Cursor :: map() | undefined}
     | {ok, Json :: (map() | list())}
     | {error, term()},
@@ -279,6 +280,20 @@ try_or_else(TryFun, Fun, OrElse) ->
             OrElse
     end.
 
+filter_types_to_list(Base, undefined) ->
+    Base;
+filter_types_to_list(Base, Bin) when is_binary(Bin) ->
+    SplitTypes = binary:split(Bin, <<",">>, [global]),
+    lists:filter(fun(T) -> lists:member(T, Base) end, SplitTypes).
+
+-spec filter_types_to_sql(list(), undefined | [binary()] | binary()) -> iolist().
+filter_types_to_sql(Base, undefined) ->
+    filter_types_to_sql(Base, Base);
+filter_types_to_sql(Base, Bin) when is_binary(Bin) ->
+    filter_types_to_sql(Base, filter_types_to_list(Base, Bin));
+filter_types_to_sql(_Base, Types) when is_list(Types) ->
+    [<<"{">>, lists:join(<<",">>, Types), <<"}">>].
+
 -ifdef(TEST).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -291,7 +306,7 @@ parse_timestamp_test() ->
         {ok, {{2021, 1, 29}, {0, 36, 59}}},
         parse_timestamp(Now, "2021-01-29T00:36:59Z")
     ),
-    %% invalid timestamp
+    %% invalid timestampr
     ?assertEqual({error, badarg}, parse_timestamp(Now, "no way")),
 
     %% now/undefined
