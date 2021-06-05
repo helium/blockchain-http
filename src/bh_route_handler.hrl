@@ -19,6 +19,9 @@
 -define(PARSE_FLOAT(F), bh_route_handler:parse_float((F))).
 -define(PARSE_INT(I), bh_route_handler:parse_int((I))).
 
+-define(FILTER_TYPES_TO_LIST(L, B), bh_route_handler:filter_types_to_list((L), (B))).
+-define(FILTER_TYPES_TO_SQL(L, B), bh_route_handler:filter_types_to_sql((L), (B))).
+
 -define(MK_RESPONSE(R), ?MK_RESPONSE(R, undefined)).
 -define(MK_RESPONSE(R, C), bh_route_handler:mk_response((R), (C))).
 -define(INSERT_LAT_LON(L, N, F), bh_route_handler:lat_lon((L), (N), (F))).

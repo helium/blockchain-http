@@ -205,7 +205,7 @@ rewards_test(_Config) ->
         ?json_request([
             "/v1/hotspots/",
             Hotspot,
-            "/rewards?max_time=2020-08-27&min_time=2019-01-01"
+            "/rewards?max_time=2020-09-27&min_time=2020-08-27"
         ]),
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),
@@ -225,7 +225,7 @@ rewards_all_sum_test(_Config) ->
     {ok, {_, _, Json}} =
         ?json_request([
             "/v1/hotspots/",
-            "/rewards/sum?max_time=2020-08-27&min_time=2019-01-01"
+            "/rewards/sum?max_time=2020-08-27&min_time=2020-07-27"
         ]),
     #{<<"data">> := #{<<"sum">> := Sum}} = Json,
     ?assert(Sum >= 0),
@@ -238,7 +238,7 @@ rewards_sum_test(_Config) ->
         ?json_request([
             "/v1/hotspots/",
             Hotspot,
-            "/rewards/sum?max_time=2020-08-27&min_time=2019-01-01"
+            "/rewards/sum?max_time=2020-08-27&min_time=2020-07-27"
         ]),
     #{<<"data">> := #{<<"sum">> := Sum}} = Json,
     ?assert(Sum >= 0),

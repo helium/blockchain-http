@@ -15,8 +15,7 @@
     get_activity_count/2,
     get_activity_list/2,
     txn_to_json/1,
-    txn_list_to_json/1,
-    filter_types_to_sql/1
+    txn_list_to_json/1
 ]).
 
 -define(S_TXN, "txn").
@@ -288,7 +287,7 @@ calc_low_block(HighBlock, MinBlock) ->
 
 execute_query(Query, State) ->
     AddedArgs = [
-        filter_types_to_sql(State#state.types),
+        ?FILTER_TYPES_TO_SQL(?FILTER_TYPES, State#state.types),
         State#state.low_block,
         State#state.high_block,
         max(0, ?TXN_LIST_LIMIT - length(State#state.results))
@@ -300,7 +299,7 @@ execute_rem_query(_Query, _HighBlock, undefined, State) ->
     State;
 execute_rem_query(Query, HighBlock, TxnHash, State) ->
     AddedArgs = [
-        filter_types_to_sql(State#state.types),
+        ?FILTER_TYPES_TO_SQL(?FILTER_TYPES, State#state.types),
         HighBlock,
         TxnHash,
         max(0, ?TXN_LIST_LIMIT - length(State#state.results))
@@ -356,8 +355,8 @@ get_txn_list(Args, {_MinQuery, Query, RemQuery}, [{cursor, Cursor}, {filter_type
     end.
 
 get_txn_count(Args, Query, [{filter_types, Types}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(Query, Args ++ [filter_types_to_sql(Types)]),
-    InitCounts = [{K, 0} || K <- filter_types_to_list(Types)],
+    {ok, _, Results} = ?PREPARED_QUERY(Query, Args ++ [?FILTER_TYPES_TO_SQL(?FILTER_TYPES, Types)]),
+    InitCounts = [{K, 0} || K <- ?FILTER_TYPES_TO_LIST(?FILTER_TYPES, Types)],
     {ok,
         lists:foldl(
             fun({Key, Count}, Acc) ->
@@ -512,17 +511,3 @@ txn_to_json({_, Fields}) ->
 %% txn_to_json({Type, _Fields}) ->
 %%     lager:error("Unhandled transaction type ~p", [Type]),
 %%     error({unhandled_txn_type, Type}).
-
-filter_types_to_list(undefined) ->
-    ?FILTER_TYPES;
-filter_types_to_list(Bin) when is_binary(Bin) ->
-    SplitTypes = binary:split(Bin, <<",">>, [global]),
-    lists:filter(fun(T) -> lists:member(T, ?FILTER_TYPES) end, SplitTypes).
-
--spec filter_types_to_sql(undefined | [binary()] | binary()) -> iolist().
-filter_types_to_sql(undefined) ->
-    filter_types_to_sql(?FILTER_TYPES);
-filter_types_to_sql(Bin) when is_binary(Bin) ->
-    filter_types_to_sql(filter_types_to_list(Bin));
-filter_types_to_sql(Types) when is_list(Types) ->
-    [<<"{">>, lists:join(<<",">>, Types), <<"}">>].
