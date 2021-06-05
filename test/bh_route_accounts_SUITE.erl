@@ -147,7 +147,7 @@ rewards_test(_Config) ->
         ?json_request([
             "/v1/accounts/",
             Account,
-            "/rewards?max_time=2020-08-27&min_time=2019-01-01"
+            "/rewards?max_time=2020-08-27&min_time=2020-05-27"
         ]),
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),
@@ -202,7 +202,7 @@ rewards_sum_test(_Config) ->
         ?json_request([
             "/v1/accounts/",
             Account,
-            "/rewards/sum?max_time=2020-08-27&min_time=2019-01-01"
+            "/rewards/sum?max_time=2020-08-27&min_time=2020-07-27"
         ]),
     #{<<"data">> := #{<<"sum">> := Sum}} = Json,
     ?assert(Sum >= 0),

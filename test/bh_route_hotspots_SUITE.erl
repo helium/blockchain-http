@@ -225,7 +225,7 @@ rewards_all_sum_test(_Config) ->
     {ok, {_, _, Json}} =
         ?json_request([
             "/v1/hotspots/",
-            "/rewards/sum?max_time=2020-08-27&min_time=2019-01-01"
+            "/rewards/sum?max_time=2020-08-27&min_time=2020-07-27"
         ]),
     #{<<"data">> := #{<<"sum">> := Sum}} = Json,
     ?assert(Sum >= 0),
