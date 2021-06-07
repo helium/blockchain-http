@@ -564,7 +564,7 @@ hotspot_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
 
 hotspot_witness_list_to_json(Results) ->
-    lists:map(fun hotspot_witness_to_json/1, Results).
+    lists:map(fun hotspot_to_json/1, Results).
 
 to_geo_json(
     {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry,
@@ -592,23 +592,6 @@ to_geo_json(
         short_country => ShortCountry,
         long_country => LongCountry,
         city_id => MaybeB64(CityId)
-    }.
-
-hotspot_witness_to_json(
-    {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode, Owner,
-        Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus, ListenAddrs,
-        ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
-        LongCountry, CityId, WitnessFor, WitnessInfo}
-) ->
-    Base = hotspot_to_json(
-        {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode,
-            Owner, Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus,
-            ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
-            ShortCountry, LongCountry, CityId}
-    ),
-    Base#{
-        witness_for => WitnessFor,
-        witness_info => WitnessInfo
     }.
 
 hotspot_to_json(
