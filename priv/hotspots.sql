@@ -112,21 +112,22 @@ five_days as (
 min as (
     select GREATEST((select height from last_assert), (select height from five_days)) as height
 ),
-recent_witnesses as (
-     select $1 as address, jsonb_merge_agg(witnesses) as witnesses from
-        (select *
-        from gateways
-        where address = $1 and block >= (select height from min)
-        order by block) a
- ),
+recent_transactions as (
+    select transaction_hash 
+    from transaction_actors 
+    where actor = $1 
+        and actor_role = 'challengee'
+        and block >= (select height from min)
+),
 hotspot_witnesses as (
-    select r.address as witness_for, w.key as witness, w.value as witness_info
-    from recent_witnesses r, jsonb_each(r.witnesses) w
-)
+    select actor as witness
+    from transaction_actors 
+    where transaction_hash in (select transaction_hash from recent_transactions)
+    and actor_role = 'witness'
+ )
 :hotspot_select
 
 -- :hotspot_witness_list_source
-, g.witness_for, g.witness_info
 from (select * from hotspot_witnesses w inner join gateway_inventory i on (w.witness = i.address)) g
 
 -- :hotspot_elected_list
