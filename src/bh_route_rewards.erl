@@ -18,12 +18,16 @@
 -define(S_REWARD_LIST_ACCOUNT_REM, "reward_list_account_rem").
 -define(S_REWARD_SUM_HOTSPOT, "reward_sum_hotstpot").
 -define(S_REWARD_SUM_HOTSPOTS, "reward_sum_hotspots").
+-define(S_REWARD_SUM_VALIDATOR, "reward_sum_validator").
+-define(S_REWARD_SUM_VALIDATORS, "reward_sum_validators").
 -define(S_REWARD_SUM_ACCOUNT, "reward_sum_account").
 -define(S_REWARD_SUM_NETWORK, "reward_sum_network").
 -define(S_REWARD_BUCKETED_SUM_ACCOUNT, "reward_bucketed_sum_account").
 -define(S_REWARD_BUCKETED_SUM_HOTSPOT, "reward_bucketed_sum_hotstpot").
 -define(S_REWARD_BUCKETED_SUM_HOTSPOTS, "reward_bucketed_sum_hotstpots").
 -define(S_REWARD_BUCKETED_SUM_NETWORK, "reward_bucketed_sum_network").
+-define(S_REWARD_BUCKETED_SUM_VALIDATOR, "reward_bucketed_sum_validator").
+-define(S_REWARD_BUCKETED_SUM_VALIDATORS, "reward_bucketed_sum_validators").
 
 prepare_conn(Conn) ->
     Loads = [
@@ -67,7 +71,19 @@ prepare_conn(Conn) ->
             {reward_sum_base, [
                 {fields, reward_fields},
                 {scope, "where true = $1"},
-                {source, reward_sum_hotspot_source}
+                {source, reward_sum_validator_source}
+            ]}},
+        {?S_REWARD_SUM_VALIDATOR,
+            {reward_sum_base, [
+                {fields, reward_fields},
+                {scope, "where r.gateway = $1"},
+                {source, "reward_data"}
+            ]}},
+        {?S_REWARD_SUM_VALIDATORS,
+            {reward_sum_base, [
+                {fields, reward_fields},
+                {scope, "where true = $1"},
+                {source, reward_sum_validator_source}
             ]}},
         {?S_REWARD_SUM_ACCOUNT,
             {reward_sum_base, [
@@ -82,6 +98,18 @@ prepare_conn(Conn) ->
                 {source, reward_bucketed_hotspot_source}
             ]}},
         {?S_REWARD_BUCKETED_SUM_HOTSPOT,
+            {reward_bucketed_base, [
+                {fields, reward_fields},
+                {scope, "where r.gateway = $1"},
+                {source, "reward_data"}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_VALIDATORS,
+            {reward_bucketed_base, [
+                {fields, reward_fields},
+                {scope, "where true = $1"},
+                {source, reward_bucketed_validator_source}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_VALIDATOR,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where r.gateway = $1"},
@@ -136,6 +164,8 @@ get_full_reward_list(Args, Query, [{max_time, MaxTime}, {min_time, MinTime}]) ->
 
 get_reward_list({hotspot, Address}, Args = [{cursor, _}, {max_time, _}, {min_time, _}]) ->
     get_reward_list([Address], {?S_REWARD_LIST_HOTSPOT, ?S_REWARD_LIST_HOTSPOT_REM}, Args);
+get_reward_list({validator, Address}, Args = [{cursor, _}, {max_time, _}, {min_time, _}]) ->
+    get_reward_list([Address], {?S_REWARD_LIST_HOTSPOT, ?S_REWARD_LIST_HOTSPOT_REM}, Args);
 get_reward_list({account, Address}, Args = [{cursor, _}, {max_time, _}, {min_time, _}]) ->
     get_reward_list([Address], {?S_REWARD_LIST_ACCOUNT, ?S_REWARD_LIST_ACCOUNT_REM}, Args).
 
@@ -163,6 +193,22 @@ get_reward_sum(
     get_reward_sum([Address], ?S_REWARD_SUM_HOTSPOT, Args);
 get_reward_sum({hotspot, Address}, Args = [{max_time, _}, {min_time, _}, {bucket, _}]) ->
     get_reward_bucketed_sum([Address], ?S_REWARD_BUCKETED_SUM_HOTSPOT, Args);
+%% all validators
+get_reward_sum(
+    {validator, all},
+    Args = [{max_time, _}, {min_time, _}, {bucket, undefined}]
+) ->
+    get_reward_sum([true], ?S_REWARD_SUM_VALIDATORS, Args);
+get_reward_sum({validator, all}, Args = [{max_time, _}, {min_time, _}, {bucket, _}]) ->
+    get_reward_bucketed_sum([true], ?S_REWARD_BUCKETED_SUM_VALIDATORS, Args);
+%% one validator
+get_reward_sum(
+    {validator, Address},
+    Args = [{max_time, _}, {min_time, _}, {bucket, undefined}]
+) ->
+    get_reward_sum([Address], ?S_REWARD_SUM_VALIDATOR, Args);
+get_reward_sum({validator, Address}, Args = [{max_time, _}, {min_time, _}, {bucket, _}]) ->
+    get_reward_bucketed_sum([Address], ?S_REWARD_BUCKETED_SUM_VALIDATOR, Args);
 %% one account
 get_reward_sum(
     {account, Address},
@@ -238,8 +284,8 @@ calc_low_block(HighBlock, EndBlock) ->
     end.
 
 -spec get_blockspan(High :: binary(), Low :: binary()) ->
-    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}}
-    | {error, term()}.
+    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}} |
+    {error, term()}.
 get_blockspan(MaxTime0, MinTime0) ->
     case ?PARSE_TIMESPAN(MaxTime0, MinTime0) of
         {ok, {MaxTime, MinTime}} ->
