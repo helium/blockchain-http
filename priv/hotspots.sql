@@ -124,6 +124,7 @@ hotspot_witnesses as (
     from transaction_actors 
     where transaction_hash in (select transaction_hash from recent_transactions)
     and actor_role = 'witness'
+    group by actor
  )
 :hotspot_select
 
