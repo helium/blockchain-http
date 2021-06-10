@@ -520,8 +520,8 @@ mk_cursor(Limit, CursorBase, Results) when is_list(Results) ->
         false ->
             case lists:last(Results) of
                 {Height, _LastChangeBlock, FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
-                    _Mode, _Owner, _Location, _Nonce, _Name, _RewardScale, _Elevation, _Gain,
-                    _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet,
+                    _Mode, _Owner, _Location, _LocationHex, _Nonce, _Name, _RewardScale, _Elevation,
+                    _Gain, _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet,
                     _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
                     _CityId} ->
                     CursorBase#{
@@ -533,8 +533,8 @@ mk_cursor(Limit, CursorBase, Results) when is_list(Results) ->
                         height => Height
                     };
                 {Height, _LastChangeBlock, _FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
-                    _Mode, _Owner, _Location, _Nonce, _Name, _RewardScale, _Elevation, _Gain,
-                    _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet,
+                    _Mode, _Owner, _Location, _LocationHex, _Nonce, _Name, _RewardScale, _Elevation,
+                    _Gain, _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet,
                     _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
                     _CityId, Distance} ->
                     CursorBase#{
@@ -596,24 +596,24 @@ to_geo_json(
 
 hotspot_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode, Owner,
-        Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus, ListenAddrs,
-        ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
-        LongCountry, CityId, SpecNonce}
+        Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus,
+        ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
+        ShortCountry, LongCountry, CityId, SpecNonce}
 ) ->
     Base = hotspot_to_json(
         {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode,
-            Owner, Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus,
-            ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
-            ShortCountry, LongCountry, CityId}
+            Owner, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus,
+            BlockStatus, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
+            LongState, ShortCountry, LongCountry, CityId}
     ),
     Base#{
         <<"speculative_nonce">> => SpecNonce
     };
 hotspot_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode, Owner,
-        Location, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus, ListenAddrs,
-        ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry,
-        LongCountry, CityId}
+        Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus,
+        ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
+        ShortCountry, LongCountry, CityId}
 ) ->
     MaybeZero = fun
         (null) -> 0;
@@ -627,6 +627,7 @@ hotspot_to_json(
             name => Name,
             owner => Owner,
             location => Location,
+            location_hex => LocationHex,
             elevation => Elevation,
             gain => Gain,
             geocode => to_geo_json(

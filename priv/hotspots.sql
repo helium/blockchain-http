@@ -9,6 +9,7 @@ select
     g.mode,
     g.owner,
     g.location,
+    g.location_hex,
     g.nonce,
     g.name,
     g.reward_scale,
