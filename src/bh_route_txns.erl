@@ -437,6 +437,21 @@ txn_to_json(
     {<<"poc_receipts_v1">>,
         #{<<"challenger_location">> := ChallengerLoc, <<"path">> := Path} = Fields}
 ) ->
+    %% update witnesses to include location_hex at res8
+    WitnessLocationHex = fun(PathElem) ->
+        maps:update_with(
+            <<"witnesses">>,
+            fun(Witnesses) ->
+                lists:map(
+                    fun(Witness = #{<<"location">> := WitnessLoc}) ->
+                        ?INSERT_LOCATION_HEX(WitnessLoc, Witness)
+                    end,
+                    Witnesses
+                )
+            end,
+            PathElem
+        )
+    end,
     %% update challengee lat/lon in a path element
     LatLon = fun(PathElem = #{<<"challengee_location">> := ChallengeeLoc}) ->
         ?INSERT_LAT_LON(
@@ -459,9 +474,9 @@ txn_to_json(
     NewPath = lists:map(
         fun
             ({1, PathElem}) ->
-                LatLon(Geocode(PathElem));
+                LatLon(Geocode(WitnessLocationHex(PathElem)));
             ({_, PathElem}) ->
-                LatLon(PathElem)
+                LatLon(WitnessLocationHex(PathElem))
         end,
         lists:zip(lists:seq(1, length(Path)), Path)
     ),
