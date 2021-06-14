@@ -14,6 +14,8 @@
     add_cache_header/2,
     lat_lon/2,
     lat_lon/3,
+    insert_location_hex/2,
+    insert_location_hex/3,
     cursor_encode/1,
     cursor_decode/1,
     parse_float/1,
@@ -238,6 +240,17 @@ lat_lon(Location, {LatName, LonName}, Fields) when is_binary(Location) ->
         LatName => Lat,
         LonName => Lon
     }.
+
+insert_location_hex(Location, Fields) ->
+    insert_location_hex(Location, <<"location_hex">>, Fields).
+
+insert_location_hex(Location, Name, Fields) ->
+    Fields#{Name => to_location_hex(Location)}.
+
+-spec to_location_hex(binary()) -> binary().
+to_location_hex(Location) ->
+    {Lat, Lon} = h3:to_geo(h3:from_string(binary_to_list(Location))),
+    list_to_binary(h3:to_string(h3:from_geo({Lat, Lon}, ?LOCATION_HEX_RES))).
 
 -spec cursor_decode(binary()) -> {ok, map()} | {error, term()}.
 cursor_decode(Bin) when is_binary(Bin) ->

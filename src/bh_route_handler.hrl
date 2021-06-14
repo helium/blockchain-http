@@ -26,6 +26,8 @@
 -define(MK_RESPONSE(R, C), bh_route_handler:mk_response((R), (C))).
 -define(INSERT_LAT_LON(L, N, F), bh_route_handler:lat_lon((L), (N), (F))).
 -define(INSERT_LAT_LON(L, F), bh_route_handler:lat_lon((L), (F))).
+-define(INSERT_LOCATION_HEX(L, N, F), bh_route_handler:insert_location_hex((L), (N), (F))).
+-define(INSERT_LOCATION_HEX(L, F), bh_route_handler:insert_location_hex((L), (F))).
 -define(CURSOR_ENCODE(M), bh_route_handler:cursor_encode(M)).
 -define(CURSOR_DECODE(B), bh_route_handler:cursor_decode(B)).
 -define(BIN_TO_B64(B), base64url:encode((B))).
@@ -34,6 +36,7 @@
 -define(SELECT_TXN_FIELDS(F), ["select t.block, t.time, t.hash, t.type, ", (F), " "]).
 -define(SELECT_TXN_BASE, ?SELECT_TXN_FIELDS("t.fields")).
 -define(TXN_LIST_TO_JSON(R), bh_route_txns:txn_list_to_json((R))).
+-define(LOCATION_HEX_RES, 8).
 -define(BLOCK_LIST_LIMIT, 100).
 -define(BLOCK_TXN_LIST_LIMIT, 50).
 -define(SNAPSHOT_LIST_LIMIT, 100).
