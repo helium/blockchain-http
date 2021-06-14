@@ -120,7 +120,7 @@ mk_burn_stats_result({ok, Results}) ->
                     fun(IntervalMap = #{total := Total}) ->
                         maps:put(Type, NumDCs, IntervalMap#{total => Total + NumDCs})
                     end,
-                    #{Type => NumDCs, total => 0},
+                    #{Type => NumDCs, total => NumDCs},
                     Acc
                 )
         end,
