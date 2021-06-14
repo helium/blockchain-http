@@ -454,10 +454,14 @@ txn_to_json(
     end,
     %% update challengee lat/lon in a path element
     LatLon = fun(PathElem = #{<<"challengee_location">> := ChallengeeLoc}) ->
-        ?INSERT_LAT_LON(
+        ?INSERT_LOCATION_HEX(
             ChallengeeLoc,
-            {<<"challengee_lat">>, <<"challengee_lon">>},
-            PathElem
+            <<"challengee_location_hex">>,
+            ?INSERT_LAT_LON(
+                ChallengeeLoc,
+                {<<"challengee_lat">>, <<"challengee_lon">>},
+                PathElem
+            )
         )
     end,
     %% Insert geo code infomration for a challengee location in a path element

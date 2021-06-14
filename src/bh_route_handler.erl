@@ -15,6 +15,7 @@
     lat_lon/2,
     lat_lon/3,
     insert_location_hex/2,
+    insert_location_hex/3,
     cursor_encode/1,
     cursor_decode/1,
     parse_float/1,
@@ -241,7 +242,10 @@ lat_lon(Location, {LatName, LonName}, Fields) when is_binary(Location) ->
     }.
 
 insert_location_hex(Location, Fields) ->
-    Fields#{<<"location_hex">> => to_location_hex(Location)}.
+    insert_location_hex(Location, <<"location_hex">>, Fields).
+
+insert_location_hex(Location, Name, Fields) ->
+    Fields#{Name => to_location_hex(Location)}.
 
 -spec to_location_hex(binary()) -> binary().
 to_location_hex(Location) ->

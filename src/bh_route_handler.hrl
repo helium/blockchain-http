@@ -26,6 +26,7 @@
 -define(MK_RESPONSE(R, C), bh_route_handler:mk_response((R), (C))).
 -define(INSERT_LAT_LON(L, N, F), bh_route_handler:lat_lon((L), (N), (F))).
 -define(INSERT_LAT_LON(L, F), bh_route_handler:lat_lon((L), (F))).
+-define(INSERT_LOCATION_HEX(L, N, F), bh_route_handler:insert_location_hex((L), (N), (F))).
 -define(INSERT_LOCATION_HEX(L, F), bh_route_handler:insert_location_hex((L), (F))).
 -define(CURSOR_ENCODE(M), bh_route_handler:cursor_encode(M)).
 -define(CURSOR_DECODE(B), bh_route_handler:cursor_decode(B)).
