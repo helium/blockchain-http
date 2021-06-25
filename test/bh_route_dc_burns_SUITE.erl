@@ -7,7 +7,9 @@
 all() ->
     [
         list_test,
-        stats_test
+        stats_test,
+        sum_test,
+        bucket_sum_test
     ].
 
 init_per_suite(Config) ->
@@ -37,4 +39,20 @@ stats_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/dc_burns/stats"),
     #{<<"data">> := #{<<"last_day">> := Value}} = Json,
     ?assert(Value >= 0),
+    ok.
+
+sum_test(_Config) ->
+    {ok, {_, _, Json}} =
+        ?json_request(["/v1/dc_burns/sum?min_time=-2%20day"]),
+    #{<<"data">> := Data} = Json,
+    ?assert(maps:size(Data) > 0),
+
+    ok.
+
+bucket_sum_test(_Config) ->
+    {ok, {_, _, Json}} =
+        ?json_request(["/v1/dc_burns/sum?min_time=-7%20day&bucket=day"]),
+    #{<<"data">> := Data} = Json,
+    ?assertEqual(7, length(Data)),
+
     ok.
