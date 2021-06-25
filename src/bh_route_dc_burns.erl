@@ -11,6 +11,9 @@
 -define(S_BURN_LIST_BEFORE, "burn_list_before").
 -define(S_BURN_LIST, "burn_list").
 -define(S_BURN_STATS, "burn_stats").
+-define(S_BURN_SUM, "burn_sum").
+-define(S_BURN_BUCKETED_SUM, "burn_bucketed_sum").
+
 -define(BURN_LIST_LIMIT, 100).
 -define(BURN_LIST_BLOCK_ALIGN, 100).
 
@@ -35,6 +38,8 @@ prepare_conn(Conn) ->
                 {scope, burn_list_scope},
                 {limit, BurnListLimit}
             ]}},
+        ?S_BURN_SUM,
+        ?S_BURN_BUCKETED_SUM,
         ?S_BURN_STATS
     ],
     bh_db_worker:load_from_eql(Conn, "dc_burns.sql", Loads).
@@ -46,6 +51,9 @@ handle('GET', [], Req) ->
     ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [<<"stats">>], _Req) ->
     ?MK_RESPONSE(get_stats(), {block_time, 5});
+handle('GET', [<<"sum">>], Req) ->
+    Args = ?GET_ARGS([max_time, min_time, bucket], Req),
+    ?MK_RESPONSE(get_burn_sum(Args), block_time);
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
@@ -109,6 +117,51 @@ get_burn_stats() ->
         end
     ).
 
+get_burn_sum([
+    {max_time, MaxTime0},
+    {min_time, MinTime0},
+    {bucket, undefined}
+]) ->
+    case ?PARSE_TIMESPAN(MaxTime0, MinTime0) of
+        {ok, {MaxTime, MinTime}} ->
+            Result = ?PREPARED_QUERY(?S_BURN_SUM, [MinTime, MaxTime]),
+            Meta = #{
+                max_time => iso8601:format(MaxTime),
+                min_time => iso8601:format(MinTime)
+            },
+            {ok, mk_burn_sum_result(Result), undefined, Meta};
+        {error, _} = Error ->
+            Error
+    end;
+get_burn_sum([
+    {max_time, MaxTime0},
+    {min_time, MinTime0},
+    {bucket, Bucket}
+]) ->
+    case ?PARSE_BUCKETED_TIMESPAN(MaxTime0, MinTime0, Bucket) of
+        {ok, {{MaxTime, MinTime}, {BucketType, BucketStep}}} ->
+            Result = ?PREPARED_QUERY(?S_BURN_BUCKETED_SUM, [MaxTime, MinTime, BucketStep]),
+            Meta = #{
+                max_time => iso8601:format(MaxTime),
+                min_time => iso8601:format(MinTime),
+                bucket => BucketType
+            },
+            BucketResults = mk_burn_stats_result(Result),
+            {_, Buckets} = lists:unzip(
+                lists:reverse(lists:keysort(1, maps:to_list(BucketResults)))
+            ),
+            {ok, Buckets, undefined, Meta};
+        {error, Error} ->
+            {error, Error}
+    end.
+
+mk_burn_sum_result({ok, _, Results}) ->
+    mk_burn_sum_result({ok, Results});
+mk_burn_sum_result({ok, Results}) ->
+    maps:from_list(Results).
+
+mk_burn_stats_result({ok, _, Results}) ->
+    mk_burn_stats_result({ok, Results});
 mk_burn_stats_result({ok, Results}) ->
     lists:foldl(
         fun
