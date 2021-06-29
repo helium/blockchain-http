@@ -7,7 +7,7 @@ select
     l.security_balance,
     l.security_nonce,
     l.balance,
-    l.staked_balance,
+    coalesce(l.staked_balance, 0),
     l.nonce,
     l.first_block
     :extend

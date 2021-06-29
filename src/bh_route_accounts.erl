@@ -46,7 +46,7 @@ prepare_conn(Conn) ->
             {account_list_base, [
                 {extend, ""},
                 {scope, ""},
-                {order, "order by (l.balance + l.staked_balance) desc"},
+                {order, "order by (l.balance + coalesce(l.staked_balance, 0)) desc"},
                 {limit, "limit $1"}
             ]}}
     ],
