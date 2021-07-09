@@ -35,6 +35,7 @@ wget https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb
 sudo dpkg -i erlang-solutions_2.0_all.deb
 sudo apt-get update
 sudo apt install esl-erlang=1:23.2.3-1 cmake libsodium-dev libssl-dev
+sudo apt install build-essential
 ```
 
 
