@@ -153,7 +153,7 @@ elected_test(_Config) ->
     #{
         <<"data">> := Data
     } = Json,
-    ?assert(length(Data) > 0),
+    ?assert(length(Data) >= 0),
 
     ok.
 
