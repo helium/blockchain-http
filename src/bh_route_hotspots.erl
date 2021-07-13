@@ -187,7 +187,8 @@ prepare_conn(Conn) ->
             ]}},
         {?S_HOTSPOT_BUCKETED_SUM_CHALLENGES,
             {hotspot_bucketed_challenges_base, [
-                {scope, "where a.actor = $1"},
+                {scope,
+                    "where a.actor = $1 and a.actor_role = ANY('{challenger, challengee, witness}')"},
                 {source, hotspot_bucketed_challenges_source}
             ]}}
     ],
