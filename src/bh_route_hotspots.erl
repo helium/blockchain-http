@@ -620,6 +620,10 @@ hotspot_to_json(
         (null) -> 0;
         (V) -> V
     end,
+    MaybeTimestamp = fun
+        (null) -> null;
+        (V) -> iso8601:format(V)
+    end,
     ?INSERT_LAT_LON(
         Location,
         #{
@@ -644,7 +648,7 @@ hotspot_to_json(
             status => #{
                 online => OnlineStatus,
                 height => BlockStatus,
-                timestamp => iso8601:format(StatusTimestamp),
+                timestamp => MaybeTimestamp(StatusTimestamp),
                 listen_addrs => ListenAddrs
             },
             nonce => MaybeZero(Nonce)
