@@ -522,9 +522,9 @@ mk_cursor(Limit, CursorBase, Results) when is_list(Results) ->
             case lists:last(Results) of
                 {Height, _LastChangeBlock, FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
                     _Mode, _Owner, _Location, _LocationHex, _Nonce, _Name, _RewardScale, _Elevation,
-                    _Gain, _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet,
-                    _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
-                    _CityId} ->
+                    _Gain, _OnlineStatus, _BlockStatus, _StatusTimestamp, _ListenAddrs,
+                    _ShortStreet, _LongStreet, _ShortCity, _LongCity, _ShortState, _LongState,
+                    _ShortCountry, _LongCountry, _CityId} ->
                     CursorBase#{
                         before_address => Address,
                         before_block => FirstBlock,
@@ -535,9 +535,9 @@ mk_cursor(Limit, CursorBase, Results) when is_list(Results) ->
                     };
                 {Height, _LastChangeBlock, _FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
                     _Mode, _Owner, _Location, _LocationHex, _Nonce, _Name, _RewardScale, _Elevation,
-                    _Gain, _OnlineStatus, _BlockStatus, _ListenAddrs, _ShortStreet, _LongStreet,
-                    _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry, _LongCountry,
-                    _CityId, Distance} ->
+                    _Gain, _OnlineStatus, _BlockStatus, _StatusTimestamp, _ListenAddrs,
+                    _ShortStreet, _LongStreet, _ShortCity, _LongCity, _ShortState, _LongState,
+                    _ShortCountry, _LongCountry, _CityId, Distance} ->
                     CursorBase#{
                         before_address => Address,
                         before_distance => Distance,
@@ -598,14 +598,14 @@ to_geo_json(
 hotspot_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode, Owner,
         Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus,
-        ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
-        ShortCountry, LongCountry, CityId, SpecNonce}
+        StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
+        LongState, ShortCountry, LongCountry, CityId, SpecNonce}
 ) ->
     Base = hotspot_to_json(
         {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode,
             Owner, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus,
-            BlockStatus, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
-            LongState, ShortCountry, LongCountry, CityId}
+            BlockStatus, StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity,
+            ShortState, LongState, ShortCountry, LongCountry, CityId}
     ),
     Base#{
         <<"speculative_nonce">> => SpecNonce
@@ -613,12 +613,16 @@ hotspot_to_json(
 hotspot_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode, Owner,
         Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus, BlockStatus,
-        ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState,
-        ShortCountry, LongCountry, CityId}
+        StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
+        LongState, ShortCountry, LongCountry, CityId}
 ) ->
     MaybeZero = fun
         (null) -> 0;
         (V) -> V
+    end,
+    MaybeTimestamp = fun
+        (null) -> null;
+        (V) -> iso8601:format(V)
     end,
     ?INSERT_LAT_LON(
         Location,
@@ -644,6 +648,7 @@ hotspot_to_json(
             status => #{
                 online => OnlineStatus,
                 height => BlockStatus,
+                timestamp => MaybeTimestamp(StatusTimestamp),
                 listen_addrs => ListenAddrs
             },
             nonce => MaybeZero(Nonce)
