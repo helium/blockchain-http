@@ -8,6 +8,7 @@ select
     g.address,
     g.mode,
     g.owner,
+    g.payer,
     g.location,
     g.location_hex,
     g.nonce,
