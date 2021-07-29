@@ -31,6 +31,7 @@
 -define(S_HEX_HOTSPOT_LIST, "hotspot_hex_list").
 -define(S_HEX_HOTSPOT_LIST_BEFORE, "hotspot_hexlist_before").
 -define(S_HOTSPOT_WITNESS_LIST, "hotspot_witness_list").
+-define(S_HOTSPOT_WITNESSED_LIST, "hotspot_witnessed_list").
 -define(S_HOTSPOT_BUCKETED_SUM_WITNESSES, "hotspot_bucketed_sum_witnesses").
 -define(S_HOTSPOT_BUCKETED_SUM_CHALLENGES, "hotspot_bucketed_sum_challenges").
 -define(HOTSPOT_LIST_LIMIT, 1000).
@@ -158,6 +159,16 @@ prepare_conn(Conn) ->
                         {limit, ""}
                     ]}}
             ]}},
+        {?S_HOTSPOT_WITNESSED_LIST,
+            {hotspot_witnessed_list, [
+                {hotspot_select,
+                    {hotspot_list_base, [
+                        {source, hotspot_witnessed_list_source},
+                        {scope, ""},
+                        {order, hotspot_list_order},
+                        {limit, ""}
+                    ]}}
+            ]}},
         {?S_HOTSPOT_ELECTED_LIST,
             {hotspot_elected_list, [
                 {filter, "and block <= $1"},
@@ -268,6 +279,8 @@ handle('GET', [Address, <<"witnesses">>], _Req) ->
 handle('GET', [Address, <<"witnesses">>, <<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time, bucket], Req),
     ?MK_RESPONSE(get_witnesses_sum({hotspot, Address}, Args), block_time);
+handle('GET', [Address, <<"witnessed">>], _Req) ->
+    ?MK_RESPONSE(get_hotspot_list([{witnessed_for, Address}]), block_time);
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address), block_time);
 handle(_, _, _Req) ->
@@ -318,6 +331,9 @@ get_hotspot_list_by_distance([{lat, _}, {lon, _}, {distance, _}, {cursor, Cursor
 
 get_hotspot_list([{witnesses_for, Address}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESS_LIST, [Address]),
+    mk_hotspot_witness_list_from_result(Result);
+get_hotspot_list([{witnessed_for, Address}]) ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESSED_LIST, [Address]),
     mk_hotspot_witness_list_from_result(Result);
 get_hotspot_list([{owner, undefined}, {city, undefined}, {cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, []),

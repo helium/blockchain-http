@@ -25,6 +25,7 @@ all() ->
         rewards_sum_test,
         rewards_buckets_test,
         witnesses_test,
+        witnessed_test,
         witnesses_buckets_test,
         challenges_buckets_test,
         name_test,
@@ -265,6 +266,19 @@ witnesses_test(_Config) ->
             "/v1/hotspots/",
             Hotspot,
             "/witnesses"
+        ]),
+    #{<<"data">> := Data} = Json,
+    ?assert(length(Data) >= 0),
+
+    ok.
+
+witnessed_test(_Config) ->
+    Hotspot = "112hYxknRPeCP9PLtkAy3f86fWpXaRzRffjPj5HcrS7qePttY3Ek",
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/hotspots/",
+            Hotspot,
+            "/witnessed"
         ]),
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),

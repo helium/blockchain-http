@@ -131,8 +131,31 @@ hotspot_witnesses as (
  )
 :hotspot_select
 
+-- :hotspot_witnessed_list
+with five_days as (
+    select height from blocks where timestamp > (now() - '5 day'::interval) order by height limit 1
+),
+recent_transactions as (
+    select transaction_hash 
+    from transaction_actors 
+    where actor = $1 
+        and actor_role = 'witness'
+        and block >= (select height from five_days)
+),
+hotspot_witnessed as (
+    select actor as witnessed
+    from transaction_actors 
+    where transaction_hash in (select transaction_hash from recent_transactions)
+    and actor_role = 'challengee'
+    group by actor
+ )
+:hotspot_select
+
 -- :hotspot_witness_list_source
 from (select * from hotspot_witnesses w inner join gateway_inventory i on (w.witness = i.address)) g
+
+-- :hotspot_witnessed_list_source
+from (select * from hotspot_witnessed w inner join gateway_inventory i on (w.witnessed = i.address)) g
 
 -- :hotspot_elected_list
 with field_members as (
