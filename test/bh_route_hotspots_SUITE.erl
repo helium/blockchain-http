@@ -47,11 +47,11 @@ list_test(_Config) ->
         <<"data">> := Data,
         <<"cursor">> := Cursor
     } = Json,
-    ?assert(length(Data) >= 0),
+    ?assert(length(Data) > 0),
 
     {ok, {_, _, NextJson}} = ?json_request(["/v1/hotspots?cursor=", Cursor]),
     #{<<"data">> := NextData} = NextJson,
-    ?assert(length(NextData) >= 0),
+    ?assert(length(NextData) > 0),
     ok.
 
 get_test(_Config) ->

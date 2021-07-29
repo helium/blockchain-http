@@ -313,7 +313,9 @@ hotspot_modes_to_list(Base, undefined) ->
     Base;
 hotspot_modes_to_list(Base, Bin) when is_binary(Bin) ->
     SplitTypes = binary:split(Bin, <<",">>, [global]),
-    lists:filter(fun(T) -> lists:member(T, Base) end, SplitTypes).
+    hotspot_modes_to_list(Base, SplitTypes);
+hotspot_modes_to_list(Base, List) when is_list(List) ->
+    lists:filter(fun(T) -> lists:member(T, Base) end, List).
 
 -spec hotspot_modes_to_sql(list(), undefined | [binary()] | binary()) -> iolist().
 hotspot_modes_to_sql(Base, undefined) ->
