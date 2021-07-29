@@ -44,6 +44,8 @@ handle(Method, [<<"v1">>, <<"rewards">> | Tail], Req) ->
     bh_route_rewards:handle(Method, Tail, Req);
 handle(Method, [<<"v1">>, <<"dc_burns">> | Tail], Req) ->
     bh_route_dc_burns:handle(Method, Tail, Req);
+handle(Method, [<<"v1">>, <<"state_channels">> | Tail], Req) ->
+    bh_route_state_channels:handle(Method, Tail, Req);
 handle(Method, [<<"v1">>, <<"validators">> | Tail], Req) ->
     bh_route_validators:handle(Method, Tail, Req);
 handle('GET', [], _Req) ->
