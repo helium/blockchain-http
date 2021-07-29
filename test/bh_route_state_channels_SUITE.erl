@@ -36,5 +36,6 @@ list_test(_Config) ->
 
 stats_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/state_channels/stats"),
-    #{<<"data">> := Txns} = Json,
-    ?assert(length(Txns) >= 0).
+    #{<<"data">> := #{<<"last_day">> := Value}} = Json,
+    ?assert(Value >= 0),
+    ok.
