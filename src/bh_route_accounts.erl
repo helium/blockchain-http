@@ -67,7 +67,7 @@ handle('GET', [Account, <<"ouis">>], Req) ->
         block_time
     );
 handle('GET', [Account, <<"hotspots">>], Req) ->
-    Args = ?GET_ARGS([cursor], Req),
+    Args = ?GET_ARGS([filter_modes, cursor], Req),
     ?MK_RESPONSE(
         bh_route_hotspots:get_hotspot_list([{owner, Account}, {city, undefined} | Args]),
         block_time

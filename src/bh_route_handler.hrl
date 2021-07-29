@@ -21,6 +21,8 @@
 
 -define(FILTER_TYPES_TO_LIST(L, B), bh_route_handler:filter_types_to_list((L), (B))).
 -define(FILTER_TYPES_TO_SQL(L, B), bh_route_handler:filter_types_to_sql((L), (B))).
+-define(HOTSPOT_MODES_TO_LIST(L, B), bh_route_handler:hotspot_modes_to_list((L), (B))).
+-define(HOTSPOT_MODES_TO_SQL(L, B), bh_route_handler:hotspot_modes_to_sql((L), (B))).
 
 -define(MK_RESPONSE(R), ?MK_RESPONSE(R, undefined)).
 -define(MK_RESPONSE(R, C), bh_route_handler:mk_response((R), (C))).

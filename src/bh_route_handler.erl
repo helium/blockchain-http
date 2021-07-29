@@ -22,7 +22,9 @@
     parse_int/1,
     try_or_else/3,
     filter_types_to_list/2,
-    filter_types_to_sql/2
+    filter_types_to_sql/2,
+    hotspot_modes_to_list/2,
+    hotspot_modes_to_sql/2
 ]).
 
 -callback handle(elli:http_method(), Path :: [binary()], Req :: elli:req()) -> elli:result().
@@ -305,6 +307,20 @@ filter_types_to_sql(Base, undefined) ->
 filter_types_to_sql(Base, Bin) when is_binary(Bin) ->
     filter_types_to_sql(Base, filter_types_to_list(Base, Bin));
 filter_types_to_sql(_Base, Types) when is_list(Types) ->
+    [<<"{">>, lists:join(<<",">>, Types), <<"}">>].
+
+hotspot_modes_to_list(Base, undefined) ->
+    Base;
+hotspot_modes_to_list(Base, Bin) when is_binary(Bin) ->
+    SplitTypes = binary:split(Bin, <<",">>, [global]),
+    lists:filter(fun(T) -> lists:member(T, Base) end, SplitTypes).
+
+-spec hotspot_modes_to_sql(list(), undefined | [binary()] | binary()) -> iolist().
+hotspot_modes_to_sql(Base, undefined) ->
+    filter_types_to_sql(Base, Base);
+hotspot_modes_to_sql(Base, Bin) when is_binary(Bin) ->
+    filter_types_to_sql(Base, filter_types_to_list(Base, Bin));
+hotspot_modes_to_sql(_Base, Types) when is_list(Types) ->
     [<<"{">>, lists:join(<<",">>, Types), <<"}">>].
 
 -ifdef(TEST).

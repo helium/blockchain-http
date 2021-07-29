@@ -38,6 +38,12 @@
 -define(HOTSPOT_LIST_NAME_SEARCH_LIMIT, 100).
 -define(HOTSPOT_LIST_LOCATION_SEARCH_LIMIT, 500).
 
+-define(HOTSPOT_MODES, [
+    <<"full">>,
+    <<"light">>,
+    <<"dataonly">>
+]).
+
 prepare_conn(Conn) ->
     HotspotListLimit = "limit " ++ integer_to_list(?HOTSPOT_LIST_LIMIT),
     HotspotListNameSearchLimit = "limit " ++ integer_to_list(?HOTSPOT_LIST_NAME_SEARCH_LIMIT),
@@ -206,7 +212,7 @@ prepare_conn(Conn) ->
     bh_db_worker:load_from_eql(Conn, "hotspots.sql", Loads).
 
 handle('GET', [], Req) ->
-    Args = ?GET_ARGS([cursor], Req),
+    Args = ?GET_ARGS([filter_modes, cursor], Req),
     ?MK_RESPONSE(
         get_hotspot_list([{owner, undefined}, {city, undefined} | Args]),
         block_time
@@ -335,33 +341,70 @@ get_hotspot_list([{witnesses_for, Address}]) ->
 get_hotspot_list([{witnessed_for, Address}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESSED_LIST, [Address]),
     mk_hotspot_witness_list_from_result(Result);
-get_hotspot_list([{owner, undefined}, {city, undefined}, {cursor, undefined}]) ->
-    Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, []),
+get_hotspot_list([
+    {owner, undefined},
+    {city, undefined},
+    {filter_modes, FilterModes},
+    {cursor, undefined}
+]) ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, [
+        ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
+    ]),
     mk_hotspot_list_from_result(Result);
-get_hotspot_list([{owner, Owner}, {city, undefined}, {cursor, undefined}]) ->
-    Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST, [Owner]),
+get_hotspot_list([
+    {owner, Owner},
+    {city, undefined},
+    {filter_modes, FilterModes},
+    {cursor, undefined}
+]) ->
+    Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST, [
+        Owner,
+        ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
+    ]),
     mk_hotspot_list_from_result(Result);
-get_hotspot_list([{owner, undefined}, {city, City}, {cursor, undefined}]) ->
-    Result = ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST, [City]),
+get_hotspot_list([
+    {owner, undefined},
+    {city, City},
+    {filter_modes, FilterModes},
+    {cursor, undefined}
+]) ->
+    Result = ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST, [
+        City,
+        ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
+    ]),
     mk_hotspot_list_from_result(Result);
-get_hotspot_list([{owner, Owner}, {city, City}, {cursor, Cursor}]) ->
+get_hotspot_list([
+    {owner, Owner},
+    {city, City},
+    {filter_modes, _},
+    {cursor, Cursor}
+]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, #{
             <<"before_address">> := BeforeAddress,
             <<"before_block">> := BeforeBlock,
+            <<"filter_modes">> := FilterModes,
             <<"height">> := _Height
         }} ->
             case {Owner, City} of
                 {undefined, undefined} ->
                     Result =
-                        ?PREPARED_QUERY(?S_HOTSPOT_LIST_BEFORE, [BeforeAddress, BeforeBlock]),
+                        ?PREPARED_QUERY(?S_HOTSPOT_LIST_BEFORE, [
+                            BeforeAddress,
+                            BeforeBlock,
+                            ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
+                        ]),
                     mk_hotspot_list_from_result(Result);
                 {Owner, undefined} ->
                     Result =
                         ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [
                             Owner,
                             BeforeAddress,
-                            BeforeBlock
+                            BeforeBlock,
+                            ?HOTSPOT_MODES_TO_SQL(
+                                ?HOTSPOT_MODES,
+                                FilterModes
+                            )
                         ]),
                     mk_hotspot_list_from_result(Result);
                 {undefined, City} ->
@@ -369,7 +412,8 @@ get_hotspot_list([{owner, Owner}, {city, City}, {cursor, Cursor}]) ->
                         ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST_BEFORE, [
                             City,
                             BeforeAddress,
-                            BeforeBlock
+                            BeforeBlock,
+                            ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
                         ]),
                     mk_hotspot_list_from_result(Result);
                 {_, _} ->

@@ -45,21 +45,31 @@ from gateway_inventory g
  ) as speculative_nonce
  from gateway_inventory g
 
+-- :hotspot_list_scope
+where g.mode = ANY($1)
+
 -- :hotspot_list_before_scope
-where ((g.address > $1 and g.first_block = $2) or (g.first_block < $2))
+where ((g.address > $1 and g.first_block = $2) or (g.first_block < $2)) 
+    and g.mode = ANY($3)
 
 -- :owner_hotspot_list_source
 from (select * from gateway_inventory where owner = $1) as g
 
+-- :owner_hotspot_list_scope
+where g.mode = ANY($2)
+
 -- :owner_hotspot_list_before_scope
 where ((g.address > $2 and g.first_block = $3) or (g.first_block < $3))
+    and g.mode = ANY($4)
 
 -- :city_hotspot_list_before_scope
 where l.city_id = $1
-and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3))
+    and ((g.address > $2 and g.first_block = $3) or (g.first_block < $3))
+    and g.mode = ANY($4)
 
 -- :city_hotspot_list_scope
 where l.city_id = $1
+    and g.mode = ANY($2)
 
 -- :hex_hotspot_list_scope
 where g.location_hex = $1
