@@ -71,7 +71,7 @@ handle('GET', [], Req) ->
     Result = get_city_list(Args),
     ?MK_RESPONSE(Result, block_time);
 handle('GET', [City, <<"hotspots">>], Req) ->
-    Args = ?GET_ARGS([cursor], Req),
+    Args = ?GET_ARGS([filter_modes, cursor], Req),
     CityId = ?B64_TO_BIN(City),
     try
         Result = bh_route_hotspots:get_hotspot_list([{owner, undefined}, {city, CityId} | Args]),
