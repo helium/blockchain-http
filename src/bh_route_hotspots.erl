@@ -395,7 +395,7 @@ get_hotspot_list([
                             BeforeBlock,
                             ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
                         ]),
-                    mk_hotspot_list_from_result(Result);
+                    mk_hotspot_list_from_result(#{filter_modes => FilterModes}, Result);
                 {Owner, undefined} ->
                     Result =
                         ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST_BEFORE, [
@@ -407,7 +407,7 @@ get_hotspot_list([
                                 FilterModes
                             )
                         ]),
-                    mk_hotspot_list_from_result(Result);
+                    mk_hotspot_list_from_result(#{filter_modes => FilterModes}, Result);
                 {undefined, City} ->
                     Result =
                         ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST_BEFORE, [
@@ -416,7 +416,7 @@ get_hotspot_list([
                             BeforeBlock,
                             ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
                         ]),
-                    mk_hotspot_list_from_result(Result);
+                    mk_hotspot_list_from_result(#{filter_modes => FilterModes}, Result);
                 {_, _} ->
                     {error, badarg}
             end;
