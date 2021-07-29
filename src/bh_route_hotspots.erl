@@ -60,7 +60,7 @@ prepare_conn(Conn) ->
         {?S_HOTSPOT_LIST,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
-                {scope, ""},
+                {scope, hotspot_list_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
             ]}},
@@ -74,7 +74,7 @@ prepare_conn(Conn) ->
         {?S_OWNER_HOTSPOT_LIST,
             {hotspot_list_base, [
                 {source, owner_hotspot_list_source},
-                {scope, ""},
+                {scope, owner_hotspot_list_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
             ]}},
