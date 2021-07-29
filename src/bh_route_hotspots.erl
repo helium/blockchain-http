@@ -350,7 +350,7 @@ get_hotspot_list([
     Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, [
         ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
     ]),
-    mk_hotspot_list_from_result(Result);
+    mk_hotspot_list_from_result(#{filter_modes => FilterModes}, Result);
 get_hotspot_list([
     {owner, Owner},
     {city, undefined},
@@ -361,7 +361,7 @@ get_hotspot_list([
         Owner,
         ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
     ]),
-    mk_hotspot_list_from_result(Result);
+    mk_hotspot_list_from_result(#{filter_modes => FilterModes}, Result);
 get_hotspot_list([
     {owner, undefined},
     {city, City},
@@ -372,7 +372,7 @@ get_hotspot_list([
         City,
         ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
     ]),
-    mk_hotspot_list_from_result(Result);
+    mk_hotspot_list_from_result(#{filter_modes => FilterModes}, Result);
 get_hotspot_list([
     {owner, Owner},
     {city, City},
@@ -380,12 +380,13 @@ get_hotspot_list([
     {cursor, Cursor}
 ]) ->
     case ?CURSOR_DECODE(Cursor) of
-        {ok, #{
-            <<"before_address">> := BeforeAddress,
-            <<"before_block">> := BeforeBlock,
-            <<"filter_modes">> := FilterModes,
-            <<"height">> := _Height
-        }} ->
+        {ok,
+            C = #{
+                <<"before_address">> := BeforeAddress,
+                <<"before_block">> := BeforeBlock,
+                <<"height">> := _Height
+            }} ->
+            FilterModes = maps:get(<<"filter_modes">>, C, undefined),
             case {Owner, City} of
                 {undefined, undefined} ->
                     Result =
@@ -567,6 +568,9 @@ get_hotspots_named(Name) ->
 
 mk_hotspot_list_from_result(Results) ->
     mk_hotspot_list_from_result(?HOTSPOT_LIST_LIMIT, #{}, Results).
+
+mk_hotspot_list_from_result(CursorBase, Results) ->
+    mk_hotspot_list_from_result(?HOTSPOT_LIST_LIMIT, CursorBase, Results).
 
 mk_hotspot_list_from_result(Limit, CursorBase, {ok, _, Results}) ->
     {ok, hotspot_list_to_json(Results), mk_cursor(Limit, CursorBase, Results)}.
