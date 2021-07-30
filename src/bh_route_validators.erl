@@ -238,7 +238,7 @@ mk_cursor(Results) when is_list(Results) ->
         false ->
             {Height, Address, _Name, _Owner, _Stake, _Status, _LastHeartbeat, _VersionHeartBeat,
                 _Penalty, _Penalties, _Nonce, FirstBlock, _OnlineStatus, _BlockStatus,
-                _ListenAddrs} = lists:last(Results),
+                _StatusTimestamp, _ListenAddrs} = lists:last(Results),
             #{
                 before_address => Address,
                 before_block => FirstBlock,
@@ -255,8 +255,12 @@ validator_list_to_json(Results) ->
 
 validator_to_json(
     {Height, Address, Name, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Penalty,
-        Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, ListenAddrs}
+        Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs}
 ) ->
+    MaybeTimestamp = fun
+        (null) -> null;
+        (V) -> iso8601:format(V)
+    end,
     %% Excluded nonce for now as it is unused
     #{
         address => Address,
@@ -273,6 +277,7 @@ validator_to_json(
         status => #{
             online => OnlineStatus,
             height => BlockStatus,
+            timestamp => MaybeTimestamp(StatusTimestamp),
             listen_addrs => ListenAddrs
         }
     }.
