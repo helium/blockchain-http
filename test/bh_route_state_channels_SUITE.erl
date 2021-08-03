@@ -23,14 +23,14 @@ list_test(_Config) ->
         <<"cursor">> := Cursor
     } = FirstJson,
 
-    ?assert(length(FirstTxns) =< ?TXN_LIST_LIMIT),
+    ?assert(length(FirstTxns) =< ?STATE_CHANNEL_TXN_LIST_LIMIT),
 
     {ok, {_, _, NextJson}} = ?json_request(["/v1/state_channels?cursor=", Cursor]),
     #{
         <<"data">> := NextTxns,
         <<"cursor">> := _
     } = NextJson,
-    ?assert(length(NextTxns) =< ?TXN_LIST_LIMIT),
+    ?assert(length(NextTxns) =< ?STATE_CHANNEL_TXN_LIST_LIMIT),
 
     ok.
 

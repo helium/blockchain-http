@@ -16,7 +16,7 @@ prepare_conn(Conn) ->
 
 handle('GET', [], Req) ->
     Args = add_filter_types(?GET_ARGS([cursor], Req)),
-    Result = bh_route_txns:get_txn_list(Args),
+    Result = bh_route_txns:get_txn_list(Args, ?STATE_CHANNEL_TXN_LIST_LIMIT),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [<<"stats">>], _Req) ->

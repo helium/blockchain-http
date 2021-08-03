@@ -10,6 +10,7 @@
 -export([
     get_txn/1,
     get_txn_list/1,
+    get_txn_list/2,
     get_txn_list_cache_time/1,
     get_actor_txn_list/2,
     get_activity_count/2,
@@ -232,7 +233,10 @@ get_txn(Key) ->
     end.
 
 get_txn_list(Args = [{cursor, _}, {filter_types, _}]) ->
-    get_txn_list([], {?S_GENESIS_MIN_BLOCK, ?S_TXN_LIST, ?S_TXN_LIST_REM}, Args).
+    get_txn_list(Args, ?TXN_LIST_LIMIT).
+
+get_txn_list(Args = [{cursor, _}, {filter_types, _}], Limit) ->
+    get_txn_list([], Limit, {?S_GENESIS_MIN_BLOCK, ?S_TXN_LIST, ?S_TXN_LIST_REM}, Args).
 
 get_actor_txn_list({hotspot, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
     get_txn_list([Address], {?S_HOTSPOT_MIN_BLOCK, ?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
@@ -279,6 +283,7 @@ get_activity_count({validator, Address}, Args) ->
     high_block :: pos_integer(),
     low_block :: pos_integer(),
     min_block = 1 :: pos_integer(),
+    limit = ?TXN_LIST_LIMIT :: pos_integer(),
     step = 100 :: pos_integer(),
     args :: list(term()),
     types :: iolist(),
@@ -288,7 +293,9 @@ get_activity_count({validator, Address}, Args) ->
 %% Grows a txn list with the given queru until it's the txn list limit
 %% size. We 10x the search space (up to a max) every time we find we don't have
 %% enough transactions.
-grow_txn_list(_Query, State = #state{results = Results}) when length(Results) >= ?TXN_LIST_LIMIT ->
+grow_txn_list(_Query, State = #state{results = Results, limit = Limit}) when
+    length(Results) >= Limit
+->
     State;
 grow_txn_list(_Query, State = #state{low_block = MinBlock, min_block = MinBlock}) ->
     State;
@@ -331,7 +338,7 @@ execute_query(Query, State) ->
         ?FILTER_TYPES_TO_SQL(?FILTER_TYPES, State#state.types),
         State#state.low_block,
         State#state.high_block,
-        max(0, ?TXN_LIST_LIMIT - length(State#state.results))
+        max(0, State#state.limit - length(State#state.results))
     ],
     {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
     State#state{results = State#state.results ++ Results}.
@@ -343,12 +350,15 @@ execute_rem_query(Query, HighBlock, TxnHash, State) ->
         ?FILTER_TYPES_TO_SQL(?FILTER_TYPES, State#state.types),
         HighBlock,
         TxnHash,
-        max(0, ?TXN_LIST_LIMIT - length(State#state.results))
+        max(0, State#state.limit - length(State#state.results))
     ],
     {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
     State#state{results = State#state.results ++ Results}.
 
-get_txn_list(Args, {MinQuery, Query, _RemQuery}, [{cursor, undefined}, {filter_types, Types}]) ->
+get_txn_list(Args, Queries, RequestArgs) ->
+    get_txn_list(Args, ?TXN_LIST_LIMIT, Queries, RequestArgs).
+
+get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [{cursor, undefined}, {filter_types, Types}]) ->
     {ok, #{height := CurrentBlock}} = bh_route_blocks:get_block_height(),
     %% High block is exclusive so start past the tip
     HighBlock = CurrentBlock + 1,
@@ -359,6 +369,7 @@ get_txn_list(Args, {MinQuery, Query, _RemQuery}, [{cursor, undefined}, {filter_t
                 %% Aim for block alignment
                 low_block = calc_low_block(HighBlock, MinBlock),
                 min_block = MinBlock,
+                limit = Limit,
                 args = Args,
                 types = Types
             },
@@ -366,7 +377,7 @@ get_txn_list(Args, {MinQuery, Query, _RemQuery}, [{cursor, undefined}, {filter_t
         _ ->
             throw(?RESPONSE_404)
     end;
-get_txn_list(Args, {_MinQuery, Query, RemQuery}, [{cursor, Cursor}, {filter_types, _}]) ->
+get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [{cursor, Cursor}, {filter_types, _}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok,
             C = #{
@@ -379,6 +390,7 @@ get_txn_list(Args, {_MinQuery, Query, RemQuery}, [{cursor, Cursor}, {filter_type
                 types = maps:get(<<"types">>, C, undefined),
                 min_block = MinBlock,
                 low_block = calc_low_block(HighBlock, MinBlock),
+                limit = Limit,
                 args = Args
             },
             %% Construct the a partial list of results if we were
@@ -407,8 +419,10 @@ get_txn_count(Args, Query, [{filter_types, Types}]) ->
             Results
         )}.
 
-mk_txn_list_result(State = #state{results = Results}) when length(Results) >= ?TXN_LIST_LIMIT ->
-    {Trimmed, _Remainder} = lists:split(?TXN_LIST_LIMIT, Results),
+mk_txn_list_result(State = #state{results = Results, limit = Limit}) when
+    length(Results) >= Limit
+->
+    {Trimmed, _Remainder} = lists:split(Limit, Results),
     {Height, _Time, Hash, _Type, _Fields} = lists:last(Trimmed),
     {ok, txn_list_to_json(Trimmed), mk_txn_list_cursor(Height, Hash, State)};
 mk_txn_list_result(State = #state{results = Results}) ->
