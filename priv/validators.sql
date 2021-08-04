@@ -16,11 +16,15 @@ select
     s.block as block_status,
     s.peer_timestamp as status_timestamp,
     s.listen_addrs as listen_addrs
+    :source
 from validator_inventory l
 left join validator_status s on s.address = l.address
 :scope
 :order
 :limit
+
+-- :validator_source
+, (select count(*) from transaction_actors where actor = $1 and actor_role = 'consensus_member') as cg_count
 
 -- :validator_list_order
 order by l.first_block desc, l.address
