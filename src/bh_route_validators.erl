@@ -33,24 +33,28 @@ prepare_conn(Conn) ->
     Loads = [
         {?S_VALIDATOR_LIST_BEFORE,
             {validator_list_base, [
+                {source, ""},
                 {scope, validator_list_before_scope},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
             ]}},
         {?S_VALIDATOR_LIST,
             {validator_list_base, [
+                {source, ""},
                 {scope, ""},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
             ]}},
         {?S_OWNER_VALIDATOR_LIST_BEFORE,
             {validator_list_base, [
+                {source, ""},
                 {scope, owner_validator_list_before_scope},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
             ]}},
         {?S_OWNER_VALIDATOR_LIST,
             {validator_list_base, [
+                {source, ""},
                 {scope, owner_validator_list_scope},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
@@ -60,6 +64,7 @@ prepare_conn(Conn) ->
                 {filter, "and block <= $1"},
                 {validator_select,
                     {validator_list_base, [
+                        {source, ""},
                         {scope, validator_elected_list_scope},
                         {order, ""},
                         {limit, ""}
@@ -70,6 +75,7 @@ prepare_conn(Conn) ->
                 {filter, "and hash = $1"},
                 {validator_select,
                     {validator_list_base, [
+                        {source, ""},
                         {scope, validator_elected_list_scope},
                         {order, ""},
                         {limit, ""}
@@ -77,18 +83,21 @@ prepare_conn(Conn) ->
             ]}},
         {?S_VALIDATOR,
             {validator_list_base, [
+                {source, validator_source},
                 {scope, "where l.address = $1"},
                 {order, ""},
                 {limit, ""}
             ]}},
         {?S_VALIDATORS_NAMED,
             {validator_list_base, [
+                {source, ""},
                 {scope, "where l.name = $1"},
                 {order, ""},
                 {limit, ""}
             ]}},
         {?S_VALIDATOR_NAME_SEARCH,
             {validator_list_base, [
+                {source, ""},
                 {scope, validator_name_search_scope},
                 {order, ""},
                 {limit, ValidatorListNameSearchLimit}
@@ -236,14 +245,24 @@ mk_cursor(Results) when is_list(Results) ->
         true ->
             undefined;
         false ->
-            {Height, Address, _Name, _Owner, _Stake, _Status, _LastHeartbeat, _VersionHeartBeat,
-                _Penalty, _Penalties, _Nonce, FirstBlock, _OnlineStatus, _BlockStatus,
-                _StatusTimestamp, _ListenAddrs} = lists:last(Results),
-            #{
-                before_address => Address,
-                before_block => FirstBlock,
-                height => Height
-            }
+            case lists:last(Results) of
+                {Height, Address, _Name, _Owner, _Stake, _Status, _LastHeartbeat, _VersionHeartBeat,
+                    _Penalty, _Penalties, _Nonce, FirstBlock, _OnlineStatus, _BlockStatus,
+                    _StatusTimestamp, _ListenAddrs} ->
+                    #{
+                        before_address => Address,
+                        before_block => FirstBlock,
+                        height => Height
+                    };
+                {Height, Address, _Name, _Owner, _Stake, _Status, _LastHeartbeat, _VersionHeartBeat,
+                    _Penalty, _Penalties, _Nonce, FirstBlock, _OnlineStatus, _BlockStatus,
+                    _StatusTimestamp, _ListenAddrs, _CGCount} ->
+                    #{
+                        before_address => Address,
+                        before_block => FirstBlock,
+                        height => Height
+                    }
+            end
     end.
 
 %%
@@ -253,6 +272,16 @@ mk_cursor(Results) when is_list(Results) ->
 validator_list_to_json(Results) ->
     lists:map(fun validator_to_json/1, Results).
 
+validator_to_json(
+    {Height, Address, Name, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Penalty,
+        Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs,
+        CGCount}
+) ->
+    Json = validator_to_json(
+        {Height, Address, Name, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Penalty,
+            Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs}
+    ),
+    Json#{consensus_groups => CGCount};
 validator_to_json(
     {Height, Address, Name, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Penalty,
         Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs}
