@@ -65,7 +65,7 @@ d.long_city as rank
 where rank >= $1 and city_id > $2
 
 -- :city_search_order
-order by rank, city_id
+order by rank desc, city_id
 
 -- :city_search_rank
 word_similarity(d.long_city, $1) as rank
