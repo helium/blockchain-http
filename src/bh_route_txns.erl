@@ -232,17 +232,17 @@ get_txn(Key) ->
             {error, not_found}
     end.
 
-get_txn_list(Args = [{cursor, _}, {filter_types, _}]) ->
+get_txn_list(Args) ->
     get_txn_list(Args, ?TXN_LIST_LIMIT).
 
-get_txn_list(Args = [{cursor, _}, {filter_types, _}], Limit) ->
+get_txn_list(Args, Limit) ->
     get_txn_list([], Limit, {?S_GENESIS_MIN_BLOCK, ?S_TXN_LIST, ?S_TXN_LIST_REM}, Args).
 
-get_actor_txn_list({hotspot, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
+get_actor_txn_list({hotspot, Address}, Args) ->
     get_txn_list([Address], {?S_HOTSPOT_MIN_BLOCK, ?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
-get_actor_txn_list({oracle, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
+get_actor_txn_list({oracle, Address}, Args) ->
     get_txn_list([Address], {?S_ORACLE_MIN_BLOCK, ?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
-get_actor_txn_list({account, Address}, Args = [{cursor, _}, {filter_types, _}]) ->
+get_actor_txn_list({account, Address}, Args) ->
     get_txn_list(
         [Address],
         {?S_ACCOUNT_MIN_BLOCK, ?S_ACCOUNT_HOTSPOTS_TXN_LIST, ?S_ACCOUNT_HOTSPOTS_TXN_LIST_REM},
@@ -284,6 +284,7 @@ get_activity_count({validator, Address}, Args) ->
     low_block :: pos_integer(),
     min_block = 1 :: pos_integer(),
     limit = ?TXN_LIST_LIMIT :: pos_integer(),
+    remaining = undefined :: undefined | pos_integer(),
     step = 100 :: pos_integer(),
     args :: list(term()),
     types :: iolist(),
@@ -295,6 +296,10 @@ get_activity_count({validator, Address}, Args) ->
 %% enough transactions.
 grow_txn_list(_Query, State = #state{results = Results, limit = Limit}) when
     length(Results) >= Limit
+->
+    State;
+grow_txn_list(_Query, State = #state{results = Results, remaining = Remaining}) when
+    Remaining /= undefined andalso length(Results) >= Remaining
 ->
     State;
 grow_txn_list(_Query, State = #state{low_block = MinBlock, min_block = MinBlock}) ->
@@ -333,12 +338,20 @@ calc_low_block(HighBlock, MinBlock) ->
         Other -> max(MinBlock, Other)
     end.
 
+calc_query_limit(State = #state{limit = Limit, results = Results}) ->
+    case State#state.remaining of
+        undefined ->
+            max(0, Limit - length(Results));
+        R ->
+            max(0, min(R, Limit) - length(Results))
+    end.
+
 execute_query(Query, State) ->
     AddedArgs = [
         ?FILTER_TYPES_TO_SQL(?FILTER_TYPES, State#state.types),
         State#state.low_block,
         State#state.high_block,
-        max(0, State#state.limit - length(State#state.results))
+        calc_query_limit(State)
     ],
     {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
     State#state{results = State#state.results ++ Results}.
@@ -350,7 +363,7 @@ execute_rem_query(Query, HighBlock, TxnHash, State) ->
         ?FILTER_TYPES_TO_SQL(?FILTER_TYPES, State#state.types),
         HighBlock,
         TxnHash,
-        max(0, State#state.limit - length(State#state.results))
+        calc_query_limit(State)
     ],
     {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
     State#state{results = State#state.results ++ Results}.
@@ -358,8 +371,17 @@ execute_rem_query(Query, HighBlock, TxnHash, State) ->
 get_txn_list(Args, Queries, RequestArgs) ->
     get_txn_list(Args, ?TXN_LIST_LIMIT, Queries, RequestArgs).
 
-get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [{cursor, undefined}, {filter_types, Types}]) ->
+get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [
+    {cursor, undefined},
+    {limit, Remaining0},
+    {filter_types, Types}
+]) ->
     {ok, #{height := CurrentBlock}} = bh_route_blocks:get_block_height(),
+    Remaining =
+        case Remaining0 of
+            undefined -> undefined;
+            Bin -> abs(binary_to_integer(Bin))
+        end,
     %% High block is exclusive so start past the tip
     HighBlock = CurrentBlock + 1,
     case ?PREPARED_QUERY(MinQuery, Args) of
@@ -370,6 +392,7 @@ get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [{cursor, undefined}, {f
                 low_block = calc_low_block(HighBlock, MinBlock),
                 min_block = MinBlock,
                 limit = Limit,
+                remaining = Remaining,
                 args = Args,
                 types = Types
             },
@@ -377,7 +400,11 @@ get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [{cursor, undefined}, {f
         _ ->
             throw(?RESPONSE_404)
     end;
-get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [{cursor, Cursor}, {filter_types, _}]) ->
+get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
+    {cursor, Cursor},
+    {limit, _},
+    {filter_types, _}
+]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok,
             C = #{
@@ -391,6 +418,7 @@ get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [{cursor, Cursor}, {filt
                 min_block = MinBlock,
                 low_block = calc_low_block(HighBlock, MinBlock),
                 limit = Limit,
+                remaining = maps:get(<<"remaining">>, C, undefined),
                 args = Args
             },
             %% Construct the a partial list of results if we were
@@ -419,16 +447,27 @@ get_txn_count(Args, Query, [{filter_types, Types}]) ->
             Results
         )}.
 
-mk_txn_list_result(State = #state{results = Results, limit = Limit}) when
-    length(Results) >= Limit
+calc_result_remaining(_Length, undefined) ->
+    undefined;
+calc_result_remaining(Length, Remaining) ->
+    max(0, Remaining - Length).
+
+mk_txn_list_result(State = #state{results = Results, limit = Limit, remaining = Remaining}) when
+    length(Results) >= Limit orelse (Remaining /= undefined andalso length(Results) >= Remaining)
 ->
-    {Trimmed, _Remainder} = lists:split(Limit, Results),
+    {Trimmed, _Remainder} = lists:split(min(Limit, Remaining), Results),
     {Height, _Time, Hash, _Type, _Fields} = lists:last(Trimmed),
-    {ok, txn_list_to_json(Trimmed), mk_txn_list_cursor(Height, Hash, State)};
-mk_txn_list_result(State = #state{results = Results}) ->
-    {ok, txn_list_to_json(Results), mk_txn_list_cursor(State#state.low_block, undefined, State)}.
+    NewRemaining = calc_result_remaining(length(Trimmed), Remaining),
+    {ok, txn_list_to_json(Trimmed),
+        mk_txn_list_cursor(Height, Hash, State#state{remaining = NewRemaining})};
+mk_txn_list_result(State = #state{results = Results, remaining = Remaining}) ->
+    NewRemaining = calc_result_remaining(length(Results), Remaining),
+    {ok, txn_list_to_json(Results),
+        mk_txn_list_cursor(State#state.low_block, undefined, State#state{remaining = NewRemaining})}.
 
 mk_txn_list_cursor(MinBlock, undefined, #state{min_block = MinBlock}) ->
+    undefined;
+mk_txn_list_cursor(_BeforeBlock, _BeforeAddr, #state{remaining = Remaining}) when Remaining == 0 ->
     undefined;
 mk_txn_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
     %% Check if we didn't have an anchor block before and we've reached an anchor point
@@ -451,7 +490,8 @@ mk_txn_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
             {txn, BeforeAddr},
             {anchor_block, AnchorBlock},
             {types, State#state.types},
-            {min_block, State#state.min_block}
+            {min_block, State#state.min_block},
+            {remaining, State#state.remaining}
         ]
     ).
 

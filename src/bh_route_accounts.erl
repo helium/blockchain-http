@@ -79,7 +79,7 @@ handle('GET', [Account, <<"validators">>], Req) ->
         block_time
     );
 handle('GET', [Account, <<"activity">>], Req) ->
-    Args = ?GET_ARGS([cursor, filter_types], Req),
+    Args = ?GET_ARGS([cursor, limit, filter_types], Req),
     Result = bh_route_txns:get_activity_list({account, Account}, Args),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);
@@ -87,13 +87,13 @@ handle('GET', [Account, <<"activity">>, <<"count">>], Req) ->
     Args = ?GET_ARGS([filter_types], Req),
     ?MK_RESPONSE(bh_route_txns:get_activity_count({account, Account}, Args), block_time);
 handle('GET', [Account, <<"elections">>], Req) ->
-    Args = ?GET_ARGS([cursor], Req),
+    Args = ?GET_ARGS([cursor, limit], Req),
     ?MK_RESPONSE(
         bh_route_elections:get_election_list({account, Account}, Args),
         block_time
     );
 handle('GET', [Account, <<"challenges">>], Req) ->
-    Args = ?GET_ARGS([cursor], Req),
+    Args = ?GET_ARGS([cursor, limit], Req),
     ?MK_RESPONSE(
         bh_route_challenges:get_challenge_list({account, Account}, Args),
         block_time
