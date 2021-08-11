@@ -1,9 +1,9 @@
 -- :reward_block_range
 with max as (
-     select height from blocks where timestamp <= $1 order by height desc limit 1
+     select height from blocks where timestamp <= $1 order by timestamp desc limit 1
 ),
 min as (
-    select height from blocks where timestamp >= $2 order by height limit 1
+    select height from blocks where timestamp >= $2 order by timestamp limit 1
 )
 select (select height from max) as max, (select height from min) as min
 
@@ -56,8 +56,8 @@ with reward_data as (
         r.time
     from rewards r
     :scope
-    and r.time >= extract(epoch from $2::timestamptz)
-    and r.time <= extract(epoch from $3::timestamptz)
+    and r.block >= $2
+    and r.block <= $3
 )
 select
     coalesce(min(d.amount) / 100000000, 0)::float as min,

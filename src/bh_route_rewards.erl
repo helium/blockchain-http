@@ -71,7 +71,7 @@ prepare_conn(Conn) ->
             {reward_sum_base, [
                 {fields, reward_fields},
                 {scope, "where true = $1"},
-                {source, reward_sum_validator_source}
+                {source, reward_sum_hotspot_source}
             ]}},
         {?S_REWARD_SUM_VALIDATOR,
             {reward_sum_base, [
@@ -284,8 +284,8 @@ calc_low_block(HighBlock, EndBlock) ->
     end.
 
 -spec get_blockspan(High :: binary(), Low :: binary()) ->
-    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}} |
-    {error, term()}.
+    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}}
+    | {error, term()}.
 get_blockspan(MaxTime0, MinTime0) ->
     case ?PARSE_TIMESPAN(MaxTime0, MinTime0) of
         {ok, {MaxTime, MinTime}} ->
@@ -345,9 +345,9 @@ get_reward_list(
     end.
 
 get_reward_sum(Args, Query, [{max_time, MaxTime0}, {min_time, MinTime0}, {bucket, _Bucket}]) ->
-    case ?PARSE_TIMESPAN(MaxTime0, MinTime0) of
-        {ok, {MaxTime, MinTime}} ->
-            Result = ?PREPARED_QUERY(Query, Args ++ [MinTime, MaxTime]),
+    case get_blockspan(MaxTime0, MinTime0) of
+        {ok, {{MaxTime, MinTime}, {MaxBlock, MinBlock}}} ->
+            Result = ?PREPARED_QUERY(Query, Args ++ [MinBlock, MaxBlock]),
             mk_reward_sum_result(MaxTime, MinTime, Result);
         {error, _} = Error ->
             Error
