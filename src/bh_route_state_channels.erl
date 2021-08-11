@@ -15,7 +15,7 @@ prepare_conn(Conn) ->
     bh_db_worker:load_from_eql(Conn, "state_channels.sql", Loads).
 
 handle('GET', [], Req) ->
-    Args = add_filter_types(?GET_ARGS([cursor], Req)),
+    Args = add_filter_types(?GET_ARGS([cursor, limit], Req)),
     Result = bh_route_txns:get_txn_list(Args, ?STATE_CHANNEL_TXN_LIST_LIMIT),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);

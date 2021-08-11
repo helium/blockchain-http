@@ -89,14 +89,17 @@ activity_result_test(_Config) ->
     %% returned. Expect a maybe empty array with a start and end block
     %% and a cursor to a next block range
     {ok, {_, _, Json}} = ?json_request(
-        "/v1/hotspots/112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK/activity"
+        [
+            "/v1/hotspots/112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK/activity",
+            "?limit=5"
+        ]
     ),
     #{
         <<"data">> := Data,
         <<"cursor">> := Cursor
     } = Json,
     {ok, #{<<"block">> := _}} = ?CURSOR_DECODE(Cursor),
-    ?assert(length(Data) =< ?TXN_LIST_LIMIT).
+    ?assert(length(Data) =< 5).
 
 activity_low_block_test(_Config) ->
     GetCursor = #{

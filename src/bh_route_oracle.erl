@@ -57,12 +57,12 @@ handle('GET', [<<"prices">>, Block], _Req) ->
 handle('GET', [<<"predictions">>], _Req) ->
     ?MK_RESPONSE(get_price_predictions(), block_time);
 handle('GET', [<<"activity">>], Req) ->
-    Args = add_filter_types(?GET_ARGS([cursor], Req)),
+    Args = add_filter_types(?GET_ARGS([cursor, limit], Req)),
     Result = bh_route_txns:get_txn_list(Args),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [Address, <<"activity">>], Req) ->
-    Args = add_filter_types(?GET_ARGS([cursor], Req)),
+    Args = add_filter_types(?GET_ARGS([cursor, limit], Req)),
     Result = bh_route_txns:get_actor_txn_list({oracle, Address}, Args),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);

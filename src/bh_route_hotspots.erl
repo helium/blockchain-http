@@ -245,7 +245,7 @@ handle('GET', [<<"hex">>, Location], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(get_hotspot_list([{location_hex, Location}] ++ Args), block_time);
 handle('GET', [Address, <<"activity">>], Req) ->
-    Args = ?GET_ARGS([cursor, filter_types], Req),
+    Args = ?GET_ARGS([cursor, limit, filter_types], Req),
     Result = bh_route_txns:get_activity_list({hotspot, Address}, Args),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);
@@ -253,13 +253,13 @@ handle('GET', [Address, <<"activity">>, <<"count">>], Req) ->
     Args = ?GET_ARGS([filter_types], Req),
     ?MK_RESPONSE(bh_route_txns:get_activity_count({hotspot, Address}, Args), block_time);
 handle('GET', [Address, <<"elections">>], Req) ->
-    Args = ?GET_ARGS([cursor], Req),
+    Args = ?GET_ARGS([cursor, limit], Req),
     ?MK_RESPONSE(
         bh_route_elections:get_election_list({hotspot, Address}, Args),
         block_time
     );
 handle('GET', [Address, <<"challenges">>], Req) ->
-    Args = ?GET_ARGS([cursor], Req),
+    Args = ?GET_ARGS([cursor, limit], Req),
     ?MK_RESPONSE(
         bh_route_challenges:get_challenge_list({hotspot, Address}, Args),
         block_time

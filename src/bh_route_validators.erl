@@ -132,7 +132,7 @@ handle('GET', [<<"name">>, Name], _Req) ->
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_validator(Address), never);
 handle('GET', [Address, <<"activity">>], Req) ->
-    Args = ?GET_ARGS([cursor, filter_types], Req),
+    Args = ?GET_ARGS([cursor, limit, filter_types], Req),
     Result = bh_route_txns:get_activity_list({validator, Address}, Args),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);
