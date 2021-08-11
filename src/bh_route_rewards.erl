@@ -1,7 +1,11 @@
 -module(bh_route_rewards).
 
 -export([prepare_conn/1, handle/3]).
--export([get_full_reward_list/2, get_blockspan/2, get_reward_list/2, get_reward_sum/2]).
+-export([
+    get_full_reward_list/2,
+    get_reward_list/2,
+    get_reward_sum/2
+]).
 
 -behavior(bh_route_handler).
 -behavior(bh_db_worker).
@@ -11,7 +15,6 @@
 % Limit for reward list lengths. Note that changing this will impact paging dupe
 % tests.
 -define(REWARD_LIST_LIMIT, 100).
--define(S_BLOCK_RANGE, "reward_block_range").
 -define(S_REWARD_LIST_HOTSPOT, "reward_list_hotspot").
 -define(S_REWARD_LIST_HOTSPOT_REM, "reward_list_hotspot_rem").
 -define(S_REWARD_LIST_ACCOUNT, "reward_list_account").
@@ -31,7 +34,6 @@
 
 prepare_conn(Conn) ->
     Loads = [
-        ?S_BLOCK_RANGE,
         {?S_REWARD_LIST_HOTSPOT,
             {reward_list_base, [
                 {fields, {reward_marker_fields, [{marker, "r.transaction_hash"}]}},
@@ -153,7 +155,7 @@ get_full_reward_list({account, Address}, Args = [{max_time, _}, {min_time, _}]) 
     get_full_reward_list([Address], ?S_REWARD_LIST_ACCOUNT, Args).
 
 get_full_reward_list(Args, Query, [{max_time, MaxTime}, {min_time, MinTime}]) ->
-    case get_blockspan(MaxTime, MinTime) of
+    case bh_route_blocks:get_block_span(MaxTime, MinTime) of
         {ok, {_, {MaxBlock, MinBlock}}} ->
             {ok, _, Results} =
                 ?PREPARED_QUERY(Query, Args ++ [MinBlock, MaxBlock]),
@@ -283,25 +285,12 @@ calc_low_block(HighBlock, EndBlock) ->
             max(EndBlock, Other)
     end.
 
--spec get_blockspan(High :: binary(), Low :: binary()) ->
-    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}}
-    | {error, term()}.
-get_blockspan(MaxTime0, MinTime0) ->
-    case ?PARSE_TIMESPAN(MaxTime0, MinTime0) of
-        {ok, {MaxTime, MinTime}} ->
-            {ok, _, [{HighBlock, LowBlock}]} =
-                ?PREPARED_QUERY(?S_BLOCK_RANGE, [MaxTime, MinTime]),
-            {ok, {{MaxTime, MinTime}, {HighBlock, LowBlock}}};
-        {error, Error} ->
-            {error, Error}
-    end.
-
 get_reward_list(
     Args,
     {Query, _RemQuery},
     [{cursor, undefined}, {max_time, MaxTime}, {min_time, MinTime}]
 ) ->
-    case get_blockspan(MaxTime, MinTime) of
+    case bh_route_blocks:get_block_span(MaxTime, MinTime) of
         {ok, {_, {HighBlock, LowBlock}}} ->
             State = #state{
                 high_block = HighBlock,
@@ -345,7 +334,7 @@ get_reward_list(
     end.
 
 get_reward_sum(Args, Query, [{max_time, MaxTime0}, {min_time, MinTime0}, {bucket, _Bucket}]) ->
-    case get_blockspan(MaxTime0, MinTime0) of
+    case bh_route_blocks:get_block_span(MaxTime0, MinTime0) of
         {ok, {{MaxTime, MinTime}, {MaxBlock, MinBlock}}} ->
             Result = ?PREPARED_QUERY(Query, Args ++ [MinBlock, MaxBlock]),
             mk_reward_sum_result(MaxTime, MinTime, Result);
