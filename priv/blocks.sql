@@ -1,3 +1,13 @@
+-- :block_span
+with max as (
+     select height from blocks where timestamp <= $1 order by timestamp desc limit 1
+),
+min as (
+    select height from blocks where timestamp >= $2 order by timestamp limit 1
+)
+select (select height from max) as max, (select height from min) as min
+
+
 -- Get block stats
 -- :block_times
 with month_interval as (

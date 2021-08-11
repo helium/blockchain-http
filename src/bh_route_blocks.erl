@@ -14,7 +14,8 @@
     get_block_list_cache_time/1,
     get_block/1,
     get_block_txn_list/2,
-    get_block_stats/0
+    get_block_stats/0,
+    get_block_span/2
 ]).
 
 -define(S_BLOCK_HEIGHT, "block_height").
@@ -22,6 +23,7 @@
 
 -define(S_BLOCK_LIST_BEFORE, "block_list_before").
 
+-define(S_BLOCK_SPAN, "block_span").
 -define(S_BLOCK_BY_HASH, "block_by_hash").
 -define(S_BLOCK_BY_HEIGHT, "block_by_height").
 -define(S_BLOCK_HEIGHT_TXN_LIST, "block_height_txn_list").
@@ -139,7 +141,10 @@ prepare_conn(Conn) ->
         []
     ),
 
-    M = bh_db_worker:load_from_eql(Conn, "blocks.sql", [?S_BLOCK_TIMES]),
+    M = bh_db_worker:load_from_eql(Conn, "blocks.sql", [
+        ?S_BLOCK_TIMES,
+        ?S_BLOCK_SPAN
+    ]),
 
     maps:merge(
         #{
@@ -196,6 +201,19 @@ handle('GET', [BlockId, <<"transactions">>], Req) ->
     );
 handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
+
+-spec get_block_span(High :: binary() | undefined, Low :: binary() | undefined) ->
+    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}}
+    | {error, term()}.
+get_block_span(MaxTime0, MinTime0) ->
+    case ?PARSE_TIMESPAN(MaxTime0, MinTime0) of
+        {ok, {MaxTime, MinTime}} ->
+            {ok, _, [{HighBlock, LowBlock}]} =
+                ?PREPARED_QUERY(?S_BLOCK_SPAN, [MaxTime, MinTime]),
+            {ok, {{MaxTime, MinTime}, {HighBlock, LowBlock}}};
+        {error, Error} ->
+            {error, Error}
+    end.
 
 get_block_list([{cursor, undefined}]) ->
     {ok, #{height := Height}} = get_block_height(),

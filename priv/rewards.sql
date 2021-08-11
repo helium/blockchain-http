@@ -1,12 +1,3 @@
--- :reward_block_range
-with max as (
-     select height from blocks where timestamp <= $1 order by timestamp desc limit 1
-),
-min as (
-    select height from blocks where timestamp >= $2 order by timestamp limit 1
-)
-select (select height from max) as max, (select height from min) as min
-
 -- :reward_fields
 r.block, r.transaction_hash, to_timestamp(r.time) as timestamp, r.account, r.gateway, r.amount
 

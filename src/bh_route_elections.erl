@@ -18,7 +18,7 @@ prepare_conn(Conn) ->
     bh_db_worker:load_from_eql(Conn, "elections.sql", Loads).
 
 handle('GET', [], Req) ->
-    Args = add_filter_types(?GET_ARGS([cursor, limit], Req)),
+    Args = add_filter_types(?GET_ARGS([cursor, max_time, min_time, limit], Req)),
     Result = bh_route_txns:get_txn_list(Args),
     CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
     ?MK_RESPONSE(Result, CacheTime);

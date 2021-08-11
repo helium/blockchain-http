@@ -91,7 +91,8 @@ parse_timestamp(Now, Bin) ->
             end
     end.
 
--spec parse_timespan(High :: binary(), Low :: binary()) -> {ok, timespan()} | {error, term()}.
+-spec parse_timespan(High :: binary() | undefined, Low :: binary() | undefined) ->
+    {ok, timespan()} | {error, term()}.
 parse_timespan(MaxTime0, MinTime0) ->
     Validate = fun(Max, Min) ->
         calendar:datetime_to_gregorian_seconds(Max) >=

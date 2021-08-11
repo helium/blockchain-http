@@ -283,6 +283,7 @@ get_activity_count({validator, Address}, Args) ->
     high_block :: pos_integer(),
     low_block :: pos_integer(),
     min_block = 1 :: pos_integer(),
+    max_block = 1 :: pos_integer(),
     limit = ?TXN_LIST_LIMIT :: pos_integer(),
     remaining = undefined :: undefined | pos_integer(),
     step = 100 :: pos_integer(),
@@ -371,26 +372,55 @@ execute_rem_query(Query, HighBlock, TxnHash, State) ->
 get_txn_list(Args, Queries, RequestArgs) ->
     get_txn_list(Args, ?TXN_LIST_LIMIT, Queries, RequestArgs).
 
+-spec calc_block_span(
+    High :: binary() | undefined,
+    MinTime :: binary() | undefined,
+    MinQuery :: string(),
+    MinQueryArgs :: [any()]
+) ->
+    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}}
+    | {error, term()}.
+calc_block_span(MaxTime0, MinTime0, MinQuery, MinQueryArgs) ->
+    %% Parse timespan
+    case bh_route_blocks:get_block_span(MaxTime0, MinTime0) of
+        {ok, {{MaxTime, MinTime}, {MaxBlock, MinBlock}}} ->
+            %% Now compare against minimum calculated by the given query. Some
+            %% actors have a known minimum block so asking for a lower block makes
+            %% no sense.
+            case ?PREPARED_QUERY(MinQuery, MinQueryArgs) of
+                {ok, _, [{MinQueryBlock}]} when MinTime0 == undefined ->
+                    {ok, {{MaxTime, MinTime}, {MaxBlock, MinQueryBlock}}};
+                {ok, _, [{MinQueryBlock}]} ->
+                    {ok, {{MaxTime, MinTime}, {MaxBlock, max(MinBlock, MinQueryBlock)}}};
+                _ ->
+                    {error, badarg}
+            end;
+        {error, Error} ->
+            {error, Error}
+    end.
+
 get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [
     {cursor, undefined},
+    {max_time, MaxTime0},
+    {min_time, MinTime0},
     {limit, Remaining0},
     {filter_types, Types}
 ]) ->
-    {ok, #{height := CurrentBlock}} = bh_route_blocks:get_block_height(),
     Remaining =
         case Remaining0 of
             undefined -> undefined;
             Bin -> abs(binary_to_integer(Bin))
         end,
-    %% High block is exclusive so start past the tip
-    HighBlock = CurrentBlock + 1,
-    case ?PREPARED_QUERY(MinQuery, Args) of
-        {ok, _, [{MinBlock}]} ->
+    case calc_block_span(MaxTime0, MinTime0, MinQuery, Args) of
+        {ok, {{_MaxTime, _MinTime}, {MaxBlock, MinBlock}}} ->
+            %% High block is exclusive so start past the tip
+            HighBlock = MaxBlock + 1,
             State = #state{
                 high_block = HighBlock,
                 %% Aim for block alignment
                 low_block = calc_low_block(HighBlock, MinBlock),
                 min_block = MinBlock,
+                max_block = MaxBlock,
                 limit = Limit,
                 remaining = Remaining,
                 args = Args,
@@ -402,6 +432,8 @@ get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [
     end;
 get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
     {cursor, Cursor},
+    {max_time, _},
+    {min_time, _},
     {limit, _},
     {filter_types, _}
 ]) ->
@@ -409,13 +441,15 @@ get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
         {ok,
             C = #{
                 <<"block">> := HighBlock,
-                <<"min_block">> := MinBlock
+                <<"min_block">> := MinBlock,
+                <<"max_block">> := MaxBlock
             }} ->
             State0 = #state{
                 high_block = HighBlock,
                 anchor_block = maps:get(<<"anchor_block">>, C, undefined),
                 types = maps:get(<<"types">>, C, undefined),
                 min_block = MinBlock,
+                max_block = MaxBlock,
                 low_block = calc_low_block(HighBlock, MinBlock),
                 limit = Limit,
                 remaining = maps:get(<<"remaining">>, C, undefined),
@@ -491,6 +525,7 @@ mk_txn_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
             {anchor_block, AnchorBlock},
             {types, State#state.types},
             {min_block, State#state.min_block},
+            {max_block, State#state.max_block},
             {remaining, State#state.remaining}
         ]
     ).
