@@ -71,7 +71,7 @@ prepare_conn(Conn) ->
             {reward_sum_base, [
                 {fields, reward_fields},
                 {scope, "where true = $1"},
-                {source, reward_sum_validator_source}
+                {source, reward_sum_hotspot_source}
             ]}},
         {?S_REWARD_SUM_VALIDATOR,
             {reward_sum_base, [
