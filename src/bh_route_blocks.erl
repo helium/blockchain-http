@@ -202,7 +202,7 @@ handle('GET', [BlockId, <<"transactions">>], Req) ->
 handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
 
--spec get_block_span(High :: binary(), Low :: binary()) ->
+-spec get_block_span(High :: binary() | undefined, Low :: binary() | undefined) ->
     {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}}
     | {error, term()}.
 get_block_span(MaxTime0, MinTime0) ->

@@ -104,6 +104,7 @@ activity_result_test(_Config) ->
 activity_low_block_test(_Config) ->
     GetCursor = #{
         block => 50,
+        max_block => 50,
         min_block => 1
     },
     {ok, {_, _, Json}} = ?json_request(
@@ -122,6 +123,7 @@ activity_filter_no_result_test(_Config) ->
     %% Filter for no rewards, which the given hotspot should not have
     GetCursor = #{
         block => 50,
+        max_block => 50,
         min_block => 1,
         types => <<"rewards_v1">>
     },
