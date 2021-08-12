@@ -35,7 +35,9 @@ select
     d.short_state, d.long_state,
     d.short_country, d.long_country,
     d.city_id,
-    d.hotspot_count, d.online_count, d.offline_count,
+    d.hotspot_count::integer, 
+    d.online_count::integer, 
+    d.offline_count::integer,
     d.rank
 from data d
 :scope
