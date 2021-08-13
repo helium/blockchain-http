@@ -107,20 +107,17 @@ from locations l
 where location = $1
 
 -- :txn_hotspot_activity_min_block
-select min(block) from transaction_actors
-where actor = $1 and actor_role = 'gateway'
+select first_block from gateway_inventory where address = $1
 
 -- :txn_account_activity_min_block
-select min(block) from transaction_actors
-where actor = $1 and actor_role in ('payer', 'payee', 'owner')
+select first_block from account_inventory where address = $1
 
 -- :txn_oracle_activity_min_block
 select min(block) from transaction_actors
 where actor = $1 and actor_role = 'oracle'
 
 -- :txn_validator_activity_min_block
-select min(block) from transaction_actors
-where actor = $1 and actor_role = 'validator'
+select first_block from validator_inventory where address = $1
 
 -- :txn_genesis_min_block
 select 1
