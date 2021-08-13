@@ -13,6 +13,7 @@
 -define(S_CITY_LIST_COUNT_BEFORE, "city_list_count_before").
 -define(S_CITY_LIST_NAME, "city_list_name").
 -define(S_CITY_LIST_NAME_BEFORE, "city_list_name_before").
+-define(S_CITY_BY_ID, "city_by_id").
 -define(S_CITY_SEARCH, "city_search").
 -define(S_CITY_SEARCH_BEFORE, "city_search_before").
 -define(S_CITY_HOTSPOT_LIST, "hotspot_city_list").
@@ -23,6 +24,14 @@
 prepare_conn(Conn) ->
     CityListLimit = "limit " ++ integer_to_list(?CITY_LIST_LIMIT),
     Loads = [
+        {?S_CITY_BY_ID,
+            {city_list_base, [
+                {inner_scope, city_by_id_inner_scope},
+                {rank, city_search_rank},
+                {scope, ""},
+                {order, city_search_order},
+                {limit, "limit 1"}
+            ]}},
         {?S_CITY_SEARCH,
             {city_list_base, [
                 {inner_scope, city_search_inner_scope},
@@ -80,6 +89,15 @@ handle('GET', [City, <<"hotspots">>], Req) ->
         _:_ ->
             ?RESPONSE_404
     end;
+handle('GET', [City], _Req) ->
+    CityId = ?B64_TO_BIN(City),
+    try
+        Result = get_city(CityId),
+        ?MK_RESPONSE(Result, block_time)
+    catch
+        _:_ ->
+            ?RESPONSE_404
+    end;
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
@@ -91,6 +109,10 @@ order_to_rank(<<"hotspot_count">>) ->
     <<"hotspot_count">>;
 order_to_rank(_) ->
     throw(?RESPONSE_400).
+
+get_city(CityId) ->
+    Result = ?PREPARED_QUERY(?S_CITY_BY_ID, [CityId]),
+    mk_city_from_result(Result).
 
 get_city_list([{search, undefined}, {order, undefined}, {cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_CITY_LIST_NAME, []),
@@ -121,6 +143,9 @@ get_city_list([{search, _}, {order, _}, {cursor, Cursor}]) ->
         _ ->
             {error, badarg}
     end.
+
+mk_city_from_result({ok, _, [Result]}) ->
+    {ok, city_to_json(Result)}.
 
 mk_city_list_from_result(CursorBase, {ok, _, Results}) ->
     {ok, city_list_to_json(Results), mk_city_list_cursor(CursorBase, Results)}.

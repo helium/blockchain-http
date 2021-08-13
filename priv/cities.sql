@@ -35,7 +35,9 @@ select
     d.short_state, d.long_state,
     d.short_country, d.long_country,
     d.city_id,
-    d.hotspot_count, d.online_count, d.offline_count,
+    d.hotspot_count::integer, 
+    d.online_count::integer, 
+    d.offline_count::integer,
     d.rank
 from data d
 :scope
@@ -72,3 +74,6 @@ word_similarity(d.long_city, $1) as rank
 
 -- :city_search_inner_scope
 where l.search_city %> lower($1)
+
+-- :city_by_id_inner_scope
+where l.city_id = $1

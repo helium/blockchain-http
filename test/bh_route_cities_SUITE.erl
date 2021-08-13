@@ -11,6 +11,7 @@ all() ->
         city_list_name_test,
         city_list_count_test,
         city_search_test,
+        get_test,
         city_hotspots_test,
         invalid_city_hotspots_test
     ].
@@ -58,6 +59,18 @@ city_search_test(_Config) ->
     {ok, {_, _, NextJson}} = ?json_request(["/v1/cities?cursor=", Cursor]),
     #{<<"data">> := NextData} = NextJson,
     ?assert(length(NextData) >= 0),
+    ok.
+
+get_test(_Config) ->
+    FetchId = "dG9yb250b29udGFyaW9jYW5hZGE",
+    {ok, {_, _, Json}} = ?json_request(["/v1/cities/", FetchId]),
+    #{
+        <<"data">> := #{
+            <<"city_id">> := CityId,
+            <<"long_city">> := <<"Toronto">>
+        }
+    } = Json,
+    ?assertEqual(FetchId, binary_to_list(CityId)),
     ok.
 
 city_hotspots_test(_Config) ->
