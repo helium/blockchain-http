@@ -17,21 +17,23 @@
 -define(S_PENDING_TXN_LIST_BEFORE, "pending_txn_list_before").
 -define(S_INSERT_PENDING_TXN, "insert_pending_txn").
 -define(SELECT_PENDING_TXN_FIELDS,
-    "select t.created_at, t.updated_at, t.hash, t.type, t.status, t.failed_reason, t.fields "
+    "t.created_at, t.updated_at, t.hash, t.type, t.status, t.failed_reason, t.fields "
 ).
 
 -define(SELECT_ACTOR_PENDING_TXN_LIST_BASE(E), [
+    "select distinct on (t.created_at) ",
     ?SELECT_PENDING_TXN_FIELDS,
     "from pending_transaction_actors a inner join pending_transactions t on a.created_at = t.created_at ",
     "where a.actor = $1 ",
     (E),
     " ",
-    "order by created_at desc ",
+    "order by t.created_at desc ",
     "limit ",
     integer_to_list(?PENDING_TXN_LIST_LIMIT)
 ]).
 
 -define(SELECT_PENDING_TXN_LIST_BASE(E), [
+    "select ",
     ?SELECT_PENDING_TXN_FIELDS,
     "from pending_transactions t ",
     "where hash = $1 ",
