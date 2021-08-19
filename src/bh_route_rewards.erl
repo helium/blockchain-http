@@ -142,7 +142,7 @@ handle('GET', [<<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time, bucket], Req),
     ?MK_RESPONSE(
         bh_route_rewards:get_reward_sum(network, Args),
-        block_time
+        get_reward_sum_cache_time(Args)
     );
 handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
@@ -357,6 +357,16 @@ get_reward_bucketed_sum(Args, Query, [
         {error, Error} ->
             {error, Error}
     end.
+
+get_reward_sum_cache_time([{max_time, MaxTime}, {min_time, MinTime}, {bucket, _Bucket}]) when
+    MaxTime == undefined orelse MinTime == undefined
+->
+    % We can't cache bare http routes for long since the inferred min/max time
+    % will change with "now" time
+    block_time;
+get_reward_sum_cache_time([{max_time, _MaxTime}, {min_time, _MinTime}, {bucket, _Bucket}]) ->
+    % But if min/max are specified, cache as long as possible
+    infinity.
 
 mk_reward_list_result(State = #state{results = Results}) when
     length(Results) > ?REWARD_LIST_LIMIT
