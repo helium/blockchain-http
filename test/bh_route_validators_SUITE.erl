@@ -144,7 +144,7 @@ elected_block_test(_Config) ->
     ok.
 
 elected_invalid_block_test(_Config) ->
-    ?assertMatch({error, {_, 400, _}}, ?json_request("/v1/hotspots/elected/not_int")),
+    ?assertMatch({error, {_, 400, _}}, ?json_request("/v1/validators/elected/not_int")),
 
     ok.
 
@@ -197,7 +197,7 @@ rewards_sum_test(_Config) ->
     Validator = "11Q7Gmwq1fRe7pcEmBBtPatWWnyXrBtJLks65gGh89GLypbBaQW",
     {ok, {_, _, Json}} =
         ?json_request([
-            "/v1/hotspots/",
+            "/v1/validators/",
             Validator,
             "/rewards/sum?max_time=2021-07-27&min_time=2021-07-20"
         ]),
