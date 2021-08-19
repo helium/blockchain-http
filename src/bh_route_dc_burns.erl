@@ -79,7 +79,7 @@ get_burn_list([{cursor, Cursor}, {filter_types, _}]) ->
 
 %% If the request had a cursor in it we can cache the response for that request
 %% for a long time since the cursor makes the response stable.
-get_burn_list_cache_time([{cursor, undefined}, {filter_types, undefined}]) ->
+get_burn_list_cache_time([{cursor, undefined}, {filter_types, _}]) ->
     block_time;
 get_burn_list_cache_time([{cursor, _}, {filter_types, _}]) ->
     infinity.
