@@ -392,6 +392,9 @@ calc_block_span(MaxTime0, MinTime0, MinQuery, MinQueryArgs) ->
                     {ok, {{MaxTime, MinTime}, {MaxBlock, MinQueryBlock}}};
                 {ok, _, [{MinQueryBlock}]} ->
                     {ok, {{MaxTime, MinTime}, {MaxBlock, max(MinBlock, MinQueryBlock)}}};
+                {ok, _, []} ->
+                    %% Close window for query since no first block was found
+                    {ok, {{MaxTime, MinTime}, {MaxBlock, MaxBlock}}};
                 _ ->
                     {error, badarg}
             end;
