@@ -65,75 +65,90 @@ prepare_conn(Conn) ->
             ]}},
         {?S_REWARD_SUM_HOTSPOT,
             {reward_sum_base, [
-                {fields, reward_fields},
-                {scope, "where r.gateway = $1"},
-                {source, "reward_data"}
+                {reward_data,
+                    {reward_sum_hotspot_reward_data, [
+                        {scope, "r.gateway = $1"}
+                    ]}}
             ]}},
         {?S_REWARD_SUM_HOTSPOTS,
             {reward_sum_base, [
-                {fields, reward_fields},
-                {scope, "where true = $1"},
-                {source, reward_sum_hotspot_source}
+                {reward_data,
+                    {reward_sum_hotspot_reward_data, [
+                        {scope, "true = $1"}
+                    ]}}
             ]}},
         {?S_REWARD_SUM_VALIDATOR,
             {reward_sum_base, [
-                {fields, reward_fields},
-                {scope, "where r.gateway = $1"},
-                {source, "reward_data"}
+                {reward_data,
+                    {reward_sum_hotspot_reward_data, [
+                        {scope, "r.gateway = $1"}
+                    ]}}
             ]}},
         {?S_REWARD_SUM_VALIDATORS,
             {reward_sum_base, [
-                {fields, reward_fields},
-                {scope, "where true = $1"},
-                {source, reward_sum_validator_source}
+                {reward_data,
+                    {reward_sum_hotspot_reward_data, [
+                        {scope,
+                            "true = $1 and r.gateway in (select address from validator_inventory)"}
+                    ]}}
             ]}},
         {?S_REWARD_SUM_ACCOUNT,
             {reward_sum_base, [
-                {fields, reward_fields},
-                {scope, "where r.account = $1"},
-                {source, reward_sum_hotspot_source}
-            ]}},
-        {?S_REWARD_BUCKETED_SUM_HOTSPOTS,
-            {reward_bucketed_base, [
-                {fields, reward_fields},
-                {scope, "where true = $1"},
-                {source, reward_bucketed_hotspot_source}
-            ]}},
-        {?S_REWARD_BUCKETED_SUM_HOTSPOT,
-            {reward_bucketed_base, [
-                {fields, reward_fields},
-                {scope, "where r.gateway = $1"},
-                {source, "reward_data"}
-            ]}},
-        {?S_REWARD_BUCKETED_SUM_VALIDATORS,
-            {reward_bucketed_base, [
-                {fields, reward_fields},
-                {scope, "where true = $1"},
-                {source, reward_bucketed_validator_source}
-            ]}},
-        {?S_REWARD_BUCKETED_SUM_VALIDATOR,
-            {reward_bucketed_base, [
-                {fields, reward_fields},
-                {scope, "where r.gateway = $1"},
-                {source, "reward_data"}
-            ]}},
-        {?S_REWARD_BUCKETED_SUM_ACCOUNT,
-            {reward_bucketed_base, [
-                {fields, reward_fields},
-                {scope, "where r.account = $1"},
-                {source, reward_bucketed_hotspot_source}
+                {reward_data,
+                    {reward_sum_hotspot_reward_data, [
+                        {scope, "r.account = $1"}
+                    ]}}
             ]}},
         {?S_REWARD_SUM_NETWORK,
             {reward_sum_base, [
-                {fields, reward_fields},
-                {scope, "where true = $1"},
-                {source, reward_sum_time_source}
+                {reward_data,
+                    {reward_sum_time_reward_data, [
+                        {scope, "true = $1"}
+                    ]}}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_HOTSPOTS,
+            {reward_bucketed_base, [
+                {reward_data,
+                    {reward_bucketed_hotspot_reward_data, [
+                        {scope,
+                            "true = $1  and r.gateway in (select address from gateway_inventory)"}
+                    ]}}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_HOTSPOT,
+            {reward_bucketed_base, [
+                {reward_data,
+                    {reward_bucketed_hotspot_reward_data, [
+                        {scope, "r.gateway = $1"}
+                    ]}}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_VALIDATORS,
+            {reward_bucketed_base, [
+                {reward_data,
+                    {reward_bucketed_validator_reward_data, [
+                        {scope,
+                            "true = $1 and r.gateway in (select address from validator_inventory)"}
+                    ]}}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_VALIDATOR,
+            {reward_bucketed_base, [
+                {reward_data,
+                    {reward_bucketed_validator_reward_data, [
+                        {scope, "r.gateway = $1"}
+                    ]}}
+            ]}},
+        {?S_REWARD_BUCKETED_SUM_ACCOUNT,
+            {reward_bucketed_base, [
+                {reward_data,
+                    {reward_bucketed_hotspot_reward_data, [
+                        {scope, "r.account = $1"}
+                    ]}}
             ]}},
         {?S_REWARD_BUCKETED_SUM_NETWORK,
             {reward_bucketed_base, [
-                {fields, reward_fields},
-                {scope, "where true = $1"},
-                {source, reward_bucketed_time_source}
+                {reward_data,
+                    {reward_bucketed_time_reward_data, [
+                        {scope, "true = $1"}
+                    ]}}
             ]}}
     ],
     bh_db_worker:load_from_eql(Conn, "rewards.sql", Loads).

@@ -20,36 +20,27 @@ from rewards r
 and r.block = $2 and :marker> $3
 order by :marker
 
--- :reward_sum_hotspot_source
-(select
+-- :reward_sum_hotspot_reward_data
+select
     sum(r.amount) as amount
-from reward_data r
-group by r.gateway)
-
--- :reward_sum_time_source
-(select
-    sum(r.amount) as amount
-from reward_data r
-group by r.time)
-
--- :reward_sum_validator_source
-(select
-    sum(r.amount) as amount
-from reward_data r
-where r.gateway in (select address from validator_inventory)
-group by r.gateway)
-
--- :reward_sum_base
-with reward_data as (
-    select
-        r.amount,
-        r.gateway,
-        r.time
-    from rewards r
+from rewards r
+where 
     :scope
     and r.block >= $2
     and r.block <= $3
-)
+group by r.gateway
+
+-- :reward_sum_time_reward_data
+select
+    sum(r.amount) as amount
+from rewards r
+where 
+    :scope 
+    and r.block >= $2
+    and r.block <= $3
+group by r.time
+
+-- :reward_sum_base
 select
     coalesce(min(d.amount) / 100000000, 0)::float as min,
     coalesce(max(d.amount) / 100000000, 0)::float as max,
@@ -58,33 +49,40 @@ select
     coalesce(percentile_cont(0.5) within group (order by d.amount) / 100000000, 0)::float as median,
     coalesce(avg(d.amount) / 100000000, 0)::float as avg,
     coalesce(stddev(d.amount) / 100000000, 0)::float as stddev
-from :source d
+from (
+    :reward_data
+) d
 
 -- Bucket reward_data by timestamp and gateway to be calculate statistics over hotspot totals in a bucket
 -- rather than individual rewards.
--- :reward_bucketed_hotspot_source
-(select
+-- :reward_bucketed_hotspot_reward_data
+select
     sum(r.amount) as amount,
     r.time
-from reward_data r
-group by r.time, r.gateway)
+from rewards r
+where :scope
+and r.time >= (select min(low) from time_range) and r.time <= (select max(high) from time_range)
+group by r.time, r.gateway
 
 -- Bucket global reward_data by timestamp only
--- :reward_bucketed_time_source
-(select
+-- :reward_bucketed_time_reward_data
+select
     sum(r.amount) as amount,
     r.time
-from reward_data r
-group by r.time)
+from rewards r
+where :scope
+and r.time >= (select min(low) from time_range) and r.time <= (select max(high) from time_range)
+group by r.time
 
 -- Bucket reward_data by timestamp and gateway to be calculate statistics over totals in a bucket
--- :reward_bucketed_validator_source
-(select
+-- :reward_bucketed_validator_reward_data
+select
     sum(r.amount) as amount,
     r.time
-from reward_data r
-where r.gateway in (select address from validator_inventory)
-group by r.time, r.gateway)
+from rewards r
+where :scope
+and r.time >= (select min(low) from time_range) and r.time <= (select max(high) from time_range)
+group by r.time, r.gateway
 
 -- :reward_bucketed_base
 with time_range as (
@@ -99,13 +97,7 @@ with time_range as (
     where high is not null
 ),
 reward_data as (
-    select
-        r.amount,
-        r.gateway,
-        r.time
-    from rewards r
-    :scope
-    and r.time >= (select min(low) from time_range) and r.time <= (select max(high) from time_range)
+    :reward_data
 )
 select
     to_timestamp(t.low) as timestamp,
@@ -117,7 +109,7 @@ select
     coalesce(avg(d.amount) / 100000000, 0)::float as avg,
     coalesce(stddev(d.amount) / 100000000, 0)::float as stddev
 from time_range t
-    left join :source d
+    left join reward_data d
     on d.time >= low and d.time < high
 group by t.low
 order by t.low desc;
