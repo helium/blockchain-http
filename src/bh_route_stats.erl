@@ -26,7 +26,7 @@ prepare_conn(Conn) ->
     bh_db_worker:load_from_eql(Conn, "stats.sql", Loads).
 
 handle('GET', [], _Req) ->
-    ?MK_RESPONSE(get_stats(), {block_time, 5});
+    ?MK_RESPONSE(get_stats(), {block_time, 1.5});
 handle('GET', [<<"counts">>], _Req) ->
     ?MK_RESPONSE(
         {ok,
