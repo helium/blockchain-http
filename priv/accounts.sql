@@ -1,6 +1,6 @@
 -- :account_list_base
 select
-    (select max(height) from blocks) as height,
+    :height,
     l.address,
     l.dc_balance,
     l.dc_nonce,
@@ -8,13 +8,33 @@ select
     l.security_nonce,
     l.balance,
     coalesce(l.staked_balance, 0),
-    l.nonce,
-    l.first_block
+    l.nonce
     :extend
-from account_inventory l
+from :source
 :scope
 :order
 :limit
+
+-- :account_list_height
+(select max(height) from blocks) as height
+
+-- :account_inventory_source
+account_inventory l
+
+-- :accounts_source
+accounts l
+
+-- :account_scope
+where l.address = $1
+
+-- :account_at_block_scope
+where l.address = $1 and l.block <= $2
+
+-- :account_at_block_extend
+, (select first_block from account_inventory where address = $1) as first_block
+
+-- :account_list_extend
+, l.first_block
 
 -- :account_list_order
 order by l.first_block desc, l.address
@@ -23,6 +43,7 @@ order by l.first_block desc, l.address
 where (l.address > $1 and l.first_block = $2) or (l.first_block < $2)
 
 -- :account_speculative_extend
+, l.first_block
 , (select greatest(l.nonce, coalesce(max(p.nonce), l.nonce))
     from pending_transactions p
     where p.address = l.address and nonce_type='balance' and status != 'failed'

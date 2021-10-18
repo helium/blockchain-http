@@ -8,6 +8,7 @@
 all() ->
     [
         get_test,
+        get_at_block_test,
         not_found_test,
         activity_count_test,
         activity_result_test,
@@ -38,6 +39,25 @@ get_test(_Config) ->
         }
     } = Json,
     ?assertEqual(FetchAddress, binary_to_list(Address)),
+    ok.
+
+get_at_block_test(_Config) ->
+    MaxBlock = 708022,
+    FetchAddress = "1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY",
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/accounts/",
+        FetchAddress,
+        "?max_block=",
+        integer_to_list(MaxBlock)
+    ]),
+    #{
+        <<"data">> := #{
+            <<"address">> := Address,
+            <<"block">> := Block
+        }
+    } = Json,
+    ?assertEqual(FetchAddress, binary_to_list(Address)),
+    ?assertEqual(MaxBlock, Block),
     ok.
 
 not_found_test(_Config) ->
