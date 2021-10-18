@@ -443,7 +443,7 @@ get_hotspot_list([
     end;
 get_hotspot_list([{search_distance, [Lat, Lon, Distance]}, {cursor, undefined}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_LOCATION_DISTANCE_SEARCH, [Lon, Lat, Distance]),
-    mk_hotspot_list_from_result(
+    mk_hotspot_distance_list_from_result(
         ?HOTSPOT_LIST_LOCATION_SEARCH_LIMIT,
         #{lat => Lat, lon => Lon, distance => Distance},
         Result
@@ -462,7 +462,7 @@ get_hotspot_list([{search_distance, _}, {cursor, Cursor}]) ->
                 ?S_HOTSPOT_LOCATION_DISTANCE_SEARCH_BEFORE,
                 [Lon, Lat, Distance] ++ [BeforeAddress, BeforeDistance]
             ),
-            mk_hotspot_list_from_result(
+            mk_hotspot_distance_list_from_result(
                 ?HOTSPOT_LIST_LOCATION_SEARCH_LIMIT,
                 #{lat => Lat, lon => Lon, distance => Distance},
                 Result
@@ -593,6 +593,9 @@ mk_hotspot_list_from_result(CursorBase, Results) ->
 mk_hotspot_list_from_result(Limit, CursorBase, {ok, _, Results}) ->
     {ok, hotspot_list_to_json(Results), mk_cursor(Limit, CursorBase, Results)}.
 
+mk_hotspot_distance_list_from_result(Limit, CursorBase, {ok, _, Results}) ->
+    {ok, hotspot_distance_list_to_json(Results), mk_cursor(Limit, CursorBase, Results)}.
+
 mk_hotspot_witness_list_from_result({ok, _, Results}) ->
     {ok, hotspot_witness_list_to_json(Results)}.
 
@@ -648,6 +651,9 @@ hotspot_list_to_json(Results) ->
 
 hotspot_witness_list_to_json(Results) ->
     lists:map(fun hotspot_to_json/1, Results).
+
+hotspot_distance_list_to_json(Results) ->
+    lists:map(fun hotspot_distance_to_json/1, Results).
 
 to_geo_json(
     {ShortStreet, LongStreet, ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry,
@@ -737,6 +743,22 @@ hotspot_to_json(
             nonce => MaybeZero(Nonce)
         }
     ).
+
+hotspot_distance_to_json(
+    {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode, Owner,
+        Payer, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus,
+        BlockStatus, StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity,
+        ShortState, LongState, ShortCountry, LongCountry, CityId, Distance}
+) ->
+    Base = hotspot_to_json(
+        {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode,
+            Owner, Payer, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain,
+            OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs, ShortStreet, LongStreet,
+            ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}
+    ),
+    Base#{
+        <<"distance">> => Distance
+    }.
 
 buckets_to_json(Fun, Results) ->
     lists:map(Fun, Results).
