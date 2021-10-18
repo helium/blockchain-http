@@ -7,11 +7,12 @@
 
 -export([prepare_conn/1, handle/3]).
 %% Utilities
--export([get_account_list/1, get_account/1]).
+-export([get_account_list/1, get_account/2]).
 
 -define(S_ACCOUNT_LIST_BEFORE, "account_list_before").
 -define(S_ACCOUNT_LIST, "account_list").
 -define(S_ACCOUNT, "account").
+-define(S_ACCOUNT_AT_BLOCK, "account_at_block").
 -define(S_ACCOUNT_BALANCE_SERIES, "account_balance_series").
 -define(S_ACCOUNT_RICH_LIST, "account_rich_list").
 -define(ACCOUNT_LIST_LIMIT, 100).
@@ -22,29 +23,46 @@ prepare_conn(Conn) ->
     Loads = [
         {?S_ACCOUNT_LIST_BEFORE,
             {account_list_base, [
-                {extend, ""},
+                {height, account_list_height},
+                {extend, account_list_extend},
+                {source, account_inventory_source},
                 {scope, account_list_before_scope},
                 {order, account_list_order},
                 {limit, AccountListLimit}
             ]}},
         {?S_ACCOUNT_LIST,
             {account_list_base, [
-                {extend, ""},
+                {height, account_list_height},
+                {extend, account_list_extend},
+                {source, account_inventory_source},
                 {scope, ""},
                 {order, account_list_order},
                 {limit, AccountListLimit}
             ]}},
         {?S_ACCOUNT,
             {account_list_base, [
+                {height, account_list_height},
                 {extend, account_speculative_extend},
-                {scope, "where l.address = $1"},
+                {source, account_inventory_source},
+                {scope, account_scope},
                 {order, ""},
                 {limit, ""}
+            ]}},
+        {?S_ACCOUNT_AT_BLOCK,
+            {account_list_base, [
+                {height, "l.block as height"},
+                {extend, account_at_block_extend},
+                {source, accounts_source},
+                {scope, account_at_block_scope},
+                {order, "order by block desc"},
+                {limit, "limit 1"}
             ]}},
         ?S_ACCOUNT_BALANCE_SERIES,
         {?S_ACCOUNT_RICH_LIST,
             {account_list_base, [
-                {extend, ""},
+                {height, account_list_height},
+                {extend, account_list_extend},
+                {source, account_inventory_source},
                 {scope, ""},
                 {order, "order by (l.balance + coalesce(l.staked_balance, 0)) desc"},
                 {limit, "limit $1"}
@@ -58,8 +76,9 @@ handle('GET', [], Req) ->
 handle('GET', [<<"rich">>], Req) ->
     Args = ?GET_ARGS([limit], Req),
     ?MK_RESPONSE(get_account_rich_list(Args), block_time);
-handle('GET', [Account], _Req) ->
-    ?MK_RESPONSE(get_account(Account), never);
+handle('GET', [Account], Req) ->
+    Args = ?GET_ARGS([max_block], Req),
+    ?MK_RESPONSE(get_account(Account, Args), never);
 handle('GET', [Account, <<"ouis">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(
@@ -140,12 +159,26 @@ get_account_list([{cursor, Cursor}]) ->
             {error, badarg}
     end.
 
-get_account(Account) ->
-    case ?PREPARED_QUERY(?S_ACCOUNT, [Account]) of
-        {ok, _, [Result]} ->
-            {ok, account_to_json(Result)};
-        _ ->
-            {ok, account_to_json({null, Account, 0, 0, 0, 0, 0, 0, 0, 0})}
+get_account(Account, [{max_block, MaxBlock}]) ->
+    try
+        {Query, Args} =
+            case MaxBlock of
+                undefined ->
+                    {?S_ACCOUNT, [Account]};
+                _ ->
+                    Before = binary_to_integer(MaxBlock),
+                    {?S_ACCOUNT_AT_BLOCK, [Account, Before]}
+            end,
+        case ?PREPARED_QUERY(Query, Args) of
+            {ok, _, [Result]} ->
+                {ok, account_to_json(Result)};
+            {ok, _, []} ->
+                {ok, account_to_json({null, Account, 0, 0, 0, 0, 0, 0, 0, 0})};
+            {error, Error} ->
+                {error, Error}
+        end
+    catch
+        error:badarg -> {error, badarg}
     end.
 
 mk_account_list_from_result({ok, _, Results}) ->
