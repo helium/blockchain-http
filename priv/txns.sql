@@ -4,7 +4,7 @@ select
     t.time,
     t.hash,
     t.type,
-    :fields
+    t.fields
 :source
 :scope
 :order
@@ -16,9 +16,6 @@ where hash = $1
 -- :txn_list_scope
 where t.type = ANY($1)
 and block >= $2 and block < $3
-
--- :txn_list_fields
-t.fields
 
 -- :txn_list_order
 order by t.block desc, t.hash
@@ -64,9 +61,6 @@ from (
     order by a.transaction_hash
     limit $5
     ) as t
-
--- :txn_activity_list_fields
-txn_filter_actor_activity(t.actor, t.type, t.fields) as fields
 
 -- :txn_actor_scope
 and a.actor = $1

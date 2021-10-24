@@ -81,7 +81,6 @@ prepare_conn(Conn) ->
         {?S_TXN,
             {txn_list_base, [
                 {source, txn_list_source},
-                {fields, txn_list_fields},
                 {scope, txn_get_scope},
                 {order, ""},
                 {limit, ""}
@@ -89,7 +88,6 @@ prepare_conn(Conn) ->
         {?S_TXN_LIST,
             {txn_list_base, [
                 {source, txn_list_source},
-                {fields, txn_list_fields},
                 {scope, txn_list_scope},
                 {order, txn_list_order},
                 {limit, {txn_list_limit, []}}
@@ -97,7 +95,6 @@ prepare_conn(Conn) ->
         {?S_TXN_LIST_REM,
             {txn_list_base, [
                 {source, txn_list_rem_source},
-                {fields, txn_list_fields},
                 {scope, txn_list_rem_scope},
                 {order, txn_list_order},
                 {limit, {txn_list_limit, []}}
@@ -105,7 +102,6 @@ prepare_conn(Conn) ->
         {?S_ACTOR_TXN_LIST,
             {txn_list_base, [
                 {source, {txn_actor_list_source, [{actor_scope, txn_actor_scope}]}},
-                {fields, txn_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
                 {limit, ""}
@@ -113,7 +109,6 @@ prepare_conn(Conn) ->
         {?S_ACTOR_TXN_LIST_REM,
             {txn_list_base, [
                 {source, {txn_actor_list_rem_source, [{actor_scope, txn_actor_scope}]}},
-                {fields, txn_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
                 {limit, ""}
@@ -122,7 +117,6 @@ prepare_conn(Conn) ->
         {?S_ACCOUNT_HOTSPOTS_TXN_LIST,
             {txn_list_base, [
                 {source, {txn_actor_list_source, [{actor_scope, txn_owned_hotspot_actor_scope}]}},
-                {fields, txn_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
                 {limit, ""}
@@ -131,7 +125,6 @@ prepare_conn(Conn) ->
             {txn_list_base, [
                 {source,
                     {txn_actor_list_rem_source, [{actor_scope, txn_owned_hotspot_actor_scope}]}},
-                {fields, txn_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
                 {limit, ""}
@@ -141,7 +134,6 @@ prepare_conn(Conn) ->
             {txn_list_base, [
                 {source,
                     {txn_actor_list_source, [{actor_scope, txn_account_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
                 {limit, ""}
@@ -150,7 +142,6 @@ prepare_conn(Conn) ->
             {txn_list_base, [
                 {source,
                     {txn_actor_list_rem_source, [{actor_scope, txn_account_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
                 {limit, ""}
@@ -160,7 +151,6 @@ prepare_conn(Conn) ->
             {txn_list_base, [
                 {source,
                     {txn_actor_list_source, [{actor_scope, txn_hotspot_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
                 {limit, ""}
@@ -169,7 +159,6 @@ prepare_conn(Conn) ->
             {txn_list_base, [
                 {source,
                     {txn_actor_list_rem_source, [{actor_scope, txn_hotspot_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
                 {limit, ""}
@@ -179,7 +168,6 @@ prepare_conn(Conn) ->
             {txn_list_base, [
                 {source,
                     {txn_actor_list_source, [{actor_scope, txn_validator_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
                 {limit, ""}
@@ -188,7 +176,6 @@ prepare_conn(Conn) ->
             {txn_list_base, [
                 {source,
                     {txn_actor_list_rem_source, [{actor_scope, txn_validator_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
                 {scope, ""},
                 {order, txn_list_order},
                 {limit, ""}
@@ -236,36 +223,62 @@ get_txn_list(Args) ->
     get_txn_list(Args, ?TXN_LIST_LIMIT).
 
 get_txn_list(Args, Limit) ->
-    get_txn_list([], Limit, {?S_GENESIS_MIN_BLOCK, ?S_TXN_LIST, ?S_TXN_LIST_REM}, Args).
+    get_txn_list(
+        [],
+        Limit,
+        {?S_GENESIS_MIN_BLOCK, ?S_TXN_LIST, ?S_TXN_LIST_REM},
+        Args,
+        mk_field_filter(identity)
+    ).
 
 get_actor_txn_list({hotspot, Address}, Args) ->
-    get_txn_list([Address], {?S_HOTSPOT_MIN_BLOCK, ?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
+    get_txn_list(
+        [Address],
+        ?TXN_LIST_LIMIT,
+        {?S_HOTSPOT_MIN_BLOCK, ?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM},
+        Args,
+        mk_field_filter(identity)
+    );
 get_actor_txn_list({oracle, Address}, Args) ->
-    get_txn_list([Address], {?S_ORACLE_MIN_BLOCK, ?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM}, Args);
+    get_txn_list(
+        [Address],
+        ?TXN_LIST_LIMIT,
+        {?S_ORACLE_MIN_BLOCK, ?S_ACTOR_TXN_LIST, ?S_ACTOR_TXN_LIST_REM},
+        Args,
+        mk_field_filter(identity)
+    );
 get_actor_txn_list({account, Address}, Args) ->
     get_txn_list(
         [Address],
+        ?TXN_LIST_LIMIT,
         {?S_ACCOUNT_MIN_BLOCK, ?S_ACCOUNT_HOTSPOTS_TXN_LIST, ?S_ACCOUNT_HOTSPOTS_TXN_LIST_REM},
-        Args
+        Args,
+        mk_field_filter(identity)
     ).
 
 get_activity_list({account, Account}, Args) ->
     get_txn_list(
         [Account],
+        ?TXN_LIST_LIMIT,
         {?S_ACCOUNT_MIN_BLOCK, ?S_ACCOUNT_ACTIVITY_LIST, ?S_ACCOUNT_ACTIVITY_LIST_REM},
-        Args
+        Args,
+        mk_field_filter({actor, Account})
     );
 get_activity_list({hotspot, Address}, Args) ->
     get_txn_list(
         [Address],
+        ?TXN_LIST_LIMIT,
         {?S_HOTSPOT_MIN_BLOCK, ?S_HOTSPOT_ACTIVITY_LIST, ?S_HOTSPOT_ACTIVITY_LIST_REM},
-        Args
+        Args,
+        mk_field_filter({actor, Address})
     );
 get_activity_list({validator, Address}, Args) ->
     get_txn_list(
         [Address],
+        ?TXN_LIST_LIMIT,
         {?S_VALIDATOR_MIN_BLOCK, ?S_VALIDATOR_ACTIVITY_LIST, ?S_VALIDATOR_ACTIVITY_LIST_REM},
-        Args
+        Args,
+        mk_field_filter({actor, Address})
     ).
 
 get_activity_count({account, Account}, Args) ->
@@ -278,6 +291,8 @@ get_activity_count({validator, Address}, Args) ->
 -define(TXN_LIST_BLOCK_ALIGN, 100).
 -define(TXN_LIST_MAX_STEP, 10000).
 
+-type field_filter() :: fun((Type :: binary(), Fields :: map()) -> map()).
+
 -record(state, {
     anchor_block = undefined :: pos_integer() | undefined,
     high_block :: pos_integer(),
@@ -289,6 +304,7 @@ get_activity_count({validator, Address}, Args) ->
     step = 100 :: pos_integer(),
     args :: list(term()),
     types :: iolist(),
+    field_filter :: field_filter(),
     results = [] :: list(term())
 }).
 
@@ -369,9 +385,6 @@ execute_rem_query(Query, HighBlock, TxnHash, State) ->
     {ok, _, Results} = ?PREPARED_QUERY(Query, State#state.args ++ AddedArgs),
     State#state{results = State#state.results ++ Results}.
 
-get_txn_list(Args, Queries, RequestArgs) ->
-    get_txn_list(Args, ?TXN_LIST_LIMIT, Queries, RequestArgs).
-
 -spec calc_block_span(
     High :: binary() | undefined,
     MinTime :: binary() | undefined,
@@ -402,13 +415,19 @@ calc_block_span(MaxTime0, MinTime0, MinQuery, MinQueryArgs) ->
             {error, Error}
     end.
 
-get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [
-    {cursor, undefined},
-    {max_time, MaxTime0},
-    {min_time, MinTime0},
-    {limit, Remaining0},
-    {filter_types, Types}
-]) ->
+get_txn_list(
+    Args,
+    Limit,
+    {MinQuery, Query, _RemQuery},
+    [
+        {cursor, undefined},
+        {max_time, MaxTime0},
+        {min_time, MinTime0},
+        {limit, Remaining0},
+        {filter_types, Types}
+    ],
+    Filter
+) ->
     Remaining =
         case Remaining0 of
             undefined -> undefined;
@@ -427,19 +446,26 @@ get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [
                 limit = Limit,
                 remaining = Remaining,
                 args = Args,
-                types = Types
+                types = Types,
+                field_filter = Filter
             },
             mk_txn_list_result(execute_query(Query, State));
         _ ->
             throw(?RESPONSE_404)
     end;
-get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
-    {cursor, Cursor},
-    {max_time, _},
-    {min_time, _},
-    {limit, _},
-    {filter_types, _}
-]) ->
+get_txn_list(
+    Args,
+    Limit,
+    {_MinQuery, Query, RemQuery},
+    [
+        {cursor, Cursor},
+        {max_time, _},
+        {min_time, _},
+        {limit, _},
+        {filter_types, _}
+    ],
+    Filter
+) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok,
             C = #{
@@ -456,7 +482,8 @@ get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
                 low_block = calc_low_block(HighBlock, MinBlock),
                 limit = Limit,
                 remaining = maps:get(<<"remaining">>, C, undefined),
-                args = Args
+                args = Args,
+                field_filter = Filter
             },
             %% Construct the a partial list of results if we were
             %% partway into the block
@@ -489,17 +516,19 @@ calc_result_remaining(_Length, undefined) ->
 calc_result_remaining(Length, Remaining) ->
     max(0, Remaining - Length).
 
-mk_txn_list_result(State = #state{results = Results, limit = Limit, remaining = Remaining}) when
+mk_txn_list_result(
+    State = #state{results = Results, limit = Limit, remaining = Remaining, field_filter = Filter}
+) when
     length(Results) >= Limit orelse (Remaining /= undefined andalso length(Results) >= Remaining)
 ->
     {Trimmed, _Remainder} = lists:split(min(Limit, Remaining), Results),
     {Height, _Time, Hash, _Type, _Fields} = lists:last(Trimmed),
     NewRemaining = calc_result_remaining(length(Trimmed), Remaining),
-    {ok, txn_list_to_json(Trimmed),
+    {ok, txn_list_to_json(Filter, Trimmed),
         mk_txn_list_cursor(Height, Hash, State#state{remaining = NewRemaining})};
-mk_txn_list_result(State = #state{results = Results, remaining = Remaining}) ->
+mk_txn_list_result(State = #state{results = Results, remaining = Remaining, field_filter = Filter}) ->
     NewRemaining = calc_result_remaining(length(Results), Remaining),
-    {ok, txn_list_to_json(Results),
+    {ok, txn_list_to_json(Filter, Results),
         mk_txn_list_cursor(State#state.low_block, undefined, State#state{remaining = NewRemaining})}.
 
 mk_txn_list_cursor(MinBlock, undefined, #state{min_block = MinBlock}) ->
@@ -550,11 +579,74 @@ get_txn_list_cache_time(_) ->
     never.
 
 %%
-%% to_jaon
+%% to_json
 %%
 
+mk_field_filter(identity) ->
+    fun(_Type, Fields) -> Fields end;
+mk_field_filter({actor, Actor}) ->
+    fun(Type, Fields) -> txn_actor_field_filter(Type, Actor, Fields) end.
+
+txn_actor_field_filter(Type, Actor, Fields) when
+    Type == <<"rewards_v1">> orelse Type == <<"rewards_v2">>
+->
+    Rewards = lists:foldl(
+        fun
+            (Reward = #{<<"account">> := Account}, Acc) when Account == Actor ->
+                [Reward | Acc];
+            (Reward = #{<<"gateway">> := Gateway}, Acc) when Gateway == Actor ->
+                [Reward | Acc];
+            (_, Acc) ->
+                Acc
+        end,
+        [],
+        maps:get(<<"rewards">>, Fields, [])
+    ),
+    Fields#{<<"rewards">> => lists:reverse(Rewards)};
+txn_actor_field_filter(<<"state_channel_close_v1">>, Actor, Fields) ->
+    StateChannel = maps:get(<<"state_channel">>, Fields, #{}),
+    Summaries = lists:foldl(
+        fun
+            (Summary = #{<<"owner">> := Owner}, Acc) when Owner == Actor ->
+                [Summary | Acc];
+            (Summary = #{<<"client">> := Client}, Acc) when Client == Actor ->
+                [Summary | Acc];
+            (_, Acc) ->
+                Acc
+        end,
+        [],
+        maps:get(<<"summaries">>, StateChannel, [])
+    ),
+    Fields#{<<"state_channel">> => StateChannel#{<<"summaries">> => lists:reverse(Summaries)}};
+txn_actor_field_filter(<<"payment_v2">>, Actor, Fields = #{<<"payer">> := Payer}) when
+    Payer == Actor
+->
+    Fields;
+txn_actor_field_filter(<<"payment_v2">>, Actor, Fields) ->
+    Payments = lists:foldl(
+        fun
+            (Payment = #{<<"payee">> := Payee}, Acc) when Payee == Actor ->
+                [Payment | Acc];
+            (_, Acc) ->
+                Acc
+        end,
+        [],
+        maps:get(<<"payments">>, Fields, [])
+    ),
+    Fields#{<<"payments">> => lists:reverse(Payments)};
+txn_actor_field_filter(_, _Actor, Fields) ->
+    Fields.
+
 txn_list_to_json(Results) ->
-    lists:map(fun txn_to_json/1, Results).
+    txn_list_to_json(fun(Fields) -> Fields end, Results).
+
+txn_list_to_json(Filter, Results) ->
+    lists:map(
+        fun({Height, Time, Hash, Type, Fields}) ->
+            txn_to_json({Height, Time, Hash, Type, Filter(Type, Fields)})
+        end,
+        Results
+    ).
 
 txn_to_json({Height, Time, Hash, Type, Fields}) ->
     Json = txn_to_json({Type, Fields}),
@@ -657,6 +749,8 @@ txn_to_json(
     Fields#{
         <<"memo">> => MemoStr
     };
+txn_to_json({<<"consensus_group_v1">>, Fields}) ->
+    maps:remove(<<"proof">>, Fields);
 txn_to_json({_, Fields}) ->
     Fields.
 
