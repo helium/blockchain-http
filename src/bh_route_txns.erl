@@ -638,8 +638,9 @@ txn_actor_field_filter(_, _Actor, Fields) ->
     Fields.
 
 txn_list_to_json(Results) ->
-    txn_list_to_json(fun(Fields) -> Fields end, Results).
+    txn_list_to_json(mk_field_filter(identity), Results).
 
+-spec txn_list_to_json(field_filter(), [tuple()]) -> [map()].
 txn_list_to_json(Filter, Results) ->
     lists:map(
         fun({Height, Time, Hash, Type, Fields}) ->
