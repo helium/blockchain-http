@@ -1,4 +1,6 @@
 -- :account_list_base
+
+:with
 select
     :height,
     l.address,
@@ -21,14 +23,17 @@ from :source
 -- :account_inventory_source
 account_inventory l
 
--- :accounts_source
-accounts l
-
 -- :account_scope
 where l.address = $1
 
--- :account_at_block_scope
-where l.address = $1 and l.block <= $2
+-- :account_at_block_with
+with account_data as (
+    select * from accounts 
+    where address = $1 and block <= $2
+)
+
+-- :account_at_block_source
+account_data l
 
 -- :account_at_block_extend
 , (select first_block from account_inventory where address = $1) as first_block

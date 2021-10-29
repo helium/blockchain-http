@@ -8,8 +8,8 @@ on:
 
 jobs:
   CI:
-    runs-on: ubuntu-18.04
-    container: heliumsystems/builder-erlang:2
+    runs-on: ubuntu-latest
+    container: heliumsystems/builder-erlang:1
 
     steps:
       - name: Checkout
@@ -19,6 +19,9 @@ jobs:
         uses: styfle/cancel-workflow-action@0.5.0
         with:
           access_token: ${{ github.token }}
+
+      - name: Rust Toolchain
+        run: rustup default stable
 
       - name: Cache Hex Packages
         if: ${{ !env.ACT }}
