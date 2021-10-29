@@ -20,6 +20,9 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
+      - name: Rust Toolchain
+        run: rustup default stable
+
       - name: Cache Hex Packages
         if: ${{ !env.ACT }}
         uses: actions/cache@v1
