@@ -8,8 +8,8 @@ on:
 
 jobs:
   CI:
-    runs-on: ubuntu-18.04
-    container: heliumsystems/builder-erlang:2
+    runs-on: ubuntu-latest
+    container: heliumsystems/builder-erlang:1
 
     steps:
       - name: Checkout
