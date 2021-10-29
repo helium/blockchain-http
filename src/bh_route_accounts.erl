@@ -23,6 +23,7 @@ prepare_conn(Conn) ->
     Loads = [
         {?S_ACCOUNT_LIST_BEFORE,
             {account_list_base, [
+                {with, ""},
                 {height, account_list_height},
                 {extend, account_list_extend},
                 {source, account_inventory_source},
@@ -32,6 +33,7 @@ prepare_conn(Conn) ->
             ]}},
         {?S_ACCOUNT_LIST,
             {account_list_base, [
+                {with, ""},
                 {height, account_list_height},
                 {extend, account_list_extend},
                 {source, account_inventory_source},
@@ -41,6 +43,7 @@ prepare_conn(Conn) ->
             ]}},
         {?S_ACCOUNT,
             {account_list_base, [
+                {with, ""},
                 {height, account_list_height},
                 {extend, account_speculative_extend},
                 {source, account_inventory_source},
@@ -50,16 +53,18 @@ prepare_conn(Conn) ->
             ]}},
         {?S_ACCOUNT_AT_BLOCK,
             {account_list_base, [
+                {with, account_at_block_with},
                 {height, "l.block as height"},
                 {extend, account_at_block_extend},
-                {source, accounts_source},
-                {scope, account_at_block_scope},
+                {source, account_at_block_source},
+                {scope, ""},
                 {order, "order by block desc"},
                 {limit, "limit 1"}
             ]}},
         ?S_ACCOUNT_BALANCE_SERIES,
         {?S_ACCOUNT_RICH_LIST,
             {account_list_base, [
+                {with, ""},
                 {height, account_list_height},
                 {extend, account_list_extend},
                 {source, account_inventory_source},
