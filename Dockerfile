@@ -1,9 +1,12 @@
-FROM heliumsystems/builder-erlang:2 as builder
+FROM heliumsystems/builder-erlang:1 as builder
 
 WORKDIR /app
 ENV REBAR_BASE_DIR /app/_build
 
 RUN apk add --update git tar
+
+# Install Rust toolchain
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # build and cache dependencies as their own layer
 COPY rebar3 rebar.config rebar.lock ./
