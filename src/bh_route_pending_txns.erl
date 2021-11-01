@@ -114,23 +114,24 @@ handle(_, _, _Req) ->
     ?RESPONSE_404.
 
 -type supported_txn() ::
-    #blockchain_txn_oui_v1_pb{} |
-    #blockchain_txn_routing_v1_pb{} |
-    #blockchain_txn_vars_v1_pb{} |
-    #blockchain_txn_add_gateway_v1_pb{} |
-    #blockchain_txn_assert_location_v1_pb{} |
-    #blockchain_txn_assert_location_v2_pb{} |
-    #blockchain_txn_payment_v1_pb{} |
-    #blockchain_txn_payment_v2_pb{} |
-    #blockchain_txn_create_htlc_v1_pb{} |
-    #blockchain_txn_redeem_htlc_v1_pb{} |
-    #blockchain_txn_price_oracle_v1_pb{} |
-    #blockchain_txn_token_burn_v1_pb{} |
-    #blockchain_txn_transfer_hotspot_v1_pb{} |
-    #blockchain_txn_security_exchange_v1_pb{} |
-    #blockchain_txn_stake_validator_v1_pb{} |
-    #blockchain_txn_unstake_validator_v1_pb{} |
-    #blockchain_txn_transfer_validator_stake_v1_pb{}.
+    #blockchain_txn_oui_v1_pb{}
+    | #blockchain_txn_routing_v1_pb{}
+    | #blockchain_txn_vars_v1_pb{}
+    | #blockchain_txn_add_gateway_v1_pb{}
+    | #blockchain_txn_assert_location_v1_pb{}
+    | #blockchain_txn_assert_location_v2_pb{}
+    | #blockchain_txn_payment_v1_pb{}
+    | #blockchain_txn_payment_v2_pb{}
+    | #blockchain_txn_create_htlc_v1_pb{}
+    | #blockchain_txn_redeem_htlc_v1_pb{}
+    | #blockchain_txn_price_oracle_v1_pb{}
+    | #blockchain_txn_token_burn_v1_pb{}
+    | #blockchain_txn_transfer_hotspot_v1_pb{}
+    | #blockchain_txn_transfer_hotspot_v2_pb{}
+    | #blockchain_txn_security_exchange_v1_pb{}
+    | #blockchain_txn_stake_validator_v1_pb{}
+    | #blockchain_txn_unstake_validator_v1_pb{}
+    | #blockchain_txn_transfer_validator_stake_v1_pb{}.
 
 -type nonce_type() :: binary().
 
@@ -192,6 +193,11 @@ insert_pending_txn(
     Bin
 ) ->
     insert_pending_txn(Txn, Buyer, Nonce, <<"balance">>, Bin);
+insert_pending_txn(
+    #blockchain_txn_transfer_hotspot_v2_pb{new_owner = NewOwner, nonce = Nonce} = Txn,
+    Bin
+) ->
+    insert_pending_txn(Txn, NewOwner, Nonce, <<"gateway">>, Bin);
 insert_pending_txn(
     #blockchain_txn_token_burn_v1_pb{nonce = Nonce, payer = Address} = Txn,
     Bin
@@ -361,6 +367,7 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
     blockchain_txn_transfer_hotspot_v1_pb,
     {seller_signature = <<>>, buyer_signature = <<>>}
 );
+?TXN_HASH(blockchain_txn_transfer_hotspot_v2_pb, {owner_signature = <<>>});
 ?TXN_HASH(
     blockchain_txn_stake_validator_v1_pb,
     {owner_signature = <<>>}
@@ -390,6 +397,7 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
 ?TXN_TYPE(blockchain_txn_price_oracle_v1_pb, <<"price_oracle_v1">>);
 ?TXN_TYPE(blockchain_txn_token_burn_v1_pb, <<"token_burn_v1">>);
 ?TXN_TYPE(blockchain_txn_transfer_hotspot_v1_pb, <<"transfer_hotspot_v1">>);
+?TXN_TYPE(blockchain_txn_transfer_hotspot_v2_pb, <<"transfer_hotspot_v2">>);
 ?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, <<"security_exchange_v1">>);
 ?TXN_TYPE(blockchain_txn_stake_validator_v1_pb, <<"stake_validator_v1">>);
 ?TXN_TYPE(blockchain_txn_unstake_validator_v1_pb, <<"unstake_validator_v1">>);
