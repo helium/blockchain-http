@@ -69,6 +69,7 @@
     <<"payment_v2">>,
     <<"price_oracle_v1">>,
     <<"transfer_hotspot_v1">>,
+    <<"transfer_hotspot_v2">>,
     <<"stake_validator_v1">>,
     <<"unstake_validator_v1">>,
     <<"transfer_validator_stake_v1">>,
