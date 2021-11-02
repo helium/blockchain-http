@@ -7,14 +7,18 @@
 
 -export([prepare_conn/1, handle/3]).
 %% Utilities
--export([get_var_list/0, get_var/1]).
+-export([get_var_list/1, get_var/1]).
+
+-define(MAX_KEY_NAMES, 50).
 
 -define(S_VAR_LIST, "var_list").
+-define(S_VAR_LIST_NAMED, "var_list_named").
 -define(S_VAR, "var_get").
 
 prepare_conn(Conn) ->
     Loads = [
         {?S_VAR_LIST, []},
+        {?S_VAR_LIST_NAMED, []},
         {?S_VAR, []}
     ],
     bh_db_worker:load_from_eql(
@@ -23,8 +27,9 @@ prepare_conn(Conn) ->
         Loads
     ).
 
-handle('GET', [], _Req) ->
-    ?MK_RESPONSE(get_var_list(), block_time);
+handle('GET', [], Req) ->
+    Args = ?GET_ARGS([keys], Req),
+    ?MK_RESPONSE(get_var_list(Args), block_time);
 handle('GET', [<<"activity">>], Req) ->
     Args = add_filter_types(?GET_ARGS([cursor, max_time, min_time, limit], Req)),
     Result = bh_route_txns:get_txn_list(Args),
@@ -38,9 +43,20 @@ handle(_, _, _Req) ->
 add_filter_types(Args) ->
     Args ++ [{filter_types, <<"vars_v1">>}].
 
-get_var_list() ->
+get_var_list([{keys, undefined}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_VAR_LIST, []),
-    {ok, var_list_to_json(Results)}.
+    {ok, var_list_to_json(Results)};
+get_var_list([{keys, KeyBins}]) ->
+    case binary:split(KeyBins, <<",">>, [global]) of
+        [] ->
+            {error, badarg};
+        KeyNames when length(KeyNames) > ?MAX_KEY_NAMES ->
+            {error, badarg};
+        KeyNames ->
+            KeysArg = lists:flatten([<<"{">>, lists:join(<<",">>, KeyNames), <<"}">>]),
+            {ok, _, Results} = ?PREPARED_QUERY(?S_VAR_LIST_NAMED, [KeysArg]),
+            {ok, var_list_to_json(Results)}
+    end.
 
 get_var(Name) ->
     case ?PREPARED_QUERY(?S_VAR, [Name]) of
