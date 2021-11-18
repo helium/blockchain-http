@@ -8,6 +8,11 @@ init_bh(Config) ->
     application:ensure_all_started(lager),
     application:ensure_all_started(dispcount),
     application:ensure_all_started(throttle),
+    application:load(blockchain_http),
+    application:set_env(blockchain_http, throttle, #{
+        request_time => 10000000000,
+        request_interval => 10
+    }),
     {ok, Pid} = bh_sup:start_link(),
     unlink(Pid),
     [{bh_sup, Pid} | Config].
