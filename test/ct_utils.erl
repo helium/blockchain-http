@@ -7,6 +7,7 @@
 init_bh(Config) ->
     application:ensure_all_started(lager),
     application:ensure_all_started(dispcount),
+    application:ensure_all_started(throttle),
     {ok, Pid} = bh_sup:start_link(),
     unlink(Pid),
     [{bh_sup, Pid} | Config].
