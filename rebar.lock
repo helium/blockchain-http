@@ -37,7 +37,7 @@
        {ref,"71b7f65ce0dba2de40879f40f558f00be7aa5676"}},
   0},
  {<<"recon">>,{pkg,<<"recon">>,<<"2.5.2">>},0},
- {<<"small_ints">>,{pkg,<<"small_ints">>,<<"0.1.0">>},2}]}.
+ {<<"small_ints">>,{pkg,<<"small_ints">>,<<"0.1.0">>},2},
  {<<"throttle">>,
   {git,"https://github.com/helium/throttle",
        {ref,"6614e5d22faa8d66cedd5a63386c7fc8db56d98c"}},
