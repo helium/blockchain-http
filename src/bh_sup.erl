@@ -56,6 +56,7 @@ init([]) ->
     ElliConfig = [
         {mods, [
             {bh_middleware_throttle, ThrottleConfig},
+            {bh_middleware_cursor, []},
             {bh_middleware_cors, []},
             {bh_routes, []}
         ]}
