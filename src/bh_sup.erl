@@ -48,8 +48,14 @@ init([]) ->
 
     lager:info("Starting http listener on ~p", [ListenPort]),
 
+    {ok, ThrottleConfig = #{request_time := _, request_interval := _}} = application:get_env(
+        blockchain_http,
+        throttle
+    ),
+
     ElliConfig = [
         {mods, [
+            {bh_middleware_throttle, ThrottleConfig},
             {bh_middleware_cors, []},
             {bh_routes, []}
         ]}
