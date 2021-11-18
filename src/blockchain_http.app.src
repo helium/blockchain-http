@@ -26,7 +26,8 @@
             erl_angry_purple_tiger,
             elli,
             tools,
-            recon
+            recon,
+            throttle
         ]
     },
     {env, []},

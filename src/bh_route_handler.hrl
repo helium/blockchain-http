@@ -4,6 +4,7 @@
 -define(RESPONSE_404, {404, [?JSON_CONTENT], jiffy:encode(#{error => <<"Not Found">>})}).
 -define(RESPONSE_409, {409, [?JSON_CONTENT], jiffy:encode(#{error => <<"Conflict">>})}).
 -define(RESPONSE_503, {503, [?JSON_CONTENT], jiffy:encode(#{error => <<"Too Busy">>})}).
+-define(RESPONSE_429(Time), {429, [?JSON_CONTENT, {<<"Retry-After">>, integer_to_list(Time div 1000)}], jiffy:encode(#{error => <<"Too Busy">>, come_back_in_ms => Time})}).
 -define(RESPONSE_503_SHUTDOWN, {503, [?JSON_CONTENT], jiffy:encode(#{error => <<"Stopping">>})}).
 -define(RESPONSE_400, ?RESPONSE_400("Bad Request")).
 -define(RESPONSE_400(S), {400, [?JSON_CONTENT], jiffy:encode(#{error => list_to_binary((S))})}).

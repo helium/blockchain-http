@@ -38,6 +38,10 @@
   0},
  {<<"recon">>,{pkg,<<"recon">>,<<"2.5.2">>},0},
  {<<"small_ints">>,{pkg,<<"small_ints">>,<<"0.1.0">>},2}]}.
+ {<<"throttle">>,
+  {git,"https://github.com/helium/throttle",
+       {ref,"6614e5d22faa8d66cedd5a63386c7fc8db56d98c"}},
+  0}]}.
 [
 {pkg_hash,[
  {<<"base32">>, <<"044F6DC95709727CA2176F3E97A41DDAA76B5BC690D3536908618C0CB32616A2">>},
