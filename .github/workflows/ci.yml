@@ -9,7 +9,7 @@ on:
 jobs:
   CI:
     runs-on: ubuntu-latest
-    container: heliumsystems/builder-erlang:1
+    container: heliumsystems/builder-erlang:2
 
     steps:
       - name: Checkout
