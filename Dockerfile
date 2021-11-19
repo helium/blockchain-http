@@ -1,4 +1,4 @@
-FROM erlang:23.3.4.8-alpine as builder
+FROM erlang:24-alpine as builder
 
 WORKDIR /app
 ENV REBAR_BASE_DIR /app/_build
@@ -22,7 +22,7 @@ RUN mkdir -p /opt/rel && \
     ./rebar3 as prod tar && \
     tar -zxvf $REBAR_BASE_DIR/prod/rel/*/*.tar.gz -C /opt/rel
 
-FROM alpine:3.13 as runner
+FROM alpine:3.14 as runner
 
 RUN apk add --update openssl libsodium ncurses libstdc++
 
