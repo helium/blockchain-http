@@ -9,11 +9,15 @@ on:
 jobs:
   CI:
     runs-on: ubuntu-latest
-    container: heliumsystems/builder-erlang:2
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Setup
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: 24
 
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.5.0

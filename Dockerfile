@@ -1,4 +1,4 @@
-FROM erlang:24.1.6.0-alpine as builder
+FROM erlang:24-alpine as builder
 
 WORKDIR /app
 ENV REBAR_BASE_DIR /app/_build
