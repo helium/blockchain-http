@@ -48,10 +48,28 @@ init([]) ->
 
     lager:info("Starting http listener on ~p", [ListenPort]),
 
-    {ok, ThrottleConfig = #{request_time := _, request_interval := _}} = application:get_env(
+    {ok,
+        ThrottleConfig0 = #{
+            request_time := ThrottleRequestTime,
+            request_interval := ThrottleRequestInterval
+        }} = application:get_env(
         blockchain_http,
         throttle
     ),
+    ThrottleConfig = maps:merge(ThrottleConfig0, #{
+        request_time => list_to_integer(
+            os:getenv("THROTTLE_REQUEST_TIME", integer_to_list(ThrottleRequestTime))
+        ),
+        request_interval => list_to_integer(
+            os:getenv("THROTTLE_REQUEST_INTERVAL", integer_to_list(ThrottleRequestInterval))
+        ),
+        grace_time => list_to_integer(
+            os:getenv(
+                "THROTTLE_GRACE_TIME",
+                integer_to_list(maps:get(grace_time, ThrottleConfig0, 0))
+            )
+        )
+    }),
 
     ElliConfig = [
         {mods, [
