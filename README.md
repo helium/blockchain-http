@@ -45,3 +45,58 @@ This application does NOT serve up over TLS, and does NOT rate
 control, or access control clients. Please run this service behind a
 load balancer that terminates SSL and does some rate and access
 control.
+
+## Using Docker
+
+### Building the Docker Image
+
+`docker build -t helium/api .`
+
+### Running the Docker Container
+
+```
+docker run -d --init \
+--restart unless-stopped \
+--publish 8080:8080/tcp \
+--name api \
+--mount type=bind,source=$HOME/api_data,target=/var/data \
+-e DATABASE_RO_URL=postgresql://user:pass@127.0.0.1:5432/helium_blockchain \
+-e DATABASE_RW_URL=postgresql://user:pass@127.0.0.1:5432/helium_blockchain \
+-e DATABASE_RO_POOL_SIZE=10 \
+helium/api
+```
+### Updating Docker
+
+#### Navigate to your copy of the `blockchain-http` repository.
+
+`cd /path/to/blockchain-http`
+
+#### Stop the Docker container.
+
+`docker stop api`
+
+#### Remove the existing Docker container.
+
+`docker rm api`
+
+#### Update the repository.
+
+`git pull`
+
+#### Rebuild the Docker image.
+
+`docker build -t helium/api .`
+
+#### Run the updated Docker container.
+
+```
+docker run -d --init \
+--restart unless-stopped \
+--publish 8080:8080/tcp \
+--name api \
+--mount type=bind,source=$HOME/api_data,target=/var/data \
+-e DATABASE_RO_URL=postgresql://user:pass@127.0.0.1:5432/helium_blockchain \
+-e DATABASE_RW_URL=postgresql://user:pass@127.0.0.1:5432/helium_blockchain \
+-e DATABASE_RO_POOL_SIZE=10 \
+helium/api
+```
