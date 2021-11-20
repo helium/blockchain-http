@@ -9,19 +9,29 @@ on:
 jobs:
   CI:
     runs-on: ubuntu-latest
-    container: heliumsystems/builder-erlang:1
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Setup erlang
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: 24
+
+      - name: Setup rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
 
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.5.0
         with:
           access_token: ${{ github.token }}
 
-      - name: Rust Toolchain
-        run: rustup default stable
+      - name: Install build deps
+        run: sudo apt install libsodium-dev
 
       - name: Cache Hex Packages
         if: ${{ !env.ACT }}
