@@ -222,7 +222,7 @@ order by t.low desc;
 
 -- :hotspot_bucketed_challenges_source
 (select
-    count(d.time),
+    count(d.time) as count,
     d.time
 from challenge_data d
 group by d.time, d.address)
@@ -249,9 +249,9 @@ challenge_data as (
 )
 select
     to_timestamp(t.low) as timestamp,
-    coalesce(min(d.count), 0) as min,
-    coalesce(max(d.count), 0) as max,
-    coalesce(sum(d.count), 0) as sum,
+    coalesce(min(d.count), 0)::bigint as min,
+    coalesce(max(d.count), 0)::bigint as max,
+    coalesce(sum(d.count), 0)::bigint as sum,
     coalesce(percentile_cont(0.5) within group (order by d.count), 0)::float as median,
     coalesce(avg(d.count), 0)::float as avg,
     coalesce(stddev(d.count), 0)::float as stddev

@@ -1,6 +1,7 @@
 -module(blockchain_http_app).
 
 -behaviour(application).
+
 -export([start/2, prep_stop/1, stop/1]).
 
 start(_StartType, _StartArgs) ->

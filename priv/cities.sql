@@ -49,9 +49,9 @@ order by rank desc, city_id
 
 -- :city_list_count_rank
 case $1
-    when 'hotspot_count' then d.hotspot_count
-    when 'online_count' then coalesce(o.hotspot_count, 0)
-    when 'offline_count' then (d.hotspot_count - coalesce(o.hotspot_count, 0))
+    when 'hotspot_count' then d.hotspot_count::bigint
+    when 'online_count' then coalesce(o.hotspot_count, 0)::bigint
+    when 'offline_count' then (d.hotspot_count - coalesce(o.hotspot_count, 0))::bigint
 end as rank
 
 -- :city_list_count_before_scope

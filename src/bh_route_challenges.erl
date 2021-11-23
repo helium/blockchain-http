@@ -13,9 +13,9 @@
 
 -define(S_CHALLENGE_STATS, "challenges_stats").
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     Loads = [?S_CHALLENGE_STATS],
-    bh_db_worker:load_from_eql(Conn, "challenges.sql", Loads).
+    bh_db_worker:load_from_eql("challenges.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = add_filter_types(?GET_ARGS([cursor, max_time, min_time, limit], Req)),
@@ -34,7 +34,7 @@ handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
 
 add_filter_types(Args) ->
-    Args ++ [{filter_types, <<"poc_receipts_v1">>}].
+    Args ++ [{filter_types, [<<"poc_receipts_v1">>]}].
 
 get_challenge_list({hotspot, Address}, Args) ->
     bh_route_txns:get_actor_txn_list({hotspot, Address}, add_filter_types(Args));

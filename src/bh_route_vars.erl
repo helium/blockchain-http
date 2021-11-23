@@ -15,14 +15,13 @@
 -define(S_VAR_LIST_NAMED, "var_list_named").
 -define(S_VAR, "var_get").
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     Loads = [
-        {?S_VAR_LIST, []},
-        {?S_VAR_LIST_NAMED, []},
-        {?S_VAR, []}
+        ?S_VAR_LIST,
+        {?S_VAR_LIST_NAMED, {?S_VAR_LIST_NAMED, [], [{array, text}]}},
+        {?S_VAR, {?S_VAR, [], [text]}}
     ],
     bh_db_worker:load_from_eql(
-        Conn,
         "vars.sql",
         Loads
     ).
@@ -41,7 +40,7 @@ handle(_, _, _Req) ->
     ?RESPONSE_404.
 
 add_filter_types(Args) ->
-    Args ++ [{filter_types, <<"vars_v1">>}].
+    Args ++ [{filter_types, [<<"vars_v1">>]}].
 
 get_var_list([{keys, undefined}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_VAR_LIST, []),
@@ -53,8 +52,7 @@ get_var_list([{keys, KeyBins}]) ->
         KeyNames when length(KeyNames) > ?MAX_KEY_NAMES ->
             {error, badarg};
         KeyNames ->
-            KeysArg = lists:flatten([<<"{">>, lists:join(<<",">>, KeyNames), <<"}">>]),
-            {ok, _, Results} = ?PREPARED_QUERY(?S_VAR_LIST_NAMED, [KeysArg]),
+            {ok, _, Results} = ?PREPARED_QUERY(?S_VAR_LIST_NAMED, [KeyNames]),
             {ok, var_list_to_json(Results)}
     end.
 
@@ -104,6 +102,6 @@ b64_to_props(B64Value, Size) ->
     Bin = ?B64_TO_BIN(B64Value),
     [
         {Key, Value}
-     || <<KeyLen:Size/unsigned-integer, Key:KeyLen/binary, ValueLen:Size/unsigned-integer,
-            Value:ValueLen/binary>> <= Bin
+        || <<KeyLen:Size/unsigned-integer, Key:KeyLen/binary, ValueLen:Size/unsigned-integer,
+               Value:ValueLen/binary>> <= Bin
     ].

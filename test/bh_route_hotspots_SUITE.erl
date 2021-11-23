@@ -304,12 +304,12 @@ witnesses_buckets_test(_Config) ->
     ok.
 
 challenges_buckets_test(_Config) ->
-    Hotspot = "112hYxknRPeCP9PLtkAy3f86fWpXaRzRffjPj5HcrS7qePttY3Ek",
+    Hotspot = "11jck39wYcLCWn4g8gZNgNfLZsyJUemLm2k7wk7uKbgfNG1CpNc",
     {ok, {_, _, Json}} =
         ?json_request([
             "/v1/hotspots/",
             Hotspot,
-            "/challenges/sum?&min_time=-7%20day&bucket=day"
+            "/challenges/sum?min_time=2021-11-15T16%3A48%3A00Z&max_time=2021-11-29T16%3A48%3A00Z&bucket=week"
         ]),
     #{<<"data">> := Data} = Json,
     ?assert(length(Data) >= 0),

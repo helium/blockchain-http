@@ -52,7 +52,7 @@ select 'last_month', t.type, sum(t.amount)::bigint from month_interval t group b
 
 
 -- :burn_sum
-select d.type, sum(d.amount) as amount
+select d.type, sum(d.amount)::bigint as amount
 from dc_burns d 
 where d.time >= extract(epoch from $1::timestamptz)
     and d.time <= extract(epoch from $2::timestamptz)
@@ -71,7 +71,7 @@ with time_range as (
     where high is not null
 ),
 burn_data as (
-    select sum(d.amount) as amount, d.time, d.type
+    select sum(d.amount)::bigint as amount, d.time, d.type
     from dc_burns d 
     where d.time >= (select min(low) from time_range) 
         and d.time <= (select max(high) from time_range)

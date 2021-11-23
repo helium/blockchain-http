@@ -10,7 +10,10 @@ start_link(Pools) ->
     gen_server:start_link(?MODULE, Pools, []).
 
 init(Pools) ->
-    Monitors = maps:from_list([ {erlang:monitor(process, get_name(PoolName)), PoolName} || PoolName <- Pools ]),
+    Monitors = maps:from_list([
+        {erlang:monitor(process, get_name(PoolName)), PoolName}
+        || PoolName <- Pools
+    ]),
     {ok, Monitors}.
 
 handle_call(Msg, From, State) ->
@@ -62,7 +65,6 @@ handle_info({'DOWN', Ref, process, _Pid, Reason}, State) ->
 handle_info(Msg, State) ->
     lager:warning("Unexpected info ~p", [Msg]),
     {noreply, State}.
-
 
 get_name(Name) ->
     list_to_atom(atom_to_list(Name) ++ "_serv").

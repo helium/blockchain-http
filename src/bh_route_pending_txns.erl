@@ -45,45 +45,48 @@
 ]).
 
 prepare_conn(Conn) ->
-    {ok, S1} =
-        epgsql:parse(
-            Conn,
-            ?S_ACTOR_PENDING_TXN_LIST,
-            ?SELECT_ACTOR_PENDING_TXN_LIST_BASE(""),
-            []
-        ),
+    epgsql:update_type_cache(Conn, [
+        {bh_pending_transaction_nonce_type, [balance, security, none, gateway]}
+    ]),
 
-    {ok, S2} =
-        epgsql:parse(
-            Conn,
-            ?S_ACTOR_PENDING_TXN_LIST_BEFORE,
-            ?SELECT_ACTOR_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
-            []
-        ),
+    epgsql:update_type_cache(Conn, [
+        {bh_pending_transaction_status, [received, pending, failed, cleared]}
+    ]),
+    S1 = {
+        ?SELECT_ACTOR_PENDING_TXN_LIST_BASE(""),
+        [text]
+    },
 
-    {ok, S3} =
-        epgsql:parse(Conn, ?S_PENDING_TXN_LIST, ?SELECT_PENDING_TXN_LIST_BASE(""), []),
+    S2 = {
+        ?SELECT_ACTOR_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
+        [text, timestamptz]
+    },
 
-    {ok, S4} =
-        epgsql:parse(
-            Conn,
-            ?S_PENDING_TXN_LIST_BEFORE,
-            ?SELECT_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
-            []
-        ),
+    S3 =
+        {?SELECT_PENDING_TXN_LIST_BASE(""), [text]},
 
-    {ok, S5} =
-        epgsql:parse(
-            Conn,
-            ?S_INSERT_PENDING_TXN,
-            [
-                "insert into pending_transactions ",
-                "(hash, type, address, nonce, nonce_type, status, data) values ",
-                "($1, $2, $3, $4, $5, $6, $7) ",
-                "returning created_at"
-            ],
-            []
-        ),
+    S4 = {
+        ?SELECT_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
+        [text]
+    },
+
+    S5 = {
+        [
+            "insert into pending_transactions ",
+            "(hash, type, address, nonce, nonce_type, status, data) values ",
+            "($1, $2, $3, $4, $5, $6, $7) ",
+            "returning created_at"
+        ],
+        [
+            text,
+            transaction_type,
+            text,
+            int8,
+            pending_transaction_nonce_type,
+            pending_transaction_status,
+            text
+        ]
+    },
 
     #{
         ?S_ACTOR_PENDING_TXN_LIST => S1,
