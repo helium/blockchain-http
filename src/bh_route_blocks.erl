@@ -51,22 +51,20 @@ prepare_conn(Conn) ->
       []
      },
 
-    {ok, S3} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_LIST_BEFORE,
+    S3 = {
         [
             ?SELECT_BLOCK_BASE,
             "where b.height < $1 order by height DESC limit $2"
         ],
-        []
-    ),
+        [int8, int4]
+     },
 
     S4 = {
       [
        ?SELECT_BLOCK_BASE,
-       "where b.height = $1::bigint"
+       "where b.height = $1"
       ],
-      []
+      [int8]
      },
 
     {ok, S5} = epgsql:parse(
