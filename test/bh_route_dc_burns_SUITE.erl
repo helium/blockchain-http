@@ -50,8 +50,9 @@ sum_test(_Config) ->
     ok.
 
 bucket_sum_test(_Config) ->
-    {ok, {_, _, Json}} =
+    {ok, {_, _, Json}=Res} =
         ?json_request(["/v1/dc_burns/sum?min_time=-7%20day&bucket=day"]),
+	ct:pal("Res ~p", [Res]),
     #{<<"data">> := Data} = Json,
     ?assertEqual(7, length(Data)),
 

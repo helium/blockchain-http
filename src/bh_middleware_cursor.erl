@@ -8,7 +8,8 @@ handle(Req, _Config) ->
     case lists:keyfind(<<"cursor">>, 1, Args) of
         false ->
             ignore;
-        {<<"cursor">>, _Cursor} when length(Args) == 1 -> ignore;
+        {<<"cursor">>, _Cursor} when length(Args) == 1 ->
+            ignore;
         {<<"cursor">>, Cursor} ->
             Location = [
                 <<"/">>,

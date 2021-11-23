@@ -1,6 +1,7 @@
 -module(bh_sup).
 
 -behaviour(supervisor).
+
 -include("bh_db_worker.hrl").
 
 %% API
@@ -84,18 +85,17 @@ init([]) ->
             {bh_routes, []}
         ]}
     ],
-    ChildSpecs =
-        [
-            ?WORKER(bh_cache, []),
-            ?WORKER(bh_pool_watcher, [PoolNames]),
-            ?WORKER(elli, [
-                [
-                    {callback, elli_middleware},
-                    {callback_args, ElliConfig},
-                    {port, ListenPort}
-                ]
-            ])
-        ],
+    ChildSpecs = [
+        ?WORKER(bh_cache, []),
+        ?WORKER(bh_pool_watcher, [PoolNames]),
+        ?WORKER(elli, [
+            [
+                {callback, elli_middleware},
+                {callback_args, ElliConfig},
+                {port, ListenPort}
+            ]
+        ])
+    ],
 
     {ok, {SupFlags, ChildSpecs}}.
 

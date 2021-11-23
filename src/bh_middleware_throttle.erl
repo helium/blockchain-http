@@ -1,5 +1,7 @@
 -module(bh_middleware_throttle).
+
 -export([handle/2, postprocess/3, handle_event/3]).
+
 -behaviour(elli_handler).
 
 -include("bh_route_handler.hrl").
