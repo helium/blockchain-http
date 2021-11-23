@@ -10,11 +10,16 @@
 
 handle(Req, _Args) ->
     Host = get_actor(Req),
-    case throttle:peek(request_time, Host) of
+    case throttle:check(request_count, Host) of
         {limit_exceeded, 0, TimeToResetInMs} ->
             ?RESPONSE_429(TimeToResetInMs);
         _ ->
-            ignore
+            case throttle:peek(request_time, Host) of
+                {limit_exceeded, 0, TimeToResetInMs} ->
+                    ?RESPONSE_429(TimeToResetInMs);
+                _ ->
+                    ignore
+            end
     end.
 
 postprocess(Req, {Response, Headers, Body}, #{debug := true}) ->
@@ -47,8 +52,9 @@ handle_event(request_complete, [Req, Code, _Hs, _B, {Timings, _Sizes}], Args) ->
             ok
     end,
     ok;
-handle_event(elli_startup, _Args, #{request_time := MS, request_interval := Interval}) ->
-    throttle:setup(request_time, MS, Interval);
+handle_event(elli_startup, _Args, #{request_time := MS, request_interval := Interval, request_count := Count}) ->
+    throttle:setup(request_time, MS, Interval),
+    throttle:setup(request_count, Count, Interval);
 handle_event(_Event, _Data, _Args) ->
     ok.
 
