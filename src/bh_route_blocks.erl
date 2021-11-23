@@ -46,12 +46,10 @@
 ]).
 
 prepare_conn(Conn) ->
-    {ok, S1} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HEIGHT,
-        "select max(height) from blocks",
-        []
-    ),
+    S1 = {
+      "select max(height) from blocks",
+      []
+     },
 
     {ok, S3} = epgsql:parse(
         Conn,

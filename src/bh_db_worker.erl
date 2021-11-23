@@ -51,14 +51,22 @@ prepared_query(Pool, Name, Params) ->
     Ref = make_ref(),
     Fun = fun(From, {Stmts, Conn}) ->
         Statement = maps:get(Name, Stmts),
-        #statement{types = Types} = Statement,
-        TypedParameters = lists:zip(Types, Params),
-        %% construct the same kind of cast the epgsqla:prepared_statement does, but redirect
-        %% the output to the elli process directly
-        gen_server:cast(
-            Conn,
-            {{cast, From, Ref}, epgsql_cmd_prepared_query, {Statement, TypedParameters}}
-        )
+        case Statement of
+            #statement{types = Types} ->
+                TypedParameters = lists:zip(Types, Params),
+                %% construct the same kind of cast the epgsqla:prepared_statement does, but redirect
+                %% the output to the elli process directly
+                gen_server:cast(
+                  Conn,
+                  {{cast, From, Ref}, epgsql_cmd_prepared_query, {Statement, TypedParameters}}
+                 );
+            {Query, Types} ->
+                lager:info("Got non prepared statement ~p", [Query]),
+                gen_server:cast(
+                  Conn,
+                  {{cast, From, Ref}, epgsql_cmd_eequery, {Query, Params, Types}}
+                 )
+        end
     end,
     case dispcount:transaction(Pool, Fun) of
         ok ->
