@@ -61,15 +61,13 @@ prepare_conn(Conn) ->
         []
     ),
 
-    {ok, S4} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_BY_HEIGHT,
-        [
-            ?SELECT_BLOCK_BASE,
-            "where b.height = $1"
-        ],
-        []
-    ),
+    S4 = {
+      [
+       ?SELECT_BLOCK_BASE,
+       "where b.height = $1::bigint"
+      ],
+      []
+     },
 
     {ok, S5} = epgsql:parse(
         Conn,
