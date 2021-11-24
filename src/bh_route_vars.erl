@@ -15,14 +15,13 @@
 -define(S_VAR_LIST_NAMED, "var_list_named").
 -define(S_VAR, "var_get").
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     Loads = [
-        {?S_VAR_LIST, []},
-        {?S_VAR_LIST_NAMED, []},
-        {?S_VAR, []}
+        ?S_VAR_LIST,
+        {?S_VAR_LIST_NAMED, {?S_VAR_LIST_NAMED, [], [text]}},
+        {?S_VAR, {?S_VAR, [], [text]}}
     ],
     bh_db_worker:load_from_eql(
-        Conn,
         "vars.sql",
         Loads
     ).
