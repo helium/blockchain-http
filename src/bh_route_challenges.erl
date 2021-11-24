@@ -13,9 +13,9 @@
 
 -define(S_CHALLENGE_STATS, "challenges_stats").
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     Loads = [?S_CHALLENGE_STATS],
-    bh_db_worker:load_from_eql(Conn, "challenges.sql", Loads).
+    bh_db_worker:load_from_eql("challenges.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = add_filter_types(?GET_ARGS([cursor, max_time, min_time, limit], Req)),
