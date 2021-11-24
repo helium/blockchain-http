@@ -21,7 +21,7 @@
 
 -define(S_OUI_CURRENT, "oui_current").
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     OuiListLimit = "limit " ++ integer_to_list(?OUI_LIST_LIMIT),
     Loads = [
         {?S_OUI_LIST_BEFORE,
@@ -29,7 +29,7 @@ prepare_conn(Conn) ->
                 {scope, oui_list_before_scope},
                 {order, oui_list_order},
                 {limit, OuiListLimit}
-            ]}},
+            ], [text, int8]}},
         {?S_OUI_LIST,
             {oui_list_base, [
                 {scope, ""},
@@ -41,13 +41,13 @@ prepare_conn(Conn) ->
                 {scope, owner_oui_list_before_scope},
                 {order, oui_list_order},
                 {limit, OuiListLimit}
-            ]}},
+            ], [text, text, int8]}},
         {?S_OWNER_OUI_LIST,
             {oui_list_base, [
                 {scope, owner_oui_list_scope},
                 {order, oui_list_order},
                 {limit, OuiListLimit}
-            ]}},
+            ], [text]}},
         {?S_LAST_OUI,
             {oui_list_base, [
                 {scope, "where oui = (select max(oui) from ouis)"},
@@ -59,11 +59,11 @@ prepare_conn(Conn) ->
                 {scope, "where oui = $1"},
                 {order, ""},
                 {limit, ""}
-            ]}},
+            ], [int4]}},
         {?S_ACTIVE_OUIS, {oui_active, []}}
     ],
 
-    bh_db_worker:load_from_eql(Conn, "ouis.sql", Loads).
+    bh_db_worker:load_from_eql("ouis.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),

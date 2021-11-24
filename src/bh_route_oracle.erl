@@ -17,7 +17,7 @@
 -define(PRICE_LIST_LIMIT, 100).
 -define(PRICE_LIST_BLOCK_ALIGN, 100).
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     PriceListLimit = integer_to_list(?PRICE_LIST_LIMIT),
     Loads = [
         {?S_PRICE_LIST, {oracle_price_list_base, [{scope, ""}, {limit, PriceListLimit}]}},
@@ -25,16 +25,16 @@ prepare_conn(Conn) ->
             {oracle_price_list_base, [
                 {scope, "where p.block < $1"},
                 {limit, PriceListLimit}
-            ]}},
+            ], [int8]}},
         {?S_PRICE_AT_BLOCK,
             {oracle_price_list_base, [
                 {scope, "where block <= coalesce($1, (select max(height) from blocks))"},
                 {limit, "1"}
-            ]}},
+            ], [int8]}},
         ?S_PRICE_PREDICTIONS,
-        ?S_PRICE_STATS
+        {?S_PRICE_STATS, {?S_PRICE_STATS, [], [timestamptz, timestamptz]}}
     ],
-    bh_db_worker:load_from_eql(Conn, "oracles.sql", Loads).
+    bh_db_worker:load_from_eql("oracles.sql", Loads).
 
 handle('GET', [<<"prices">>], Req) ->
     Args = ?GET_ARGS([max_block, cursor], Req),

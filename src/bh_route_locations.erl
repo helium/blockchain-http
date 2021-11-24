@@ -11,14 +11,14 @@
 
 -define(S_LOCATION, "location_at_index").
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     Loads = [
         {?S_LOCATION,
             {location_list_base, [
                 {scope, "where location = $1"}
-            ]}}
+            ], [text]}}
     ],
-    bh_db_worker:load_from_eql(Conn, "locations.sql", Loads).
+    bh_db_worker:load_from_eql("locations.sql", Loads).
 
 handle('GET', [Location], _Req) ->
     ?MK_RESPONSE(get_location(Location), infinity);
