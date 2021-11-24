@@ -32,7 +32,7 @@
     code_change/3
 ]).
 
--export([load_from_eql/3]).
+-export([load_from_eql/2, load_from_eql/3]).
 -export([prepared_query/3, execute_batch/2]).
 
 -record(state, {
@@ -112,7 +112,7 @@ execute_batch(Pool, Queries) ->
             throw(?RESPONSE_503)
     end.
 
-load_from_eql(_Conn, Filename, Loads) ->
+load_from_eql(Filename, Loads) ->
     PrivDir = code:priv_dir(blockchain_http),
     {ok, Queries} = eql:compile(filename:join(PrivDir, Filename)),
     ResolveParams = fun
@@ -142,6 +142,43 @@ load_from_eql(_Conn, Filename, Loads) ->
             %% expand out nested eql fragments and their parameters.
             {Key, Query} = ResolveParams(Entry),
             {Key, {Query, []}};
+        L({Key, Params}) ->
+            L({Key, {Key, Params}});
+        L(Key) ->
+            L({Key, {Key, []}})
+    end,
+
+    Statements = lists:map(Load, Loads),
+    maps:from_list(Statements).
+
+load_from_eql(Conn, Filename, Loads) ->
+    PrivDir = code:priv_dir(blockchain_http),
+    {ok, Queries} = eql:compile(filename:join(PrivDir, Filename)),
+    ResolveParams = fun
+        R({K, Name}) when is_atom(Name) ->
+            R({K, {Name, []}});
+        R({K, {Name, Params}}) ->
+            case
+                case Params of
+                    [] -> eql:get_query(Name, Queries);
+                    _ -> eql:get_query(Name, Queries, lists:map(R, Params))
+                end
+            of
+                {ok, Q} -> {K, Q};
+                undefined -> error({badarg, Name})
+            end;
+        R({K, V}) ->
+            {K, V}
+    end,
+    Load = fun
+        L({Key, {Name, Params}}) when is_list(Name) ->
+            L({Key, {list_to_atom(Name), Params}});
+        L({Key, {_Name, _Params}} = Entry) ->
+            %% Leverage the equivalent pattern in ResolveParams to
+            %% expand out nested eql fragments and their parameters.
+            {Key, Query} = ResolveParams(Entry),
+            {ok, Statement} = epgsql:parse(Conn, Key, Query, []),
+            {Key, Statement};
         L({Key, Params}) ->
             L({Key, {Key, Params}});
         L(Key) ->

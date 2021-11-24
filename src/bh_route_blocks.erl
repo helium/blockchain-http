@@ -118,14 +118,14 @@ prepare_conn(Conn) ->
     S10 = {
         [
             "select height from blocks ",
-            "where time < extract(epoch from $1) ",
+            "where time < extract(epoch from $1::timestamptz) ",
             "order by height desc ",
             "limit 1"
         ],
         [timestamptz]
     },
 
-    M = bh_db_worker:load_from_eql(Conn, "blocks.sql", [
+    M = bh_db_worker:load_from_eql("blocks.sql", [
         {?S_BLOCK_TIMES, [], []},
         {?S_BLOCK_SPAN, [], [timestamptz, timestamptz]}
     ]),
