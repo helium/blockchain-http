@@ -61,7 +61,7 @@ get_args([{Key, Default} | Tail], Req, Acc) ->
 
 -spec parse_timestamp(binary() | undefined) -> {ok, calendar:datetime()} | {error, term()}.
 parse_timestamp(Timestamp) ->
-    parse_timestamp(calendar:universal_time(), Timestamp).
+    parse_timestamp(trunc_timestamp(calendar:universal_time()), Timestamp).
 
 %% Parse a given binary timestamp. Returns the given `Now' time if passed
 %% <<"now">> or undefined. Otherwise an attempt is made to parse an interval relative
@@ -78,18 +78,23 @@ parse_timestamp(Now, Bin) ->
     case parse_interval(Bin) of
         {ok, {_, Interval}} ->
             {ok,
-                calendar:gregorian_seconds_to_datetime(
-                    calendar:datetime_to_gregorian_seconds(Now) +
-                        interval_to_seconds(Interval)
+                trunc_timestamp(
+                    calendar:gregorian_seconds_to_datetime(
+                        calendar:datetime_to_gregorian_seconds(Now) +
+                            interval_to_seconds(Interval)
+                    )
                 )};
         {error, _} ->
             try
-                {ok, iso8601:parse(Bin)}
+                {ok, trunc_timestamp(iso8601:parse(Bin))}
             catch
                 error:badarg ->
                     {error, badarg}
             end
     end.
+
+trunc_timestamp({Date, {H, M, _S}}) ->
+    {Date, {H, M, 0}}.
 
 -spec parse_timespan(High :: binary() | undefined, Low :: binary() | undefined) ->
     {ok, timespan()} | {error, term()}.
@@ -99,7 +104,7 @@ parse_timespan(MaxTime0, MinTime0) ->
             calendar:datetime_to_gregorian_seconds(Min)
     end,
     %% Parse max_time relative to the current time
-    case parse_timestamp(calendar:universal_time(), MaxTime0) of
+    case parse_timestamp(trunc_timestamp(calendar:universal_time()), MaxTime0) of
         {ok, MaxTime} ->
             %% Then parse min_time relative to max_time
             case parse_timestamp(MaxTime, MinTime0) of
@@ -213,9 +218,10 @@ mk_response({error, not_found}, _) ->
 add_cache_header(undefined, Acc) ->
     Acc;
 add_cache_header(infinity, Acc) ->
+    %% Set to 10 days (86400 seconds in 24 hours)
     [
-        {<<"Surrogate-Control">>, <<"max-age=86400">>},
-        {<<"Cache-Control">>, <<"max-age=86400">>}
+        {<<"Surrogate-Control">>, <<"max-age=864000">>},
+        {<<"Cache-Control">>, <<"max-age=864000">>}
         | Acc
     ];
 add_cache_header(never, Acc) ->
@@ -334,8 +340,9 @@ parse_timestamp_test() ->
     Now = {{2021, 1, 28}, {0, 0, 0}} = iso8601:parse("2021-01-28"),
     %% Basic iso8601 parsing
     ?assertEqual({ok, Now}, parse_timestamp(Now, "2021-01-28")),
+    %% timestamps are truncated to the nearest minute
     ?assertEqual(
-        {ok, {{2021, 1, 29}, {0, 36, 59}}},
+        {ok, {{2021, 1, 29}, {0, 36, 00}}},
         parse_timestamp(Now, "2021-01-29T00:36:59Z")
     ),
     %% invalid timestampr
