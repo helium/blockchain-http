@@ -44,46 +44,34 @@
     integer_to_list(?PENDING_TXN_LIST_LIMIT)
 ]).
 
-prepare_conn(Conn) ->
-    {ok, S1} =
-        epgsql:parse(
-            Conn,
-            ?S_ACTOR_PENDING_TXN_LIST,
+prepare_conn(_Conn) ->
+    S1 = {
             ?SELECT_ACTOR_PENDING_TXN_LIST_BASE(""),
-            []
-        ),
+            [text]
+          },
 
-    {ok, S2} =
-        epgsql:parse(
-            Conn,
-            ?S_ACTOR_PENDING_TXN_LIST_BEFORE,
+    S2 = {
             ?SELECT_ACTOR_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
-            []
-        ),
+            [text, timestamptz]
+        },
 
-    {ok, S3} =
-        epgsql:parse(Conn, ?S_PENDING_TXN_LIST, ?SELECT_PENDING_TXN_LIST_BASE(""), []),
+    S3 =
+        {?SELECT_PENDING_TXN_LIST_BASE(""), [text]},
 
-    {ok, S4} =
-        epgsql:parse(
-            Conn,
-            ?S_PENDING_TXN_LIST_BEFORE,
-            ?SELECT_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
-            []
-        ),
+    S4 ={
+           ?SELECT_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
+            [text]
+          },
 
-    {ok, S5} =
-        epgsql:parse(
-            Conn,
-            ?S_INSERT_PENDING_TXN,
+    S5 = {
             [
                 "insert into pending_transactions ",
                 "(hash, type, address, nonce, nonce_type, status, data) values ",
                 "($1, $2, $3, $4, $5, $6, $7) ",
                 "returning created_at"
             ],
-            []
-        ),
+            [text, transaction_type, text, int8, pending_transaction_nonce_type, pending_transaction_status, text]
+     },
 
     #{
         ?S_ACTOR_PENDING_TXN_LIST => S1,
