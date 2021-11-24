@@ -60,8 +60,8 @@ prepare_conn(_Conn) ->
                 {scope, ""},
                 {order, "order by block desc"},
                 {limit, "limit 1"}
-            ], []}},
-        ?S_ACCOUNT_BALANCE_SERIES,
+            ], [test, int8]}},
+        {?S_ACCOUNT_BALANCE_SERIES, {?S_ACCOUNT_BALANCE_SERIES, [], [text, timestamptz,interval, text, interval]}},
         {?S_ACCOUNT_RICH_LIST,
             {account_list_base, [
                 {with, ""},
