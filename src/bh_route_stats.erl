@@ -18,12 +18,12 @@
 -define(S_STATS_TOKEN_SUPPLY, "stats_token_supply").
 -define(S_STATS_COUNTS, "stats_counts").
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     Loads = [
         ?S_STATS_COUNTS,
         ?S_STATS_TOKEN_SUPPLY
     ],
-    bh_db_worker:load_from_eql(Conn, "stats.sql", Loads).
+    bh_db_worker:load_from_eql("stats.sql", Loads).
 
 handle('GET', [], _Req) ->
     ?MK_RESPONSE(get_stats(), {block_time, 5});
