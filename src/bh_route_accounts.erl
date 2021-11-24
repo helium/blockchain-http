@@ -30,7 +30,7 @@ prepare_conn(Conn) ->
                 {scope, account_list_before_scope},
                 {order, account_list_order},
                 {limit, AccountListLimit}
-            ]}},
+            ], [text, int8, int8]}},
         {?S_ACCOUNT_LIST,
             {account_list_base, [
                 {with, ""},
@@ -40,7 +40,7 @@ prepare_conn(Conn) ->
                 {scope, ""},
                 {order, account_list_order},
                 {limit, AccountListLimit}
-            ]}},
+            ], []}},
         {?S_ACCOUNT,
             {account_list_base, [
                 {with, ""},
@@ -50,7 +50,7 @@ prepare_conn(Conn) ->
                 {scope, account_scope},
                 {order, ""},
                 {limit, ""}
-            ]}},
+            ], [text]}},
         {?S_ACCOUNT_AT_BLOCK,
             {account_list_base, [
                 {with, account_at_block_with},
@@ -60,7 +60,7 @@ prepare_conn(Conn) ->
                 {scope, ""},
                 {order, "order by block desc"},
                 {limit, "limit 1"}
-            ]}},
+            ], []}},
         ?S_ACCOUNT_BALANCE_SERIES,
         {?S_ACCOUNT_RICH_LIST,
             {account_list_base, [
@@ -71,9 +71,9 @@ prepare_conn(Conn) ->
                 {scope, ""},
                 {order, "order by (l.balance + coalesce(l.staked_balance, 0)) desc"},
                 {limit, "limit $1"}
-            ]}}
+            ], [int4]}}
     ],
-    bh_db_worker:load_from_eql(Conn, "accounts.sql", Loads).
+    bh_db_worker:load_from_eql("accounts.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
