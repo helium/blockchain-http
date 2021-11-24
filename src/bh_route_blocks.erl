@@ -91,7 +91,7 @@ prepare_conn(_Conn) ->
             "limit ",
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
-        [text]
+        [text, text]
      },
 
     S8 = {
@@ -110,7 +110,7 @@ prepare_conn(_Conn) ->
             "limit ",
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
-        [text]
+        [text, text]
      },
 
     S10 = {
