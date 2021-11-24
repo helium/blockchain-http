@@ -61,7 +61,7 @@ prepared_query(Pool, Name, Params) ->
                   {{cast, From, Ref}, epgsql_cmd_prepared_query, {Statement, TypedParameters}}
                  );
             {Query, Types} ->
-                lager:info("Got non prepared statement ~p", [Query]),
+                lager:info("Got non prepared statement ~p with types ~p", [Query, Types]),
                 gen_server:cast(
                   Conn,
                   {{cast, From, Ref}, epgsql_cmd_eequery, {Query, Params, Types}}
