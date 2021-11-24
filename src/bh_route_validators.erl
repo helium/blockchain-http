@@ -37,28 +37,32 @@ prepare_conn(Conn) ->
                 {scope, validator_list_before_scope},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
-            ]}},
+            ]},
+            [text, int8]},
         {?S_VALIDATOR_LIST,
             {validator_list_base, [
                 {source, ""},
                 {scope, ""},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
-            ]}},
+            ]},
+            []},
         {?S_OWNER_VALIDATOR_LIST_BEFORE,
             {validator_list_base, [
                 {source, ""},
                 {scope, owner_validator_list_before_scope},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
-            ]}},
+            ]},
+            [text, text, int8]},
         {?S_OWNER_VALIDATOR_LIST,
             {validator_list_base, [
                 {source, ""},
                 {scope, owner_validator_list_scope},
                 {order, validator_list_order},
                 {limit, ValidatorListLimit}
-            ]}},
+            ]},
+            [text]},
         {?S_VALIDATOR_ELECTED_LIST,
             {validator_elected_list, [
                 {filter, "and block <= $1"},
@@ -69,7 +73,8 @@ prepare_conn(Conn) ->
                         {order, ""},
                         {limit, ""}
                     ]}}
-            ]}},
+            ]},
+            [int8]},
         {?S_VALIDATOR_ELECTION_LIST,
             {validator_elected_list, [
                 {filter, "and hash = $1"},
@@ -80,32 +85,36 @@ prepare_conn(Conn) ->
                         {order, ""},
                         {limit, ""}
                     ]}}
-            ]}},
+            ]},
+            [text]},
         {?S_VALIDATOR,
             {validator_list_base, [
                 {source, validator_source},
                 {scope, "where l.address = $1"},
                 {order, ""},
                 {limit, ""}
-            ]}},
+            ]},
+            [text]},
         {?S_VALIDATORS_NAMED,
             {validator_list_base, [
                 {source, ""},
                 {scope, "where l.name = $1"},
                 {order, ""},
                 {limit, ""}
-            ]}},
+            ]},
+            [text]},
         {?S_VALIDATOR_NAME_SEARCH,
             {validator_list_base, [
                 {source, ""},
                 {scope, validator_name_search_scope},
                 {order, ""},
                 {limit, ValidatorListNameSearchLimit}
-            ]}},
-        {?S_VALIDATOR_STATS, {validator_stats, []}},
-        {?S_ACTIVE_VALIDATORS, {validator_active, []}}
+            ]},
+            [text]},
+        {?S_VALIDATOR_STATS, {validator_stats, []}, []},
+        {?S_ACTIVE_VALIDATORS, {validator_active, []}, []}
     ],
-    bh_db_worker:load_from_eql(Conn, "validators.sql", Loads).
+    bh_db_worker:load_from_eql("validators.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
