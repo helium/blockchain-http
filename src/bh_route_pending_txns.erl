@@ -61,6 +61,9 @@ prepare_conn(Conn) ->
                                                          unstake_validator_v1,validator_heartbeat_v1,
                                                          transfer_validator_stake_v1,gen_price_oracle_v1,
                                                          consensus_group_failure_v1,transfer_hotspot_v2]}]),
+  epgsql:update_type_cache(Conn, [{bh_pending_transaction_nonce_type, [balance,security,none,gateway]}]),
+
+  epgsql:update_type_cache(Conn, [{bh_pending_transaction_status, [received,pending,failed,cleared]}]),
     S1 = {
             ?SELECT_ACTOR_PENDING_TXN_LIST_BASE(""),
             [text]
