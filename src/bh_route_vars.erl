@@ -18,7 +18,7 @@
 prepare_conn(_Conn) ->
     Loads = [
         ?S_VAR_LIST,
-        {?S_VAR_LIST_NAMED, {?S_VAR_LIST_NAMED, [], [text]}},
+        {?S_VAR_LIST_NAMED, {?S_VAR_LIST_NAMED, [], [{array, text}]}},
         {?S_VAR, {?S_VAR, [], [text]}}
     ],
     bh_db_worker:load_from_eql(
