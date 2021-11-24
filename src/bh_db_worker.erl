@@ -132,8 +132,8 @@ load_from_eql(Filename, Loads) ->
             {K, V}
     end,
     Load = fun
-        L({Key, {Name, Params, Types}}) when is_list(Name) ->
-            L({Key, {list_to_atom(Name), Params, Types}});
+        L({Key, Params, Types}) when is_list(Key) ->
+            L({Key, {list_to_atom(Key), Params, Types}});
         L({Key, {Name, Params, Types}}) ->
             %% Leverage the equivalent pattern in ResolveParams to
             %% expand out nested eql fragments and their parameters.
