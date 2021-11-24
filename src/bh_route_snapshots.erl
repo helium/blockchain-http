@@ -13,36 +13,34 @@
 -define(S_SNAPSHOT_LIST_BEFORE, "snapshot_list_before").
 -define(S_SNAPSHOT_CURRENT, "snapshot_curent").
 
--define(SELECT_SNAPSHOT_BASE, "select b.height, b.snapshot_hash from blocks b ").
-
-
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     SnapshotListLimit = integer_to_list(?SNAPSHOT_LIST_LIMIT),
-    {ok, S1} = epgsql:parse(Conn, ?S_SNAPSHOT_LIST,
-                            [?SELECT_SNAPSHOT_BASE
-                             "where b.snapshot_hash is not null and b.snapshot_hash != '' ",
-                             "order by height desc limit ", SnapshotListLimit
-                            ], []),
-
-    {ok, S2} = epgsql:parse(Conn, ?S_SNAPSHOT_LIST_BEFORE,
-                            [?SELECT_SNAPSHOT_BASE
-                             "where b.snapshot_hash is not null and b.snapshot_hash != '' ",
-                             "and b.height < $1"
-                             "order by height desc limit ", SnapshotListLimit
-                            ], []),
-
-    {ok, S3} = epgsql:parse(Conn, ?S_SNAPSHOT_CURRENT,
-                            [?SELECT_SNAPSHOT_BASE,
-                             "where b.snapshot_hash is not null and b.snapshot_hash != '' ",
-                             "order by height desc ",
-                             "limit 1"
-                            ], []),
-
-    #{
-      ?S_SNAPSHOT_LIST => S1,
-      ?S_SNAPSHOT_LIST_BEFORE => S2,
-      ?S_SNAPSHOT_CURRENT => S3
-     }.
+    Loads = [
+        {?S_SNAPSHOT_LIST, {
+            {snapshot_list_base,
+                [
+                    {scope, ""},
+                    {limit, "limit " ++ SnapshotListLimit}
+                ],
+                []}
+        }},
+        {?S_SNAPSHOT_LIST_BEFORE, {
+            {snapshot_list_base,
+                [
+                    {scope, snapshot_list_before_scope},
+                    {limit, "limit " ++ SnapshotListLimit}
+                ],
+                [int8]}
+        }},
+        {?S_SNAPSHOT_CURRENT,
+            {snapshot_list_base,
+                [
+                    {scope, ""},
+                    {limit, "limit 1"}
+                ],
+                []}}
+    ],
+    bh_db_worker:load_from_eql("snapshots.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
@@ -52,7 +50,6 @@ handle('GET', [], Req) ->
 handle('GET', [<<"current">>], _Req) ->
     Result = get_snapshot_current(),
     ?MK_RESPONSE(Result, block_time);
-
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
@@ -61,7 +58,7 @@ get_snapshot_list([{cursor, undefined}]) ->
     {ok, snapshot_list_to_json(Results), mk_snapshot_list_cursor(Results)};
 get_snapshot_list([{cursor, Cursor}]) ->
     case ?CURSOR_DECODE(Cursor) of
-        {ok, #{ <<"before">> := Before}} ->
+        {ok, #{<<"before">> := Before}} ->
             {ok, _, Results} = ?PREPARED_QUERY(?S_SNAPSHOT_LIST_BEFORE, [Before]),
             {ok, snapshot_list_to_json(Results), mk_snapshot_list_cursor(Results)};
         _ ->
@@ -78,11 +75,13 @@ get_snapshot_current() ->
 
 mk_snapshot_list_cursor(Results) when is_list(Results) ->
     case length(Results) of
-        0 -> undefined;
-        _ -> case lists:last(Results) of
-                 {Height, _SnapshotHash} when Height == 1 -> undefined;
-                 {Height, _SnapshotHash}  -> #{ before => Height}
-             end
+        0 ->
+            undefined;
+        _ ->
+            case lists:last(Results) of
+                {Height, _SnapshotHash} when Height == 1 -> undefined;
+                {Height, _SnapshotHash} -> #{before => Height}
+            end
     end.
 
 get_snapshot_list_cache_time({ok, _, undefined}) ->
@@ -101,5 +100,7 @@ snapshot_list_to_json(Results) ->
     lists:map(fun snapshot_to_json/1, Results).
 
 snapshot_to_json({Height, Hash}) ->
-    #{ block => Height,
-       snapshot_hash => Hash}.
+    #{
+        block => Height,
+        snapshot_hash => Hash
+    }.
