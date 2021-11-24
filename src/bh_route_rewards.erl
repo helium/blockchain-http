@@ -32,7 +32,7 @@
 -define(S_REWARD_BUCKETED_SUM_VALIDATOR, "reward_bucketed_sum_validator").
 -define(S_REWARD_BUCKETED_SUM_VALIDATORS, "reward_bucketed_sum_validators").
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     Loads = [
         {?S_REWARD_LIST_HOTSPOT,
             {reward_list_base, [
@@ -41,13 +41,13 @@ prepare_conn(Conn) ->
                 %% Order transactions by hash in a block since a gateway can
                 %% only appear once in a transaction
                 {marker, "r.transaction_hash"}
-            ]}},
+            ], [text, int8, int8]}},
         {?S_REWARD_LIST_HOTSPOT_REM,
             {reward_list_rem_base, [
                 {fields, {reward_marker_fields, [{marker, "r.transaction_hash"}]}},
                 {scope, "where r.gateway = $1"},
                 {marker, "r.transaction_hash"}
-            ]}},
+            ], [text, int8, int8]}},
         {?S_REWARD_LIST_ACCOUNT,
             {reward_list_base, [
                 {fields, {reward_marker_fields, [{marker, "r.gateway"}]}},
@@ -56,7 +56,7 @@ prepare_conn(Conn) ->
                 %% an account can have multiple gateway rewards in the same
                 %% transaction
                 {marker, "r.gateway"}
-            ]}},
+            ], [text, int8, int8]}},
         {?S_REWARD_LIST_ACCOUNT_REM,
             {reward_list_rem_base, [
                 {fields, {reward_marker_fields, [{marker, "r.gateway"}]}},
@@ -68,75 +68,75 @@ prepare_conn(Conn) ->
                 {fields, reward_fields},
                 {scope, "where r.gateway = $1"},
                 {source, "reward_data"}
-            ]}},
+            ], [text, int8, int8]}},
         {?S_REWARD_SUM_HOTSPOTS,
             {reward_sum_base, [
                 {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_sum_hotspot_source}
-            ]}},
+            ], [bool, int8, int8]}},
         {?S_REWARD_SUM_VALIDATOR,
             {reward_sum_base, [
                 {fields, reward_fields},
                 {scope, "where r.gateway = $1"},
                 {source, "reward_data"}
-            ]}},
+            ], [text, int8, int8]}},
         {?S_REWARD_SUM_VALIDATORS,
             {reward_sum_base, [
                 {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_sum_validator_source}
-            ]}},
+            ], [bool, int8, int8]}},
         {?S_REWARD_SUM_ACCOUNT,
             {reward_sum_base, [
                 {fields, reward_fields},
                 {scope, "where r.account = $1"},
                 {source, reward_sum_hotspot_source}
-            ]}},
+            ], [text, int8, int8]}},
         {?S_REWARD_BUCKETED_SUM_HOTSPOTS,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_bucketed_hotspot_source}
-            ]}},
+            ], [bool, int8, int8, int8]}},
         {?S_REWARD_BUCKETED_SUM_HOTSPOT,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where r.gateway = $1"},
                 {source, "reward_data"}
-            ]}},
+            ], [text, int8, int8, int8]}},
         {?S_REWARD_BUCKETED_SUM_VALIDATORS,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_bucketed_validator_source}
-            ]}},
+            ], [bool, int8, int8, int8]}},
         {?S_REWARD_BUCKETED_SUM_VALIDATOR,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where r.gateway = $1"},
                 {source, "reward_data"}
-            ]}},
+            ], [text, int8, int8, int8]}},
         {?S_REWARD_BUCKETED_SUM_ACCOUNT,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where r.account = $1"},
                 {source, reward_bucketed_hotspot_source}
-            ]}},
+            ], [text, int8, int8, int8]}},
         {?S_REWARD_SUM_NETWORK,
             {reward_sum_base, [
                 {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_sum_time_source}
-            ]}},
+            ], [bool, int8, int8]}},
         {?S_REWARD_BUCKETED_SUM_NETWORK,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_bucketed_time_source}
-            ]}}
+            ], [bool, int8, int8, int8]}}
     ],
-    bh_db_worker:load_from_eql(Conn, "rewards.sql", Loads).
+    bh_db_worker:load_from_eql("rewards.sql", Loads).
 
 handle('GET', [<<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time, bucket], Req),
