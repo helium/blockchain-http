@@ -16,22 +16,20 @@
 prepare_conn(_Conn) ->
     SnapshotListLimit = integer_to_list(?SNAPSHOT_LIST_LIMIT),
     Loads = [
-        {?S_SNAPSHOT_LIST, {
+        {?S_SNAPSHOT_LIST,
             {snapshot_list_base,
                 [
                     {scope, ""},
                     {limit, "limit " ++ SnapshotListLimit}
                 ],
-                []}
-        }},
-        {?S_SNAPSHOT_LIST_BEFORE, {
+                []}},
+        {?S_SNAPSHOT_LIST_BEFORE,
             {snapshot_list_base,
                 [
                     {scope, snapshot_list_before_scope},
                     {limit, "limit " ++ SnapshotListLimit}
                 ],
-                [int8]}
-        }},
+                [int8]}},
         {?S_SNAPSHOT_CURRENT,
             {snapshot_list_base,
                 [
