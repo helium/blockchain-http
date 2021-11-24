@@ -112,7 +112,7 @@ execute_batch(Pool, Queries) ->
             throw(?RESPONSE_503)
     end.
 
-load_from_eql(Conn, Filename, Loads) ->
+load_from_eql(_Conn, Filename, Loads) ->
     PrivDir = code:priv_dir(blockchain_http),
     {ok, Queries} = eql:compile(filename:join(PrivDir, Filename)),
     ResolveParams = fun
@@ -132,14 +132,16 @@ load_from_eql(Conn, Filename, Loads) ->
             {K, V}
     end,
     Load = fun
-        L({Key, {Name, Params}}) when is_list(Name) ->
-            L({Key, {list_to_atom(Name), Params}});
+        L({Key, {Name, Params, Types}}) when is_list(Name) ->
+            L({Key, {list_to_atom(Name), Params, Types}});
+        L({Key, {Name, Params, Types}}) ->
+            {Key, Query} = ResolveParams({Key, {Name, Params}}),
+            {Key, {Query, Types}};
         L({Key, {_Name, _Params}} = Entry) ->
             %% Leverage the equivalent pattern in ResolveParams to
             %% expand out nested eql fragments and their parameters.
             {Key, Query} = ResolveParams(Entry),
-            {ok, Statement} = epgsql:parse(Conn, Key, Query, []),
-            {Key, Statement};
+            {Key, {Query, []}};
         L({Key, Params}) ->
             L({Key, {Key, Params}});
         L(Key) ->
