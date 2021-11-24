@@ -133,20 +133,25 @@ load_from_eql(Filename, Loads) ->
     end,
     Load = fun
         L({Key, Params, Types}) when is_list(Key) ->
-            L({Key, {list_to_atom(Key), Params, Types}});
+            L({Key, {maybe_fix_name(Key), Params, Types}});
         L({Key, {Name, Params, Types}}) ->
             %% Leverage the equivalent pattern in ResolveParams to
             %% expand out nested eql fragments and their parameters.
             {Key, Query} = ResolveParams({Key, {Name, Params}}),
             {Key, {Query, Types}};
         L({Key, Params}) ->
-            L({Key, {Key, Params, []}});
+            L({Key, {maybe_fix_name(Key), Params, []}});
         L(Key) ->
-            L({Key, {Key, [], []}})
+            L({Key, {maybe_fix_name(Key), [], []}})
     end,
 
     Statements = lists:map(Load, Loads),
     maps:from_list(Statements).
+
+maybe_fix_name(N) when is_list(N) ->
+    list_to_atom(N);
+maybe_fix_name(N) ->
+    N.
 
 load_from_eql(Conn, Filename, Loads) ->
     PrivDir = code:priv_dir(blockchain_http),
