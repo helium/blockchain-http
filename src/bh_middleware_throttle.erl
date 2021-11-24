@@ -36,7 +36,7 @@ handle_event(request_complete, [Req, Code, _Hs, _B, {Timings, _Sizes}], Args) ->
     RequestStart = proplists:get_value(request_start, Timings),
     RequestEnd = proplists:get_value(request_end, Timings),
     GraceTime = maps:get(grace_time, Args, 0),
-    Duration = max(0, ((RequestEnd - RequestStart) div 1000000) - GraceTime),
+    Duration = max(1, ((RequestEnd - RequestStart) div 1000000) - GraceTime),
     Actor = get_actor(Req),
     throttle:update(request_time, Actor, Duration),
     case Duration > maps:get(log_longer_than, Args, infinity) of
