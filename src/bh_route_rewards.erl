@@ -98,31 +98,31 @@ prepare_conn(_Conn) ->
                 {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_bucketed_hotspot_source}
-            ], [bool, int8, int8, int8]}},
+            ], [bool, timestamptz, timestamptz, interval]}},
         {?S_REWARD_BUCKETED_SUM_HOTSPOT,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where r.gateway = $1"},
                 {source, "reward_data"}
-            ], [text, int8, int8, int8]}},
+            ], [text, timestamptz, timestamptz, interval]}},
         {?S_REWARD_BUCKETED_SUM_VALIDATORS,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_bucketed_validator_source}
-            ], [bool, int8, int8, int8]}},
+            ], [bool, timestamptz, timestamptz, interval]}},
         {?S_REWARD_BUCKETED_SUM_VALIDATOR,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where r.gateway = $1"},
                 {source, "reward_data"}
-            ], [text, int8, int8, int8]}},
+            ], [text, timestamptz, timestamptz, interval]}},
         {?S_REWARD_BUCKETED_SUM_ACCOUNT,
             {reward_bucketed_base, [
                 {fields, reward_fields},
                 {scope, "where r.account = $1"},
                 {source, reward_bucketed_hotspot_source}
-            ], [text, int8, int8, int8]}},
+            ], [text, timestamptz, timestamptz, interval]}},
         {?S_REWARD_SUM_NETWORK,
             {reward_sum_base, [
                 {fields, reward_fields},
@@ -134,7 +134,7 @@ prepare_conn(_Conn) ->
                 {fields, reward_fields},
                 {scope, "where true = $1"},
                 {source, reward_bucketed_time_source}
-            ], [bool, int8, int8, int8]}}
+            ], [bool, timestamptz, timestamptz, interval]}}
     ],
     bh_db_worker:load_from_eql("rewards.sql", Loads).
 
