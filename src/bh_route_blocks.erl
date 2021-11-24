@@ -84,9 +84,7 @@ prepare_conn(Conn) ->
         []
      },
 
-    {ok, S7} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE,
+    S7 = {
         [
             ?SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
             "where t.hash > $2",
@@ -94,7 +92,7 @@ prepare_conn(Conn) ->
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
         [text]
-    ),
+     },
 
     S8 = {
         [
