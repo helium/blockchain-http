@@ -18,7 +18,7 @@
 -define(ACCOUNT_LIST_LIMIT, 100).
 -define(ACCOUNT_RICH_LIST_LIMIT, 100).
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     AccountListLimit = "limit " ++ integer_to_list(?ACCOUNT_LIST_LIMIT),
     Loads = [
         {?S_ACCOUNT_LIST_BEFORE,

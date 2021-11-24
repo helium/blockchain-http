@@ -106,28 +106,28 @@ prepare_conn(Conn) ->
                 {scope, hotspot_location_box_search_scope},
                 {order, hotspot_location_box_search_order},
                 {limit, HotspotListLocationSearchLimit}
-            ], [float, float, float, float]}},
+            ], [float4, float4, float4, float4]}},
         {?S_HOTSPOT_LOCATION_BOX_SEARCH_BEFORE,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
                 {scope, hotspot_location_box_search_before_scope},
                 {order, hotspot_location_box_search_order},
                 {limit, HotspotListLocationSearchLimit}
-            ], [float, float, float, float, text, int8]}},
+            ], [float4, float4, float4, float4, text, int8]}},
         {?S_HOTSPOT_LOCATION_DISTANCE_SEARCH,
             {hotspot_list_base, [
                 {source, hotspot_location_distance_search_source},
                 {scope, hotspot_location_distance_search_scope},
                 {order, hotspot_location_distance_search_order},
                 {limit, HotspotListLocationSearchLimit}
-            ], [float, float]}},
+            ], [float4, float4, int4]}},
         {?S_HOTSPOT_LOCATION_DISTANCE_SEARCH_BEFORE,
             {hotspot_list_base, [
                 {source, hotspot_location_distance_search_source},
                 {scope, hotspot_location_distance_search_before_scope},
                 {order, hotspot_location_distance_search_order},
                 {limit, HotspotListLocationSearchLimit}
-            ], [float, float, float, text, float]}},
+            ], [float4, float4, float4, text, float8]}},
         {?S_CITY_HOTSPOT_LIST_BEFORE,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
