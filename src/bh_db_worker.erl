@@ -135,17 +135,14 @@ load_from_eql(Filename, Loads) ->
         L({Key, {Name, Params, Types}}) when is_list(Name) ->
             L({Key, {list_to_atom(Name), Params, Types}});
         L({Key, {Name, Params, Types}}) ->
-            {Key, Query} = ResolveParams({Key, {Name, Params}}),
-            {Key, {Query, Types}};
-        L({Key, {_Name, _Params}} = Entry) ->
             %% Leverage the equivalent pattern in ResolveParams to
             %% expand out nested eql fragments and their parameters.
-            {Key, Query} = ResolveParams(Entry),
-            {Key, {Query, []}};
+            {Key, Query} = ResolveParams({Key, {Name, Params}}),
+            {Key, {Query, Types}};
         L({Key, Params}) ->
-            L({Key, {Key, Params}});
+            L({Key, {Key, Params, []}});
         L(Key) ->
-            L({Key, {Key, []}})
+            L({Key, {Key, [], []}})
     end,
 
     Statements = lists:map(Load, Loads),
