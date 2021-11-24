@@ -340,8 +340,9 @@ parse_timestamp_test() ->
     Now = {{2021, 1, 28}, {0, 0, 0}} = iso8601:parse("2021-01-28"),
     %% Basic iso8601 parsing
     ?assertEqual({ok, Now}, parse_timestamp(Now, "2021-01-28")),
+    %% timestamps are truncated to the nearest minute
     ?assertEqual(
-        {ok, {{2021, 1, 29}, {0, 36, 59}}},
+        {ok, {{2021, 1, 29}, {0, 36, 00}}},
         parse_timestamp(Now, "2021-01-29T00:36:59Z")
     ),
     %% invalid timestampr
