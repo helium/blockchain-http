@@ -67,26 +67,22 @@ prepare_conn(Conn) ->
       [int8]
      },
 
-    {ok, S5} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_BY_HASH,
+    S5 = {
         [
             ?SELECT_BLOCK_BASE,
             "where b.block_hash = $1"
         ],
-        []
-    ),
+        [text]
+     },
 
-    {ok, S6} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HEIGHT_TXN_LIST,
+    S6 = {
         [
             ?SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
             "limit ",
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
         []
-    ),
+     },
 
     {ok, S7} = epgsql:parse(
         Conn,
@@ -97,43 +93,37 @@ prepare_conn(Conn) ->
             "limit ",
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
-        []
+        [text]
     ),
 
-    {ok, S8} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HASH_TXN_LIST,
+    S8 = {
         [
             ?SELECT_BLOCK_HASH_TXN_LIST_BASE,
             "limit ",
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
         []
-    ),
+     },
 
-    {ok, S9} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HASH_TXN_LIST_BEFORE,
+    S9 = {
         [
             ?SELECT_BLOCK_HASH_TXN_LIST_BASE,
             "where t.hash > $2",
             "limit ",
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
-        []
-    ),
+        [text]
+     },
 
-    {ok, S10} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HEIGHT_BY_TIME,
+    S10 = {
         [
             "select height from blocks ",
-            "where time < extract(epoch from $1::timestamptz) ",
+            "where time < extract(epoch from $1) ",
             "order by height desc ",
             "limit 1"
         ],
-        []
-    ),
+        [timestamptz]
+    },
 
     M = bh_db_worker:load_from_eql(Conn, "blocks.sql", [
         ?S_BLOCK_TIMES,
