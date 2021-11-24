@@ -51,6 +51,7 @@ init([]) ->
     {ok,
         ThrottleConfig0 = #{
             request_time := ThrottleRequestTime,
+            request_count := ThrottleRequestCount,
             request_interval := ThrottleRequestInterval
         }} = application:get_env(
         blockchain_http,
@@ -59,6 +60,9 @@ init([]) ->
     ThrottleConfig = maps:merge(ThrottleConfig0, #{
         request_time => list_to_integer(
             os:getenv("THROTTLE_REQUEST_TIME", integer_to_list(ThrottleRequestTime))
+        ),
+        request_count => list_to_integer(
+            os:getenv("THROTTLE_REQUEST_COUNT", integer_to_list(ThrottleRequestCount))
         ),
         request_interval => list_to_integer(
             os:getenv("THROTTLE_REQUEST_INTERVAL", integer_to_list(ThrottleRequestInterval))
