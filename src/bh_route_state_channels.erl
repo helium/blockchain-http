@@ -10,9 +10,9 @@
 
 -define(S_STATE_CHANNEL_STATS, "state_channels_stats").
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     Loads = [?S_STATE_CHANNEL_STATS],
-    bh_db_worker:load_from_eql(Conn, "state_channels.sql", Loads).
+    bh_db_worker:load_from_eql("state_channels.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = add_filter_types(?GET_ARGS([cursor, max_time, min_time, limit], Req)),
