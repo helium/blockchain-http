@@ -20,8 +20,8 @@
 -define(S_VALIDATOR, "validator").
 -define(S_VALIDATORS_NAMED, "validator_named").
 -define(S_VALIDATOR_NAME_SEARCH, "validators_name_search").
--define(S_VALIDATOR_STATS, "validators_stats").
--define(S_ACTIVE_VALIDATORS, "active_validators").
+-define(S_VALIDATOR_STATS, "validator_stats").
+-define(S_ACTIVE_VALIDATORS, "validator_active").
 
 -define(VALIDATOR_LIST_LIMIT, 100).
 -define(VALIDATOR_LIST_NAME_SEARCH_LIMIT, 100).
@@ -120,8 +120,8 @@ prepare_conn(_Conn) ->
                     {limit, ValidatorListNameSearchLimit}
                 ],
                 [text]}},
-        {?S_VALIDATOR_STATS, {?S_VALIDATOR_STATS, [], []}},
-        {?S_ACTIVE_VALIDATORS, {?S_ACTIVE_VALIDATORS, [], []}}
+        ?S_VALIDATOR_STATS,
+        ?S_ACTIVE_VALIDATORS
     ],
     bh_db_worker:load_from_eql("validators.sql", Loads).
 
