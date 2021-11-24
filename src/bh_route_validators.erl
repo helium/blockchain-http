@@ -120,8 +120,8 @@ prepare_conn(_Conn) ->
                     {limit, ValidatorListNameSearchLimit}
                 ],
                 [text]}},
-        {?S_VALIDATOR_STATS, {validator_stats, []}, []},
-        {?S_ACTIVE_VALIDATORS, {validator_active, []}, []}
+        {?S_VALIDATOR_STATS, {?S_VALIDATOR_STATS, [], []}},
+        {?S_ACTIVE_VALIDATORS, {?S_ACTIVE_VALIDATORS, [], []}}
     ],
     bh_db_worker:load_from_eql("validators.sql", Loads).
 
