@@ -26,7 +26,7 @@
 -define(VALIDATOR_LIST_LIMIT, 100).
 -define(VALIDATOR_LIST_NAME_SEARCH_LIMIT, 100).
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     ValidatorListLimit = "limit " ++ integer_to_list(?VALIDATOR_LIST_LIMIT),
     ValidatorListNameSearchLimit = "limit " ++ integer_to_list(?VALIDATOR_LIST_NAME_SEARCH_LIMIT),
 
