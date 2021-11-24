@@ -45,7 +45,7 @@
     "from (select * from transactions where block = (select height from blocks where block_hash = $1) order by hash) t "
 ]).
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     S1 = {
       "select max(height) from blocks",
       []
