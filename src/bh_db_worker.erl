@@ -19,7 +19,7 @@
 %% how many times to try to get a worker
 -define(POOL_CHECKOUT_RETRIES, 3).
 %% how long to wait for a query response
--define(POOL_QUERY_TIMEOUT, 15000).
+-define(POOL_QUERY_TIMEOUT, 60000).
 
 -export([
     init/1,
@@ -61,7 +61,7 @@ prepared_query(Pool, Name, Params) ->
                   {{cast, From, Ref}, epgsql_cmd_prepared_query, {Statement, TypedParameters}}
                  );
             {Query, Types} ->
-                lager:info("Got non prepared statement ~p with types ~p", [Query, Types]),
+                lager:info("Got non prepared statement ~s with types ~p", [Query, Types]),
                 gen_server:cast(
                   Conn,
                   {{cast, From, Ref}, epgsql_cmd_eequery, {Query, Params, Types}}
@@ -132,17 +132,15 @@ load_from_eql(Filename, Loads) ->
             {K, V}
     end,
     Load = fun
-        L({Key, Params, Types}) when is_list(Key) ->
-            L({Key, {maybe_fix_name(Key), Params, Types}});
         L({Key, {Name, Params, Types}}) ->
             %% Leverage the equivalent pattern in ResolveParams to
             %% expand out nested eql fragments and their parameters.
-            {Key, Query} = ResolveParams({Key, {Name, Params}}),
+            {Key, Query} = ResolveParams({Key, {maybe_fix_name(Name), Params}}),
             {Key, {Query, Types}};
-        L({Key, Params}) ->
-            L({Key, {maybe_fix_name(Key), Params, []}});
+        L({Key, {Name, Params}}) ->
+            L({Key, {Name, Params, []}});
         L(Key) ->
-            L({Key, {maybe_fix_name(Key), [], []}})
+            L({Key, {Key, [], []}})
     end,
 
     Statements = lists:map(Load, Loads),

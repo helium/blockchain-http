@@ -18,31 +18,32 @@
 -define(BURN_LIST_BLOCK_ALIGN, 100).
 
 -define(FILTER_TYPES, [
-    <<"add_gateway">>,
-    <<"assert_location">>,
-    <<"state_channel">>,
-    <<"routing">>,
-    <<"fee">>
+    add_gateway,
+    assert_location,
+    state_channel,
+    routing,
+    fee
 ]).
 
 prepare_conn(Conn) ->
+	epgsql:update_type_cache(Conn, [{bh_burn_type, [fee, state_channel, assert_location, add_gateway, oui, routing]}]),
     BurnListLimit = "limit " ++ integer_to_list(?BURN_LIST_LIMIT),
     Loads = [
         {?S_BURN_LIST_BEFORE,
             {burn_list_base, [
                 {scope, burn_list_before_scope},
                 {limit, BurnListLimit}
-            ]}},
+            ], [{array, burn_type}, text, int8]}},
         {?S_BURN_LIST,
             {burn_list_base, [
                 {scope, burn_list_scope},
                 {limit, BurnListLimit}
-            ]}},
-        ?S_BURN_SUM,
-        ?S_BURN_BUCKETED_SUM,
+            ], [{array, burn_type}]}},
+	{?S_BURN_SUM, {?S_BURN_SUM, [], [timestamptz, timestamptz]}},
+	{?S_BURN_BUCKETED_SUM, {?S_BURN_BUCKETED_SUM, [], [timestamptz, timestamptz, interval]}},
         ?S_BURN_STATS
     ],
-    bh_db_worker:load_from_eql(Conn, "dc_burns.sql", Loads).
+    bh_db_worker:load_from_eql("dc_burns.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
@@ -57,18 +58,28 @@ handle('GET', [<<"sum">>], Req) ->
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
-get_burn_list([{cursor, undefined}, {filter_types, FilterTypes}]) ->
-    Result = ?PREPARED_QUERY(?S_BURN_LIST, [?FILTER_TYPES_TO_SQL(?FILTER_TYPES, FilterTypes)]),
+get_burn_list([{cursor, undefined}, {filter_types, FilterTypes0}]) ->
+    FilterTypes = case FilterTypes0 of
+			  undefined -> ?FILTER_TYPES;
+			  _ -> FilterTypes0
+		  end,
+    Result = ?PREPARED_QUERY(?S_BURN_LIST, [FilterTypes]),
     mk_burn_list_from_result(FilterTypes, Result);
 get_burn_list([{cursor, Cursor}, {filter_types, _}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, #{
             <<"before_address">> := BeforeAddress,
             <<"before_block">> := BeforeBlock,
-            <<"filter_types">> := FilterTypes
+            <<"filter_types">> := FilterTypes0
         }} ->
+		FilterTypes = case FilterTypes0 of
+			undefined ->
+				?FILTER_TYPES;
+			_ ->
+				FilterTypes0
+		end,
             Result = ?PREPARED_QUERY(?S_BURN_LIST_BEFORE, [
-                ?FILTER_TYPES_TO_SQL(?FILTER_TYPES, FilterTypes),
+		FilterTypes,
                 BeforeAddress,
                 BeforeBlock
             ]),

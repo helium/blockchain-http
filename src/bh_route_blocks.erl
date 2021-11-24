@@ -124,8 +124,8 @@ prepare_conn(_Conn) ->
     },
 
     M = bh_db_worker:load_from_eql("blocks.sql", [
-        {?S_BLOCK_TIMES, [], []},
-        {?S_BLOCK_SPAN, [], [timestamptz, timestamptz]}
+	{?S_BLOCK_TIMES, {?S_BLOCK_TIMES, [], []}},
+	{?S_BLOCK_SPAN, {?S_BLOCK_SPAN, [], [timestamptz, timestamptz]}}
     ]),
 
     maps:merge(

@@ -21,7 +21,7 @@
 
 -define(CITY_LIST_LIMIT, 100).
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     CityListLimit = "limit " ++ integer_to_list(?CITY_LIST_LIMIT),
     Loads = [
         {?S_CITY_BY_ID,
@@ -31,7 +31,7 @@ prepare_conn(Conn) ->
                 {scope, ""},
                 {order, city_search_order},
                 {limit, "limit 1"}
-            ]}},
+            ], [text]}},
         {?S_CITY_SEARCH,
             {city_list_base, [
                 {inner_scope, city_search_inner_scope},
@@ -39,7 +39,7 @@ prepare_conn(Conn) ->
                 {scope, ""},
                 {order, city_search_order},
                 {limit, CityListLimit}
-            ]}},
+            ], [text]}},
         {?S_CITY_LIST_NAME,
             {city_list_base, [
                 {rank, city_list_name_rank},
@@ -55,7 +55,7 @@ prepare_conn(Conn) ->
                 {scope, city_list_name_before_scope},
                 {order, city_list_name_order},
                 {limit, CityListLimit}
-            ]}},
+            ], [text, text]}},
         {?S_CITY_LIST_COUNT,
             {city_list_base, [
                 {rank, city_list_count_rank},
@@ -63,7 +63,7 @@ prepare_conn(Conn) ->
                 {scope, ""},
                 {order, city_list_count_order},
                 {limit, CityListLimit}
-            ]}},
+            ], [text]}},
         {?S_CITY_LIST_COUNT_BEFORE,
             {city_list_base, [
                 {rank, city_list_count_rank},
@@ -71,9 +71,9 @@ prepare_conn(Conn) ->
                 {scope, city_list_count_before_scope},
                 {order, city_list_count_order},
                 {limit, CityListLimit}
-            ]}}
+            ], [text, int8, text]}}
     ],
-    bh_db_worker:load_from_eql(Conn, "cities.sql", Loads).
+    bh_db_worker:load_from_eql("cities.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([search, order, cursor], Req),

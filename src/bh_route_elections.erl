@@ -13,9 +13,9 @@
 
 -define(S_ELECTION_TIMES, "election_times").
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     Loads = [?S_ELECTION_TIMES],
-    bh_db_worker:load_from_eql(Conn, "elections.sql", Loads).
+    bh_db_worker:load_from_eql("elections.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = add_filter_types(?GET_ARGS([cursor, max_time, min_time, limit], Req)),

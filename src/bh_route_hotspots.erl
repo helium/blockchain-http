@@ -45,6 +45,7 @@
 ]).
 
 prepare_conn(Conn) ->
+	epgsql:update_type_cache(Conn, [{bh_gateway_mode, [full, light, dataonly]}]),
     HotspotListLimit = "limit " ++ integer_to_list(?HOTSPOT_LIST_LIMIT),
     HotspotListNameSearchLimit = "limit " ++ integer_to_list(?HOTSPOT_LIST_NAME_SEARCH_LIMIT),
     HotspotListLocationSearchLimit =
@@ -56,105 +57,105 @@ prepare_conn(Conn) ->
                 {scope, hotspot_list_before_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
-            ]}},
+            ], [text, int8, {array, gateway_mode}]}},
         {?S_HOTSPOT_LIST,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
                 {scope, hotspot_list_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
-            ]}},
+            ], [{array, gateway_mode}]}},
         {?S_OWNER_HOTSPOT_LIST_BEFORE,
             {hotspot_list_base, [
                 {source, owner_hotspot_list_source},
                 {scope, owner_hotspot_list_before_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
-            ]}},
+            ], [text, text, int8, {array, gateway_mode}]}},
         {?S_OWNER_HOTSPOT_LIST,
             {hotspot_list_base, [
                 {source, owner_hotspot_list_source},
                 {scope, owner_hotspot_list_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
-            ]}},
+            ], [text, {array, gateway_mode}]}},
         {?S_HOTSPOT,
             {hotspot_list_base, [
                 {source, hotspot_source},
                 {scope, "where g.address = $1"},
                 {order, ""},
                 {limit, ""}
-            ]}},
+            ], [text]}},
         {?S_HOTSPOTS_NAMED,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
                 {scope, "where g.name = $1"},
                 {order, ""},
                 {limit, ""}
-            ]}},
+            ], [text]}},
         {?S_HOTSPOT_NAME_SEARCH,
             {hotspot_list_base, [
                 {source, hotspot_name_search_source},
                 {scope, hotspot_name_search_scope},
                 {order, hotspot_name_search_order},
                 {limit, HotspotListNameSearchLimit}
-            ]}},
+            ], [text]}},
         {?S_HOTSPOT_LOCATION_BOX_SEARCH,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
                 {scope, hotspot_location_box_search_scope},
                 {order, hotspot_location_box_search_order},
                 {limit, HotspotListLocationSearchLimit}
-            ]}},
+            ], [float, float, float, float]}},
         {?S_HOTSPOT_LOCATION_BOX_SEARCH_BEFORE,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
                 {scope, hotspot_location_box_search_before_scope},
                 {order, hotspot_location_box_search_order},
                 {limit, HotspotListLocationSearchLimit}
-            ]}},
+            ], [float, float, float, float, text, int8]}},
         {?S_HOTSPOT_LOCATION_DISTANCE_SEARCH,
             {hotspot_list_base, [
                 {source, hotspot_location_distance_search_source},
                 {scope, hotspot_location_distance_search_scope},
                 {order, hotspot_location_distance_search_order},
                 {limit, HotspotListLocationSearchLimit}
-            ]}},
+            ], [float, float]}},
         {?S_HOTSPOT_LOCATION_DISTANCE_SEARCH_BEFORE,
             {hotspot_list_base, [
                 {source, hotspot_location_distance_search_source},
                 {scope, hotspot_location_distance_search_before_scope},
                 {order, hotspot_location_distance_search_order},
                 {limit, HotspotListLocationSearchLimit}
-            ]}},
+            ], [float, float, float, text, float]}},
         {?S_CITY_HOTSPOT_LIST_BEFORE,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
                 {scope, city_hotspot_list_before_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
-            ]}},
+            ], [text, int8, {array, gateway_mode}]}},
         {?S_CITY_HOTSPOT_LIST,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
                 {scope, city_hotspot_list_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
-            ]}},
+            ], [{array, gateway_mode}]}},
         {?S_HEX_HOTSPOT_LIST_BEFORE,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
                 {scope, hex_hotspot_list_before_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
-            ]}},
+            ], [text, text, int8]}},
         {?S_HEX_HOTSPOT_LIST,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
                 {scope, hex_hotspot_list_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
-            ]}},
+            ], [text]}},
         {?S_HOTSPOT_WITNESS_LIST,
             {hotspot_witness_list, [
                 {hotspot_select,
@@ -164,7 +165,7 @@ prepare_conn(Conn) ->
                         {order, hotspot_list_order},
                         {limit, ""}
                     ]}}
-            ]}},
+            ], [text]}},
         {?S_HOTSPOT_WITNESSED_LIST,
             {hotspot_witnessed_list, [
                 {hotspot_select,
@@ -174,7 +175,7 @@ prepare_conn(Conn) ->
                         {order, hotspot_list_order},
                         {limit, ""}
                     ]}}
-            ]}},
+            ], [text]}},
         {?S_HOTSPOT_ELECTED_LIST,
             {hotspot_elected_list, [
                 {filter, "and block <= $1"},
@@ -185,7 +186,7 @@ prepare_conn(Conn) ->
                         {order, ""},
                         {limit, ""}
                     ]}}
-            ]}},
+            ], [int8]}},
         {?S_HOTSPOT_ELECTION_LIST,
             {hotspot_elected_list, [
                 {filter, "and hash = $1"},
@@ -196,20 +197,20 @@ prepare_conn(Conn) ->
                         {order, ""},
                         {limit, ""}
                     ]}}
-            ]}},
+            ], [text]}},
         {?S_HOTSPOT_BUCKETED_SUM_WITNESSES,
             {hotspot_bucketed_witnesses_base, [
                 {scope, "where g.address = $1"},
                 {source, hotspot_bucketed_witnesses_source}
-            ]}},
+            ], [text, timestamptz, timestamptz, interval]}},
         {?S_HOTSPOT_BUCKETED_SUM_CHALLENGES,
             {hotspot_bucketed_challenges_base, [
                 {scope,
                     "where a.actor = $1 and a.actor_role = ANY('{challenger, challengee, witness}')"},
                 {source, hotspot_bucketed_challenges_source}
-            ]}}
+            ], [text, timestamptz, timestamptz, interval]}}
     ],
-    bh_db_worker:load_from_eql(Conn, "hotspots.sql", Loads).
+    bh_db_worker:load_from_eql("hotspots.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([filter_modes, cursor], Req),
@@ -344,12 +345,21 @@ get_hotspot_list([{witnessed_for, Address}]) ->
 get_hotspot_list([
     {owner, undefined},
     {city, undefined},
+    {filter_modes, undefined},
+    {cursor, undefined}
+]) ->
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, [?HOTSPOT_MODES]),
+    mk_hotspot_list_from_result(
+        #{filter_modes => ?HOTSPOT_MODES_TO_LIST(?HOTSPOT_MODES, undefined)},
+        Result
+    );
+get_hotspot_list([
+    {owner, undefined},
+    {city, undefined},
     {filter_modes, FilterModes},
     {cursor, undefined}
 ]) ->
-    Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, [
-        ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
-    ]),
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_LIST, [FilterModes]),
     mk_hotspot_list_from_result(
         #{filter_modes => ?HOTSPOT_MODES_TO_LIST(?HOTSPOT_MODES, FilterModes)},
         Result
@@ -357,12 +367,16 @@ get_hotspot_list([
 get_hotspot_list([
     {owner, Owner},
     {city, undefined},
-    {filter_modes, FilterModes},
+    {filter_modes, FilterModes0},
     {cursor, undefined}
 ]) ->
+    FilterModes = case FilterModes0 of
+			  undefined -> ?HOTSPOT_MODES;
+			  _ -> FilterModes0
+		  end,
     Result = ?PREPARED_QUERY(?S_OWNER_HOTSPOT_LIST, [
         Owner,
-        ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
+        FilterModes
     ]),
     mk_hotspot_list_from_result(
         #{filter_modes => ?HOTSPOT_MODES_TO_LIST(?HOTSPOT_MODES, FilterModes)},
@@ -371,12 +385,17 @@ get_hotspot_list([
 get_hotspot_list([
     {owner, undefined},
     {city, City},
-    {filter_modes, FilterModes},
+    {filter_modes, FilterModes0},
     {cursor, undefined}
 ]) ->
+    FilterModes = case FilterModes0 of
+			  undefined -> ?HOTSPOT_MODES;
+			  _ -> FilterModes0
+		  end,
+
     Result = ?PREPARED_QUERY(?S_CITY_HOTSPOT_LIST, [
         City,
-        ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
+	FilterModes
     ]),
     mk_hotspot_list_from_result(
         #{filter_modes => ?HOTSPOT_MODES_TO_LIST(?HOTSPOT_MODES, FilterModes)},
@@ -395,14 +414,14 @@ get_hotspot_list([
                 <<"before_block">> := BeforeBlock,
                 <<"height">> := _Height
             }} ->
-            FilterModes = maps:get(<<"filter_modes">>, C, undefined),
+            FilterModes = maps:get(<<"filter_modes">>, C, ?HOTSPOT_MODES),
             case {Owner, City} of
                 {undefined, undefined} ->
                     Result =
                         ?PREPARED_QUERY(?S_HOTSPOT_LIST_BEFORE, [
                             BeforeAddress,
                             BeforeBlock,
-                            ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
+                            FilterModes
                         ]),
                     mk_hotspot_list_from_result(
                         #{filter_modes => ?HOTSPOT_MODES_TO_LIST(?HOTSPOT_MODES, FilterModes)},
@@ -414,10 +433,7 @@ get_hotspot_list([
                             Owner,
                             BeforeAddress,
                             BeforeBlock,
-                            ?HOTSPOT_MODES_TO_SQL(
-                                ?HOTSPOT_MODES,
-                                FilterModes
-                            )
+			    FilterModes
                         ]),
                     mk_hotspot_list_from_result(
                         #{filter_modes => ?HOTSPOT_MODES_TO_LIST(?HOTSPOT_MODES, FilterModes)},
@@ -429,7 +445,7 @@ get_hotspot_list([
                             City,
                             BeforeAddress,
                             BeforeBlock,
-                            ?HOTSPOT_MODES_TO_SQL(?HOTSPOT_MODES, FilterModes)
+			    FilterModes
                         ]),
                     mk_hotspot_list_from_result(
                         #{filter_modes => ?HOTSPOT_MODES_TO_LIST(?HOTSPOT_MODES, FilterModes)},
