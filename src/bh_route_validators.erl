@@ -32,85 +32,94 @@ prepare_conn(_Conn) ->
 
     Loads = [
         {?S_VALIDATOR_LIST_BEFORE,
-            {validator_list_base, [
-                {source, ""},
-                {scope, validator_list_before_scope},
-                {order, validator_list_order},
-                {limit, ValidatorListLimit}
-            ]},
-            [text, int8]},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, validator_list_before_scope},
+                    {order, validator_list_order},
+                    {limit, ValidatorListLimit}
+                ],
+                [text, int8]}},
         {?S_VALIDATOR_LIST,
-            {validator_list_base, [
-                {source, ""},
-                {scope, ""},
-                {order, validator_list_order},
-                {limit, ValidatorListLimit}
-            ]},
-            []},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, ""},
+                    {order, validator_list_order},
+                    {limit, ValidatorListLimit}
+                ],
+                []}},
         {?S_OWNER_VALIDATOR_LIST_BEFORE,
-            {validator_list_base, [
-                {source, ""},
-                {scope, owner_validator_list_before_scope},
-                {order, validator_list_order},
-                {limit, ValidatorListLimit}
-            ]},
-            [text, text, int8]},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, owner_validator_list_before_scope},
+                    {order, validator_list_order},
+                    {limit, ValidatorListLimit}
+                ],
+                [text, text, int8]}},
         {?S_OWNER_VALIDATOR_LIST,
-            {validator_list_base, [
-                {source, ""},
-                {scope, owner_validator_list_scope},
-                {order, validator_list_order},
-                {limit, ValidatorListLimit}
-            ]},
-            [text]},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, owner_validator_list_scope},
+                    {order, validator_list_order},
+                    {limit, ValidatorListLimit}
+                ],
+                [text]}},
         {?S_VALIDATOR_ELECTED_LIST,
-            {validator_elected_list, [
-                {filter, "and block <= $1"},
-                {validator_select,
-                    {validator_list_base, [
-                        {source, ""},
-                        {scope, validator_elected_list_scope},
-                        {order, ""},
-                        {limit, ""}
-                    ]}}
-            ]},
-            [int8]},
+            {validator_elected_list,
+                [
+                    {filter, "and block <= $1"},
+                    {validator_select,
+                        {validator_list_base, [
+                            {source, ""},
+                            {scope, validator_elected_list_scope},
+                            {order, ""},
+                            {limit, ""}
+                        ]}}
+                ],
+                [int8]}},
         {?S_VALIDATOR_ELECTION_LIST,
-            {validator_elected_list, [
-                {filter, "and hash = $1"},
-                {validator_select,
-                    {validator_list_base, [
-                        {source, ""},
-                        {scope, validator_elected_list_scope},
-                        {order, ""},
-                        {limit, ""}
-                    ]}}
-            ]},
-            [text]},
+            {validator_elected_list,
+                [
+                    {filter, "and hash = $1"},
+                    {validator_select,
+                        {validator_list_base, [
+                            {source, ""},
+                            {scope, validator_elected_list_scope},
+                            {order, ""},
+                            {limit, ""}
+                        ]}}
+                ],
+                [text]}},
         {?S_VALIDATOR,
-            {validator_list_base, [
-                {source, validator_source},
-                {scope, "where l.address = $1"},
-                {order, ""},
-                {limit, ""}
-            ]},
-            [text]},
+            {validator_list_base,
+                [
+                    {source, validator_source},
+                    {scope, "where l.address = $1"},
+                    {order, ""},
+                    {limit, ""}
+                ],
+                [text]}},
         {?S_VALIDATORS_NAMED,
-            {validator_list_base, [
-                {source, ""},
-                {scope, "where l.name = $1"},
-                {order, ""},
-                {limit, ""}
-            ]},
-            [text]},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, "where l.name = $1"},
+                    {order, ""},
+                    {limit, ""}
+                ],
+                [text]}},
         {?S_VALIDATOR_NAME_SEARCH,
-            {validator_list_base, [
-                {source, ""},
-                {scope, validator_name_search_scope},
-                {order, ""},
-                {limit, ValidatorListNameSearchLimit}
-            ]},
-            [text]},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, validator_name_search_scope},
+                    {order, ""},
+                    {limit, ValidatorListNameSearchLimit}
+                ],
+                [text]}},
         {?S_VALIDATOR_STATS, {validator_stats, []}, []},
         {?S_ACTIVE_VALIDATORS, {validator_active, []}, []}
     ],
