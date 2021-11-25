@@ -51,7 +51,7 @@ prepare_conn(_Conn) ->
                     {scope, "where r.gateway = $1"},
                     {marker, "r.transaction_hash"}
                 ],
-                [text, int8, int8]}},
+                [text, int8, text]}},
         {?S_REWARD_LIST_ACCOUNT,
             {reward_list_base,
                 [
@@ -70,7 +70,7 @@ prepare_conn(_Conn) ->
                     {scope, "where r.account = $1"},
                     {marker, "r.gateway"}
                 ],
-                [text, int8, int8]}},
+                [text, int8, text]}},
 
         {?S_REWARD_SUM_HOTSPOT,
             {reward_sum_base,
