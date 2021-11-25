@@ -119,18 +119,15 @@ with last_assert as (
         and a.actor = $1 and a.actor_role = 'gateway'
     order by t.block desc limit 1
 ),
-five_days as (
-    select height from blocks where timestamp > (now() - '5 day'::interval) order by height limit 1
-),
 min as (
-    select GREATEST((select height from last_assert), (select height from five_days)) as height
+    select GREATEST((select height from last_assert), $2) as height
 ),
 recent_transactions as (
     select transaction_hash 
     from transaction_actors 
     where actor = $1 
         and actor_role = 'challengee'
-        and block >= (select height from min)
+        and block >= $2
 ),
 hotspot_witnesses as (
     select actor as witness
@@ -142,22 +139,19 @@ hotspot_witnesses as (
 :hotspot_select
 
 -- :hotspot_witnessed_list
-with five_days as (
-    select height from blocks where timestamp > (now() - '5 day'::interval) order by height limit 1
-),
-recent_transactions as (
+with recent_transactions as (
     select transaction_hash 
     from transaction_actors 
     where actor = $1 
         and actor_role = 'witness'
-        and block >= (select height from five_days)
+        and block >= $2
 ),
 hotspot_witnessed as (
     select actor as witnessed
     from transaction_actors 
     where transaction_hash in (select transaction_hash from recent_transactions)
         and actor_role = 'challengee'
-        and block >= (select height from five_days)
+        and block >= $2
     group by actor
  )
 :hotspot_select
