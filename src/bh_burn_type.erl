@@ -10,7 +10,6 @@ names() ->
 	[burn_type].
 
 encode(Atom, burn_type, Choices) when is_atom(Atom) ->
-	lager:info("encoding burn type ~p ~p", [Atom, Choices]),
 	true = lists:member(Atom, Choices),
 	atom_to_binary(Atom, utf8);
 encode(Binary, burn_type, Choices) ->

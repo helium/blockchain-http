@@ -19,7 +19,7 @@
 %% how many times to try to get a worker
 -define(POOL_CHECKOUT_RETRIES, 3).
 %% how long to wait for a query response
--define(POOL_QUERY_TIMEOUT, 60000).
+-define(POOL_QUERY_TIMEOUT, 15000).
 
 -export([
     init/1,
@@ -61,7 +61,6 @@ prepared_query(Pool, Name, Params) ->
                   {{cast, From, Ref}, epgsql_cmd_prepared_query, {Statement, TypedParameters}}
                  );
             {Query, Types} ->
-                lager:info("Got non prepared statement ~s with types ~p", [Query, Types]),
                 gen_server:cast(
                   Conn,
                   {{cast, From, Ref}, epgsql_cmd_eequery, {Query, Params, Types}}

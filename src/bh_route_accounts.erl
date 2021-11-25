@@ -269,10 +269,7 @@ mk_balance_stats({ok, _Columns, Results}) ->
             }
         end,
         Results
-    );
-mk_balance_stats(Other) ->
-	lager:info("got ~p", [Other]),
-	error(lol).
+    ).
 
 %%
 %% json
