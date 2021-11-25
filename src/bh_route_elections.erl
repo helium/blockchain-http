@@ -34,7 +34,7 @@ handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
 
 add_filter_types(Args) ->
-    Args ++ [{filter_types, <<"consensus_group_v1">>}].
+    Args ++ [{filter_types, [<<"consensus_group_v1">>]}].
 
 get_election_list({hotspot, Address}, Args) ->
     bh_route_txns:get_actor_txn_list({hotspot, Address}, add_filter_types(Args));

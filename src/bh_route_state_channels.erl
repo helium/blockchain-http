@@ -31,7 +31,7 @@ handle(_Method, _Path, _Req) ->
     ?RESPONSE_404.
 
 add_filter_types(Args) ->
-    Args ++ [{filter_types, <<"state_channel_close_v1">>}].
+    Args ++ [{filter_types, [<<"state_channel_close_v1">>]}].
 
 get_state_channel_stats() ->
     bh_cache:get(

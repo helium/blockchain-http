@@ -70,7 +70,7 @@ handle(_, _, _Req) ->
     ?RESPONSE_404.
 
 add_filter_types(Args) ->
-    Args ++ [{filter_types, <<"price_oracle_v1">>}].
+    Args ++ [{filter_types, [<<"price_oracle_v1">>]}].
 
 get_price_list([{max_block, BeforeBlock}, {cursor, undefined}]) ->
     try

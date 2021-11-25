@@ -40,7 +40,7 @@ handle(_, _, _Req) ->
     ?RESPONSE_404.
 
 add_filter_types(Args) ->
-    Args ++ [{filter_types, <<"vars_v1">>}].
+    Args ++ [{filter_types, [<<"vars_v1">>]}].
 
 get_var_list([{keys, undefined}]) ->
     {ok, _, Results} = ?PREPARED_QUERY(?S_VAR_LIST, []),

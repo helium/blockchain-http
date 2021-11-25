@@ -102,7 +102,7 @@ prepare_conn(Conn) ->
                     {order, txn_list_order},
                     {limit, {txn_list_limit, []}}
                 ],
-                [{array, transaction_type}, int8, int8]}},
+                [{array, transaction_type}, int8, int8, int4]}},
         {?S_TXN_LIST_REM,
             {txn_list_base,
                 [
