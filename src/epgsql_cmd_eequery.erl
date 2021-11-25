@@ -102,9 +102,9 @@
 -record(eequery,
         {
          %% Data from client (init/1):
-         sql :: iodata(),
-         param_types :: [epgsql:epgsql_type()],
-         params :: [any()],
+         sql :: [iodata()],
+         param_types :: [[epgsql:epgsql_type()]],
+         params :: [[any()]],
          %% Data from server:
          columns = [] :: [epgsql:column()],
          decoder :: undefined | epgsql_wire:row_decoder()
@@ -115,31 +115,37 @@
 run(C, SQL, Params, ParamTypes) ->
     epgsql_sock:sync_command(C, ?MODULE, {SQL, Params, ParamTypes}).
 
+init({batch, Queries}) ->
+    lists:foldl(fun({SQL, Params, Types}, #eequery{sql=SQLs, param_types=Typess, params = Paramss}) ->
+                        #eequery{sql=[SQL|SQLs], param_types=[Types|Typess], params=[Params|Paramss]}
+                end, #eequery{sql=[], param_types=[], params=[]}, lists:reverse(Queries));
 init({SQL, Params, Types}) ->
-    #eequery{sql = SQL,
-             param_types = Types,
-             params = Params}.
+    #eequery{sql = [SQL],
+             param_types = [Types],
+             params = [Params]}.
 
-execute(Sock, #eequery{sql = Sql, param_types = ParamTypes, params = Params} = St) ->
+
+execute(Sock, #eequery{sql = Sqls, param_types = ParamTypess, params = Paramss} = St) ->
     %% #statement{name = StatementName, columns = Columns} = Stmt,
     Codec = epgsql_sock:get_codec(Sock),
-    BinParamTypes = epgsql_wire:encode_types(ParamTypes, Codec),
-    TypedParams = lists:zip(ParamTypes, Params),
-    BinParameters = epgsql_wire:encode_parameters(TypedParams, Codec),
-    %% XXX: we ask server to send all columns in binary format.
-    %% If we don't have a decoder for any of the result columns (eg, enums),
-    %% connection process will crash
-    BinAllBinaryResult = <<1:?int16, 1:?int16>>,
+    Commands = lists:flatmap(fun({Sql, ParamTypes, Params}) ->
+                          BinParamTypes = epgsql_wire:encode_types(ParamTypes, Codec),
+                          TypedParams = lists:zip(ParamTypes, Params),
+                          BinParameters = epgsql_wire:encode_parameters(TypedParams, Codec),
+                          %% XXX: we ask server to send all columns in binary format.
+                          %% If we don't have a decoder for any of the result columns (eg, enums),
+                          %% connection process will crash
+                          BinAllBinaryResult = <<1:?int16, 1:?int16>>,
+                          [
+                           {?PARSE, ["", 0, Sql, 0, BinParamTypes]},
+                           {?BIND, ["", 0, "", 0, BinParameters, BinAllBinaryResult]},
+                           {?DESCRIBE, [?PREPARED_STATEMENT, "", 0]},
+                           {?EXECUTE, ["", 0, <<0:?int32>>]},
+                           {?CLOSE, [?PREPARED_STATEMENT, "", 0]}]
+                  end, lists:zip3(Sqls, ParamTypess, Paramss)),
     epgsql_sock:send_multi(
       Sock,
-      [
-       {?PARSE, ["", 0, Sql, 0, BinParamTypes]},
-       {?BIND, ["", 0, "", 0, BinParameters, BinAllBinaryResult]},
-       {?DESCRIBE, [?PREPARED_STATEMENT, "", 0]},
-       {?EXECUTE, ["", 0, <<0:?int32>>]},
-       {?CLOSE, [?PREPARED_STATEMENT, "", 0]},
-       {?SYNC, []}
-      ]),
+        Commands ++ [{?SYNC, []}]),
     {ok, Sock, St}.
 
 

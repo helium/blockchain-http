@@ -88,8 +88,8 @@ execute_batch(Pool, Queries) ->
     Fun = fun(From, {Stmts, Conn}) ->
         Batch = lists:foldr(
             fun({Name, Params}, Acc) ->
-                Statement = maps:get(Name, Stmts),
-                [{Statement, Params} | Acc]
+                    {Query, Types} = maps:get(Name, Stmts),
+                [{Query, Params, Types} | Acc]
             end,
             [],
             Queries
@@ -98,7 +98,7 @@ execute_batch(Pool, Queries) ->
         %% the output to the elli process directly
         gen_server:cast(
             Conn,
-            {{cast, From, Ref}, epgsql_cmd_batch, Batch}
+            {{cast, From, Ref}, epgsql_cmd_eequery, {batch, Batch}}
         )
     end,
     case dispcount:transaction(Pool, Fun) of
