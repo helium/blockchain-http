@@ -473,7 +473,7 @@ get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [
             HighBlock = MaxBlock + 1,
             Types = case Types0 of
                         T when is_binary(T) ->
-                            ?FILTER_TYPES_TO_LIST(T, ?TXN_TYPES);
+                            ?FILTER_TYPES_TO_LIST(?TXN_TYPES, T);
                         Other -> Other
                     end,
             State = #state{
@@ -507,7 +507,7 @@ get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
             }} ->
             Types = case maps:get(<<"types">>, C, undefined) of
                         T when is_binary(T) ->
-                            ?FILTER_TYPES_TO_LIST(T, ?TXN_TYPES);
+                            ?FILTER_TYPES_TO_LIST(?TXN_TYPES, T);
                         Other -> Other
                     end,
             State0 = #state{
@@ -539,7 +539,7 @@ get_txn_count(Args, Query, [{filter_types, Types0}]) ->
     Types = case Types0 of
                 undefined -> ?TXN_TYPES;
                 _ when is_binary(Types0) ->
-                    ?FILTER_TYPES_TO_LIST(Types0, ?TXN_TYPES);
+                    ?FILTER_TYPES_TO_LIST(?TXN_TYPES, Types0);
                 _ -> Types0
             end,
     {ok, _, Results} = ?PREPARED_QUERY(Query, Args ++ [Types]),
