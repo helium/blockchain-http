@@ -45,52 +45,48 @@
 ]).
 
 prepare_conn(Conn) ->
-	epgsql:update_type_cache(Conn, [{bh_transaction_type, [coinbase_v1,security_coinbase_v1,
-                                                         oui_v1,gen_gateway_v1,routing_v1,
-                                                         payment_v1,security_exchange_v1,
-                                                         consensus_group_v1,add_gateway_v1,
-                                                         assert_location_v1,create_htlc_v1,
-                                                         redeem_htlc_v1,poc_request_v1,
-                                                         poc_receipts_v1,vars_v1,rewards_v1,
-                                                         token_burn_v1,dc_coinbase_v1,
-                                                         token_burn_exchange_rate_v1,payment_v2,
-                                                         state_channel_open_v1,state_channel_close_v1,
-                                                         price_oracle_v1,transfer_hotspot_v1,
-                                                         rewards_v2,assert_location_v2,
-                                                         gen_validator_v1,stake_validator_v1,
-                                                         unstake_validator_v1,validator_heartbeat_v1,
-                                                         transfer_validator_stake_v1,gen_price_oracle_v1,
-                                                         consensus_group_failure_v1,transfer_hotspot_v2]}]),
-  epgsql:update_type_cache(Conn, [{bh_pending_transaction_nonce_type, [balance,security,none,gateway]}]),
+    epgsql:update_type_cache(Conn, [
+        {bh_pending_transaction_nonce_type, [balance, security, none, gateway]}
+    ]),
 
-  epgsql:update_type_cache(Conn, [{bh_pending_transaction_status, [received,pending,failed,cleared]}]),
+    epgsql:update_type_cache(Conn, [
+        {bh_pending_transaction_status, [received, pending, failed, cleared]}
+    ]),
     S1 = {
-            ?SELECT_ACTOR_PENDING_TXN_LIST_BASE(""),
-            [text]
-          },
+        ?SELECT_ACTOR_PENDING_TXN_LIST_BASE(""),
+        [text]
+    },
 
     S2 = {
-            ?SELECT_ACTOR_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
-            [text, timestamptz]
-        },
+        ?SELECT_ACTOR_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
+        [text, timestamptz]
+    },
 
     S3 =
         {?SELECT_PENDING_TXN_LIST_BASE(""), [text]},
 
-    S4 ={
-           ?SELECT_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
-            [text]
-          },
+    S4 = {
+        ?SELECT_PENDING_TXN_LIST_BASE("and t.created_at < $2"),
+        [text]
+    },
 
     S5 = {
-            [
-                "insert into pending_transactions ",
-                "(hash, type, address, nonce, nonce_type, status, data) values ",
-                "($1, $2, $3, $4, $5, $6, $7) ",
-                "returning created_at"
-            ],
-            [text, transaction_type, text, int8, pending_transaction_nonce_type, pending_transaction_status, text]
-     },
+        [
+            "insert into pending_transactions ",
+            "(hash, type, address, nonce, nonce_type, status, data) values ",
+            "($1, $2, $3, $4, $5, $6, $7) ",
+            "returning created_at"
+        ],
+        [
+            text,
+            transaction_type,
+            text,
+            int8,
+            pending_transaction_nonce_type,
+            pending_transaction_status,
+            text
+        ]
+    },
 
     #{
         ?S_ACTOR_PENDING_TXN_LIST => S1,
