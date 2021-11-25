@@ -202,7 +202,10 @@ handle_message(?READY_FOR_QUERY, _Status, Sock, _State) ->
         [Result] ->
             {finish, Result, done, Sock};
         [] ->
-            {finish, done, done, Sock}
+            {finish, done, done, Sock};
+        Results ->
+            lager:info("got ~p results", [length(Results)]),
+            {finish, Results, done, Sock}
     end;
 
 handle_message(?ERROR, Error, Sock, St) ->
