@@ -336,10 +336,12 @@ get_hotspot_list_by_distance([{lat, _}, {lon, _}, {distance, _}, {cursor, Cursor
     get_hotspot_list([{search_distance, []}, {cursor, Cursor}]).
 
 get_hotspot_list([{witnesses_for, Address}]) ->
-    Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESS_LIST, [Address]),
+    {ok, {_, {_MaxBlock, MinBlock}}} = bh_route_blocks:get_block_span(undefined, <<"-5 day">>),
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESS_LIST, [Address, MinBlock]),
     mk_hotspot_witness_list_from_result(Result);
 get_hotspot_list([{witnessed_for, Address}]) ->
-    Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESSED_LIST, [Address]),
+    {ok, {_, {_MaxBlock, MinBlock}}} = bh_route_blocks:get_block_span(undefined, <<"-5 day">>),
+    Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESSED_LIST, [Address, MinBlock]),
     mk_hotspot_witness_list_from_result(Result);
 get_hotspot_list([
     {owner, undefined},

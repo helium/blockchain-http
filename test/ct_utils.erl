@@ -11,7 +11,9 @@ init_bh(Config) ->
     application:load(blockchain_http),
     application:set_env(blockchain_http, throttle, #{
         request_time => 10000000000,
-        request_interval => 10
+        request_interval => 10,
+        %% how many requests are allowed
+        request_count => 1000
     }),
     {ok, Pid} = bh_sup:start_link(),
     unlink(Pid),
