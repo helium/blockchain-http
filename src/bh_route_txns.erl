@@ -333,7 +333,7 @@ get_activity_count({validator, Address}, Args) ->
     remaining = undefined :: undefined | pos_integer(),
     step = 100 :: pos_integer(),
     args :: list(term()),
-    types :: iolist(),
+    types :: [binary()],
     results = [] :: list(term())
 }).
 
@@ -460,7 +460,7 @@ get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [
     {max_time, MaxTime0},
     {min_time, MinTime0},
     {limit, Remaining0},
-    {filter_types, Types}
+    {filter_types, Types0}
 ]) ->
     Remaining =
         case Remaining0 of
@@ -471,6 +471,11 @@ get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [
         {ok, {{_MaxTime, _MinTime}, {MaxBlock, MinBlock}}} ->
             %% High block is exclusive so start past the tip
             HighBlock = MaxBlock + 1,
+            Types = case Types0 of
+                        T when is_binary(T) ->
+                            ?FILTER_TYPES_TO_LIST(T, ?TXN_TYPES);
+                        Other -> Other
+                    end,
             State = #state{
                 high_block = HighBlock,
                 %% Aim for block alignment
@@ -500,10 +505,15 @@ get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
                 <<"min_block">> := MinBlock,
                 <<"max_block">> := MaxBlock
             }} ->
+            Types = case maps:get(<<"types">>, C, undefined) of
+                        T when is_binary(T) ->
+                            ?FILTER_TYPES_TO_LIST(T, ?TXN_TYPES);
+                        Other -> Other
+                    end,
             State0 = #state{
                 high_block = HighBlock,
                 anchor_block = maps:get(<<"anchor_block">>, C, undefined),
-                types = maps:get(<<"types">>, C, undefined),
+                types = Types,
                 min_block = MinBlock,
                 max_block = MaxBlock,
                 low_block = calc_low_block(HighBlock, MinBlock),
@@ -528,6 +538,8 @@ get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
 get_txn_count(Args, Query, [{filter_types, Types0}]) ->
     Types = case Types0 of
                 undefined -> ?TXN_TYPES;
+                _ when is_binary(Types0) ->
+                    ?FILTER_TYPES_TO_LIST(Types0, ?TXN_TYPES);
                 _ -> Types0
             end,
     {ok, _, Results} = ?PREPARED_QUERY(Query, Args ++ [Types]),
