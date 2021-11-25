@@ -260,7 +260,7 @@ get_stats(Account) ->
         last_month => mk_balance_stats(BalanceMonthlyResults)
     }}.
 
-mk_balance_stats({ok, Results}) ->
+mk_balance_stats({ok, _Columns, Results}) ->
     lists:map(
         fun({Timestamp, Value}) ->
             #{
@@ -269,7 +269,10 @@ mk_balance_stats({ok, Results}) ->
             }
         end,
         Results
-    ).
+    );
+mk_balance_stats(Other) ->
+	lager:info("got ~p", [Other]),
+	error(lol).
 
 %%
 %% json

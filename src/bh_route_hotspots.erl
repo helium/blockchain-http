@@ -141,7 +141,7 @@ prepare_conn(Conn) ->
                 {scope, city_hotspot_list_scope},
                 {order, hotspot_list_order},
                 {limit, HotspotListLimit}
-            ], [{array, gateway_mode}]}},
+            ], [text, {array, gateway_mode}]}},
         {?S_HEX_HOTSPOT_LIST_BEFORE,
             {hotspot_list_base, [
                 {source, hotspot_list_source},
