@@ -298,6 +298,8 @@ try_or_else(TryFun, Fun, OrElse) ->
 
 filter_types_to_list(Base, undefined) ->
     Base;
+filter_types_to_list(Base, List) when is_list(List) ->
+    lists:filter(fun(T) -> lists:member(T, Base) end, List);
 filter_types_to_list(Base, Bin) when is_binary(Bin) ->
     SplitTypes = binary:split(Bin, <<",">>, [global]),
     lists:filter(fun(T) -> lists:member(T, Base) end, SplitTypes).
