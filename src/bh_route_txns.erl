@@ -112,7 +112,7 @@ prepare_conn(Conn) ->
                     {order, txn_list_order},
                     {limit, {txn_list_limit, []}}
                 ],
-                [{array, transaction_type}, int8, text]}},
+                [{array, transaction_type}, int8, text, int4]}},
         {?S_ACTOR_TXN_LIST,
             {txn_list_base,
                 [
