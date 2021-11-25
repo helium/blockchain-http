@@ -52,8 +52,7 @@ get_var_list([{keys, KeyBins}]) ->
         KeyNames when length(KeyNames) > ?MAX_KEY_NAMES ->
             {error, badarg};
         KeyNames ->
-            KeysArg = lists:flatten([<<"{">>, lists:join(<<",">>, KeyNames), <<"}">>]),
-            {ok, _, Results} = ?PREPARED_QUERY(?S_VAR_LIST_NAMED, [KeysArg]),
+            {ok, _, Results} = ?PREPARED_QUERY(?S_VAR_LIST_NAMED, [KeyNames]),
             {ok, var_list_to_json(Results)}
     end.
 
