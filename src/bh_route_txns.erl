@@ -256,7 +256,7 @@ prepare_conn(Conn) ->
         {?S_HOTSPOT_MIN_BLOCK, {txn_hotspot_activity_min_block, [], [text]}},
         {?S_ACCOUNT_MIN_BLOCK, {txn_account_activity_min_block, [], [text]}},
         {?S_ORACLE_MIN_BLOCK, {txn_oracle_activity_min_block, [], [text]}},
-        {?S_VALIDATOR_MIN_BLOCK, {txn_validator_activity_min_block, [], text}},
+        {?S_VALIDATOR_MIN_BLOCK, {txn_validator_activity_min_block, [], [text]}},
 
         ?S_GENESIS_MIN_BLOCK
     ],
