@@ -156,7 +156,8 @@ hotspot_witnessed as (
     select actor as witnessed
     from transaction_actors 
     where transaction_hash in (select transaction_hash from recent_transactions)
-    and actor_role = 'challengee'
+        and actor_role = 'challengee'
+        and block >= (select height from five_days)
     group by actor
  )
 :hotspot_select
