@@ -393,8 +393,12 @@ calc_query_limit(State = #state{limit = Limit, results = Results}) ->
     end.
 
 execute_query(Query, State) ->
+    FilterTypes = case State#state.types of
+                      undefined -> ?TXN_TYPES;
+                      _ -> State#state.types
+                  end,
     AddedArgs = [
-        ?FILTER_TYPES_TO_SQL(?TXN_TYPES, State#state.types),
+        FilterTypes,
         State#state.low_block,
         State#state.high_block,
         calc_query_limit(State)
@@ -405,8 +409,12 @@ execute_query(Query, State) ->
 execute_rem_query(_Query, _HighBlock, undefined, State) ->
     State;
 execute_rem_query(Query, HighBlock, TxnHash, State) ->
+    FilterTypes = case State#state.types of
+                      undefined -> ?TXN_TYPES;
+                      _ -> State#state.types
+                  end,
     AddedArgs = [
-        ?FILTER_TYPES_TO_SQL(?TXN_TYPES, State#state.types),
+        FilterTypes,
         HighBlock,
         TxnHash,
         calc_query_limit(State)
@@ -517,8 +525,12 @@ get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
             {error, badarg}
     end.
 
-get_txn_count(Args, Query, [{filter_types, Types}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(Query, Args ++ [?FILTER_TYPES_TO_SQL(?TXN_TYPES, Types)]),
+get_txn_count(Args, Query, [{filter_types, Types0}]) ->
+    Types = case Types0 of
+                undefined -> ?TXN_TYPES;
+                _ -> Types0
+            end,
+    {ok, _, Results} = ?PREPARED_QUERY(Query, Args ++ [Types]),
     InitCounts = [{K, 0} || K <- ?FILTER_TYPES_TO_LIST(?TXN_TYPES, Types)],
     {ok,
         lists:foldl(
