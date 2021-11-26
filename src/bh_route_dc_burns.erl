@@ -47,7 +47,7 @@ prepare_conn(Conn) ->
                 [{array, burn_type}]}},
         {?S_BURN_SUM, {?S_BURN_SUM, [], [timestamptz, timestamptz]}},
         {?S_BURN_BUCKETED_SUM, {?S_BURN_BUCKETED_SUM, [], [timestamptz, timestamptz, interval]}},
-        ?S_BURN_STATS
+        {?S_BURN_STATS, {?S_BURN_STATS, [], [int8, text]}}
     ],
     bh_db_worker:load_from_eql("dc_burns.sql", Loads).
 
@@ -57,7 +57,7 @@ handle('GET', [], Req) ->
     CacheTime = get_burn_list_cache_time(Args),
     ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [<<"stats">>], _Req) ->
-    ?MK_RESPONSE(get_stats(), {block_time, 5});
+    ?MK_RESPONSE(get_stats(), {block_time, 60});
 handle('GET', [<<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time, bucket], Req),
     ?MK_RESPONSE(get_burn_sum(Args), block_time);
@@ -131,8 +131,22 @@ get_burn_stats() ->
     bh_cache:get(
         {?MODULE, burn_stats},
         fun() ->
-            {ok, _, Data} = ?PREPARED_QUERY(?S_BURN_STATS, []),
-            Data
+            {ok, {_, {_, MonthMinBlock}}} = bh_route_blocks:get_block_span(
+                undefined, <<"-30 day">>
+            ),
+            {ok, {_, {_, WeekMinBlock}}} = bh_route_blocks:get_block_span(
+                undefined, <<"-1 week">>
+            ),
+            {ok, {_, {_, DayMinBlock}}} = bh_route_blocks:get_block_span(
+                undefined, <<"-1 day">>
+            ),
+            [{ok, _, MonthStats}, {ok, _, WeekStats}, {ok, _, DayStats}] =
+                ?EXECUTE_BATCH([
+                    {?S_BURN_STATS, [MonthMinBlock, <<"last_month">>]},
+                    {?S_BURN_STATS, [WeekMinBlock, <<"last_week">>]},
+                    {?S_BURN_STATS, [DayMinBlock, <<"last_day">>]}
+                ]),
+            lists:flatten([MonthStats, WeekStats, DayStats])
         end
     ).
 

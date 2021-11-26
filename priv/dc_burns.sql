@@ -13,42 +13,12 @@ where d.type = ANY($1)
 and (d.actor > $2 and d.block = $3) or (d.block < $3)
 
 -- :burn_stats
-with stat_blocks as (
-    with month_block as (
-        select height from blocks where time > extract(epoch from(now() - '1 month'::interval)) order by height limit 1
-    )
-    select 
-        (select height from month_block) as month,
-        (select height from blocks 
-         where height > (select height from month_block) 
-         and time > extract(epoch from(now() - '1 week'::interval)) 
-         order by height 
-         limit 1) as week,
-        (select height from blocks 
-         where height > (select height from month_block) 
-         and time > extract(epoch from(now() - '1 day'::interval)) 
-         order by height 
-         limit 1) as day
-),
-month_interval as (
+select $2, t.type, sum(t.amount)::bigint from (
    select sum(d.amount) as amount, max(d.time) as time, d.type, d.block
    from dc_burns d 
-   where d.block > (select month from stat_blocks)
+   where d.block > $1
    group by d.block, d.type
-),
-week_interval as (
-    select * from month_interval 
-    where block > (select week from stat_blocks)
-),
-day_interval as (
-    select * from week_interval 
-    where block > (select day from stat_blocks)
-)
-select 'last_day', t.type, sum(t.amount)::bigint from day_interval t group by t.type
-union
-select 'last_week', t.type, sum(t.amount)::bigint from week_interval t group by t.type
-union
-select 'last_month', t.type, sum(t.amount)::bigint from month_interval t group by t.type;
+) t group by t.type;
 
 
 -- :burn_sum
