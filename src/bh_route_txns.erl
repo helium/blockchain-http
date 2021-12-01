@@ -425,11 +425,13 @@ get_txn_list(Args, Queries, RequestArgs) ->
     MinQuery :: string(),
     MinQueryArgs :: [any()]
 ) ->
-    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}} |
-    {error, term()}.
+    {ok, {bh_route_handler:timespan(), bh_route_handler:blockspan()}}
+    | {error, term()}.
 calc_block_span(MaxTime0, MinTime0, MinQuery, MinQueryArgs) ->
     %% Parse timespan
     case bh_route_blocks:get_block_span(MaxTime0, MinTime0) of
+        {ok, {{_MaxTime, _MinTime}, {MaxBlock, MinBlock}}} when MinBlock == MaxBlock ->
+            {error, badarg};
         {ok, {{MaxTime, MinTime}, {MaxBlock, MinBlock}}} ->
             %% Now compare against minimum calculated by the given query. Some
             %% actors have a known minimum block so asking for a lower block makes
