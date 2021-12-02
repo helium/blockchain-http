@@ -321,7 +321,7 @@ prepare_conn(Conn) ->
                 ],
                 [text, {array, transaction_type}, int8, text, int8]}},
 
-        ?S_LOC,
+        {?S_LOC, {?S_LOC, [], [text]}},
 
         {?S_ACCOUNT_ACTIVITY_COUNT,
             {txn_actor_count_base,
@@ -731,11 +731,10 @@ txn_to_json({Height, Time, Hash, Type, Role}) when is_binary(Role) ->
     maps:merge(txn_to_json({Height, Time, Hash, Type}), #{<<"role">> => Role});
 txn_to_json({Height, Time, Hash, Type, Fields}) when is_map(Fields) ->
     maps:merge(txn_to_json({Height, Time, Hash, Type}), txn_to_json({Type, Fields}));
-txn_to_json({<<"poc_request_v1">>, #{<<"location">> := Location} = Fields}) ->
+txn_to_json({poc_request_v1, #{<<"location">> := Location} = Fields}) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json(
-    {<<"poc_receipts_v1">>,
-        #{<<"challenger_location">> := ChallengerLoc, <<"path">> := Path} = Fields}
+    {poc_receipts_v1, #{<<"challenger_location">> := ChallengerLoc, <<"path">> := Path} = Fields}
 ) ->
     %% update witnesses to include location_hex at res8
     WitnessLocationHex = fun(PathElem) ->
@@ -787,30 +786,30 @@ txn_to_json(
     ?INSERT_LAT_LON(ChallengerLoc, {<<"challenger_lat">>, <<"challenger_lon">>}, Fields#{
         <<"path">> => NewPath
     });
-txn_to_json({<<"gen_gateway_v1">>, Fields}) ->
+txn_to_json({gen_gateway_v1, Fields}) ->
     txn_to_json({<<"add_gateway_v1">>, Fields});
-txn_to_json({<<"add_gateway_v1">>, Fields}) ->
+txn_to_json({add_gateway_v1, Fields}) ->
     Fields#{
         <<"payer">> => maps:get(<<"payer">>, Fields, undefined),
         <<"fee">> => maps:get(<<"fee">>, Fields, 0),
         <<"staking_fee">> => maps:get(<<"staking_fee">>, Fields, 1)
     };
 txn_to_json(
-    {<<"assert_location_v1">>,
+    {assert_location_v1,
         #{
             <<"location">> := Location
         } = Fields}
 ) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json(
-    {<<"assert_location_v2">>,
+    {assert_location_v2,
         #{
             <<"location">> := Location
         } = Fields}
 ) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json(
-    {<<"token_burn_v1">>,
+    {token_burn_v1,
         #{
             <<"memo">> := Memo
         } = Fields}
