@@ -14,6 +14,10 @@ all() ->
         activity_result_test,
         activity_low_block_test,
         activity_filter_no_result_test,
+        roles_count_test,
+        roles_result_test,
+        roles_low_block_test,
+        roles_filter_no_result_test,
         hotspots_test,
         ouis_test,
         stats_test,
@@ -123,6 +127,72 @@ activity_filter_no_result_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request(
         [
             "/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/activity",
+            "?cursor=",
+            binary_to_list(?CURSOR_ENCODE(GetCursor))
+        ]
+    ),
+    #{<<"data">> := Data} = Json,
+    ?assertEqual(0, length(Data)),
+    ok.
+
+roles_count_test(_Config) ->
+    Account = "1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY",
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/accounts/",
+        Account,
+        "/roles/count?filter_types=payment_v1"
+    ]),
+    #{
+        <<"data">> := Data
+    } = Json,
+    ?assertEqual(1, maps:size(Data)),
+    ?assert(maps:get(<<"payment_v1">>, Data) >= 0),
+    ok.
+
+roles_result_test(_Config) ->
+    %% Test activity for an account. This may or may not have data
+    %% returned. Expect a maybe empty array with a start and end block
+    %% and a cursor to a next block range
+    {ok, {_, _, Json}} = ?json_request(
+        "/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/roles"
+    ),
+    #{
+        <<"data">> := Data,
+        <<"cursor">> := Cursor
+    } = Json,
+    {ok, #{<<"block">> := _}} = ?CURSOR_DECODE(Cursor),
+    ?assert(length(Data) =< ?TXN_LIST_LIMIT).
+
+roles_low_block_test(_Config) ->
+    GetCursor = #{
+        block => 50,
+        min_block => 1,
+        max_block => 50
+    },
+    {ok, {_, _, Json}} = ?json_request(
+        [
+            "/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/roles",
+            "?cursor=",
+            binary_to_list(?CURSOR_ENCODE(GetCursor))
+        ]
+    ),
+    #{<<"data">> := Data} = Json,
+    %% This account has just one coinebase transaction in block 1
+    ?assertEqual(1, length(Data)),
+    ?assertEqual(undefined, maps:get(<<"cursor">>, Json, undefined)).
+
+roles_filter_no_result_test(_Config) ->
+    %% We know this account has only a coinbase transaction in block 1 over that block range
+    %% so filtering for rewards should return no data.
+    GetCursor = #{
+        block => 50,
+        min_block => 1,
+        max_block => 50,
+        types => <<"rewards_v1">>
+    },
+    {ok, {_, _, Json}} = ?json_request(
+        [
+            "/v1/accounts/1122ZQigQfeeyfSmH2i4KM4XMQHouBqK4LsTp33ppP3W2Knqh8gY/roles",
             "?cursor=",
             binary_to_list(?CURSOR_ENCODE(GetCursor))
         ]

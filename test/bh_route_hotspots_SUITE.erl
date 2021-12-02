@@ -14,6 +14,10 @@ all() ->
         activity_result_test,
         activity_low_block_test,
         activity_filter_no_result_test,
+        roles_count_test,
+        roles_result_test,
+        roles_low_block_test,
+        roles_filter_no_result_test,
         elections_test,
         elected_test,
         elected_block_test,
@@ -130,6 +134,75 @@ activity_filter_no_result_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request(
         [
             "/v1/hotspots/112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK/activity",
+            "?cursor=",
+            binary_to_list(?CURSOR_ENCODE(GetCursor))
+        ]
+    ),
+    #{<<"data">> := Data} = Json,
+    ?assertEqual(0, length(Data)),
+    ok.
+
+roles_count_test(_Config) ->
+    Hotspot = "112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK",
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/hotspots/",
+        Hotspot,
+        "/roles/count?filter_types=add_gateway_v1,assert_location_v1"
+    ]),
+    #{
+        <<"data">> := Data
+    } = Json,
+    ?assertEqual(2, maps:size(Data)),
+    ?assertEqual(maps:get(<<"add_gateway_v1">>, Data), 1),
+    ?assert(maps:get(<<"assert_location_v1">>, Data) >= 0),
+    ok.
+
+roles_result_test(_Config) ->
+    %% Test roles for a hotspot. This may or may not have data
+    %% returned. Expect a maybe empty array with a start and end block
+    %% and a cursor to a next block range
+    {ok, {_, _, Json}} = ?json_request(
+        [
+            "/v1/hotspots/112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK/roles",
+            "?limit=5"
+        ]
+    ),
+    #{
+        <<"data">> := Data,
+        <<"cursor">> := Cursor
+    } = Json,
+    {ok, #{<<"block">> := _}} = ?CURSOR_DECODE(Cursor),
+    ?assert(length(Data) =< 5).
+
+roles_low_block_test(_Config) ->
+    GetCursor = #{
+        block => 50,
+        max_block => 50,
+        min_block => 1
+    },
+    {ok, {_, _, Json}} = ?json_request(
+        [
+            "/v1/hotspots/112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK/roles",
+            "?cursor=",
+            binary_to_list(?CURSOR_ENCODE(GetCursor))
+        ]
+    ),
+    #{<<"data">> := Data} = Json,
+    %% This hotspot has no activity in the low blocks
+    ?assertEqual(0, length(Data)),
+    ?assertEqual(undefined, maps:get(<<"cursor">>, Json, undefined)).
+
+roles_filter_no_result_test(_Config) ->
+    %% Filter for no rewards, which the given hotspot should not have
+    GetCursor = #{
+        block => 50,
+        max_block => 50,
+        min_block => 1,
+        types => <<"rewards_v1">>
+    },
+    {ok, {_, _, Json}} = ?json_request(
+        [
+            "/v1/hotspots/112DCTVEbFi8azQ2KmhSDW2UqRM2ijmiMWKJptnhhPEk3uXvwLyK/roles",
             "?cursor=",
             binary_to_list(?CURSOR_ENCODE(GetCursor))
         ]

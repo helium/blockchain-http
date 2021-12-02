@@ -15,6 +15,8 @@
     get_actor_txn_list/2,
     get_activity_count/2,
     get_activity_list/2,
+    get_role_list/2,
+    get_role_count/2,
     txn_to_json/1,
     txn_list_to_json/1
 ]).
@@ -29,12 +31,18 @@
 -define(S_ACCOUNT_ACTIVITY_COUNT, "account_activity_count").
 -define(S_ACCOUNT_ACTIVITY_LIST, "account_activity_list").
 -define(S_ACCOUNT_ACTIVITY_LIST_REM, "account_activity_list_rem").
+-define(S_ACCOUNT_ROLE_LIST, "account_role_list").
+-define(S_ACCOUNT_ROLE_LIST_REM, "account_role_list_rem").
 -define(S_HOTSPOT_ACTIVITY_COUNT, "hotspot_activity_count").
 -define(S_HOTSPOT_ACTIVITY_LIST, "hotspot_activity_list").
 -define(S_HOTSPOT_ACTIVITY_LIST_REM, "hotspot_activity_list_rem").
+-define(S_HOTSPOT_ROLE_LIST, "hotspot_role_list").
+-define(S_HOTSPOT_ROLE_LIST_REM, "hotspot_role_list_rem").
 -define(S_VALIDATOR_ACTIVITY_COUNT, "validator_activity_count").
 -define(S_VALIDATOR_ACTIVITY_LIST, "validator_activity_list").
 -define(S_VALIDATOR_ACTIVITY_LIST_REM, "validator_activity_list_rem").
+-define(S_VALIDATOR_ROLE_LIST, "validator_role_list").
+-define(S_VALIDATOR_ROLE_LIST_REM, "validator_role_list_rem").
 -define(S_HOTSPOT_MIN_BLOCK, "hotspot_activity_min_block").
 -define(S_ACCOUNT_MIN_BLOCK, "account_activity_min_block").
 -define(S_ORACLE_MIN_BLOCK, "oracle_activity_min_block").
@@ -232,6 +240,87 @@ prepare_conn(Conn) ->
                 ],
                 [text, {array, transaction_type}, int8, text, int8]}},
 
+        {?S_ACCOUNT_ROLE_LIST,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_source, [
+                            {actor_scope, txn_account_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
+        {?S_ACCOUNT_ROLE_LIST_REM,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_rem_source, [
+                            {actor_scope, txn_account_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
+
+        {?S_HOTSPOT_ROLE_LIST,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_source, [
+                            {actor_scope, txn_hotspot_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
+        {?S_HOTSPOT_ROLE_LIST_REM,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_rem_source, [
+                            {actor_scope, txn_hotspot_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
+
+        {?S_VALIDATOR_ROLE_LIST,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_source, [
+                            {actor_scope, txn_validator_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
+        {?S_VALIDATOR_ROLE_LIST_REM,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_rem_source, [
+                            {actor_scope, txn_validator_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
+
         ?S_LOC,
 
         {?S_ACCOUNT_ACTIVITY_COUNT,
@@ -319,6 +408,28 @@ get_activity_count({hotspot, Address}, Args) ->
     get_txn_count([Address], ?S_HOTSPOT_ACTIVITY_COUNT, Args);
 get_activity_count({validator, Address}, Args) ->
     get_txn_count([Address], ?S_VALIDATOR_ACTIVITY_COUNT, Args).
+
+get_role_count(Type, Args) ->
+    get_activity_count(Type, Args).
+
+get_role_list({account, Account}, Args) ->
+    get_txn_list(
+        [Account],
+        {?S_ACCOUNT_MIN_BLOCK, ?S_ACCOUNT_ROLE_LIST, ?S_ACCOUNT_ROLE_LIST_REM},
+        Args
+    );
+get_role_list({hotspot, Address}, Args) ->
+    get_txn_list(
+        [Address],
+        {?S_HOTSPOT_MIN_BLOCK, ?S_HOTSPOT_ROLE_LIST, ?S_HOTSPOT_ROLE_LIST_REM},
+        Args
+    );
+get_role_list({validator, Address}, Args) ->
+    get_txn_list(
+        [Address],
+        {?S_VALIDATOR_MIN_BLOCK, ?S_VALIDATOR_ROLE_LIST, ?S_VALIDATOR_ROLE_LIST_REM},
+        Args
+    ).
 
 -define(TXN_LIST_BLOCK_ALIGN, 100).
 -define(TXN_LIST_MAX_STEP, 10000).
@@ -609,14 +720,17 @@ get_txn_list_cache_time(_) ->
 txn_list_to_json(Results) ->
     lists:map(fun txn_to_json/1, Results).
 
-txn_to_json({Height, Time, Hash, Type, Fields}) ->
-    Json = txn_to_json({Type, Fields}),
-    Json#{
+txn_to_json({Height, Time, Hash, Type}) ->
+    #{
         <<"type">> => Type,
         <<"hash">> => Hash,
         <<"height">> => Height,
         <<"time">> => Time
     };
+txn_to_json({Height, Time, Hash, Type, Role}) when is_binary(Role) ->
+    maps:merge(txn_to_json({Height, Time, Hash, Type}), #{<<"role">> => Role});
+txn_to_json({Height, Time, Hash, Type, Fields}) when is_map(Fields) ->
+    maps:merge(txn_to_json({Height, Time, Hash, Type}), txn_to_json({Type, Fields}));
 txn_to_json({<<"poc_request_v1">>, #{<<"location">> := Location} = Fields}) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json(

@@ -121,6 +121,14 @@ handle('GET', [Account, <<"activity">>], Req) ->
 handle('GET', [Account, <<"activity">>, <<"count">>], Req) ->
     Args = ?GET_ARGS([filter_types], Req),
     ?MK_RESPONSE(bh_route_txns:get_activity_count({account, Account}, Args), block_time);
+handle('GET', [Account, <<"roles">>], Req) ->
+    Args = ?GET_ARGS([cursor, max_time, min_time, limit, filter_types], Req),
+    Result = bh_route_txns:get_role_list({account, Account}, Args),
+    CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
+    ?MK_RESPONSE(Result, CacheTime);
+handle('GET', [Account, <<"roles">>, <<"count">>], Req) ->
+    Args = ?GET_ARGS([filter_types], Req),
+    ?MK_RESPONSE(bh_route_txns:get_role_count({account, Account}, Args), block_time);
 handle('GET', [Account, <<"elections">>], Req) ->
     Args = ?GET_ARGS([cursor, max_time, min_time, limit], Req),
     ?MK_RESPONSE(

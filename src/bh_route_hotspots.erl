@@ -295,6 +295,14 @@ handle('GET', [Address, <<"activity">>], Req) ->
 handle('GET', [Address, <<"activity">>, <<"count">>], Req) ->
     Args = ?GET_ARGS([filter_types], Req),
     ?MK_RESPONSE(bh_route_txns:get_activity_count({hotspot, Address}, Args), block_time);
+handle('GET', [Address, <<"roles">>], Req) ->
+    Args = ?GET_ARGS([cursor, max_time, min_time, limit, filter_types], Req),
+    Result = bh_route_txns:get_role_list({hotspot, Address}, Args),
+    CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
+    ?MK_RESPONSE(Result, CacheTime);
+handle('GET', [Address, <<"roles">>, <<"count">>], Req) ->
+    Args = ?GET_ARGS([filter_types], Req),
+    ?MK_RESPONSE(bh_route_txns:get_role_count({hotspot, Address}, Args), block_time);
 handle('GET', [Address, <<"elections">>], Req) ->
     Args = ?GET_ARGS([cursor, max_time, min_time, limit], Req),
     ?MK_RESPONSE(
