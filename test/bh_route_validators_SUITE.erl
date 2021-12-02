@@ -23,7 +23,8 @@ all() ->
         rewards_sum_test,
         rewards_buckets_test,
         name_test,
-        name_search_test
+        name_search_test,
+        stats_test
     ].
 
 init_per_suite(Config) ->
@@ -235,4 +236,15 @@ name_search_test(_Config) ->
         <<"data">> := Results
     } = Json,
     ?assert(length(Results) >= 1),
+    ok.
+
+stats_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request(["/v1/validators/stats"]),
+    #{
+        <<"data">> := #{
+            <<"active">> := _,
+            <<"staked">> := _,
+            <<"unstaked">> := _
+        }
+    } = Json,
     ok.

@@ -26,7 +26,8 @@
 -define(VALIDATOR_LIST_LIMIT, 100).
 -define(VALIDATOR_LIST_NAME_SEARCH_LIMIT, 100).
 
-prepare_conn(_Conn) ->
+prepare_conn(Conn) ->
+    epgsql:update_type_cache(Conn, [{bh_validator_status, [staked, cooldown, unstaked]}]),
     ValidatorListLimit = "limit " ++ integer_to_list(?VALIDATOR_LIST_LIMIT),
     ValidatorListNameSearchLimit = "limit " ++ integer_to_list(?VALIDATOR_LIST_NAME_SEARCH_LIMIT),
 
@@ -251,8 +252,8 @@ get_stats() ->
     %% Inject active validators in the result
     Active =
         case ActiveStats of
-            {ok, []} -> null;
-            {ok, [{_, C}]} -> C
+            {ok, _, []} -> null;
+            {ok, _, [{_, C}]} -> C
         end,
     {ok, Stats#{active => Active}}.
 
@@ -330,7 +331,7 @@ validator_to_json(
         }
     }.
 
-mk_stats_from_validator_results({ok, Results}) ->
+mk_stats_from_validator_results({ok, _, Results}) ->
     %% We do all this to ensure that various status entries are always
     %% present in the resulting map even if they are not in the sql results
     lists:foldl(
