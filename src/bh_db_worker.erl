@@ -32,7 +32,7 @@
     code_change/3
 ]).
 
--export([load_from_eql/3]).
+-export([load_from_eql/2]).
 -export([prepared_query/3, execute_batch/2]).
 
 -record(state, {
@@ -50,14 +50,12 @@ prepared_query(shutdown, _, _) ->
 prepared_query(Pool, Name, Params) ->
     Ref = make_ref(),
     Fun = fun(From, {Stmts, Conn}) ->
-        Statement = maps:get(Name, Stmts),
-        #statement{types = Types} = Statement,
-        TypedParameters = lists:zip(Types, Params),
-        %% construct the same kind of cast the epgsqla:prepared_statement does, but redirect
+        {Query, Types} = maps:get(Name, Stmts),
+        %% construct the same kind of cast the epgsqla commands do, but redirect
         %% the output to the elli process directly
         gen_server:cast(
             Conn,
-            {{cast, From, Ref}, epgsql_cmd_prepared_query, {Statement, TypedParameters}}
+            {{cast, From, Ref}, epgsql_cmd_eequery, {Query, Params, Types}}
         )
     end,
     case dispcount:transaction(Pool, Fun) of
@@ -80,17 +78,17 @@ execute_batch(Pool, Queries) ->
     Fun = fun(From, {Stmts, Conn}) ->
         Batch = lists:foldr(
             fun({Name, Params}, Acc) ->
-                Statement = maps:get(Name, Stmts),
-                [{Statement, Params} | Acc]
+                {Query, Types} = maps:get(Name, Stmts),
+                [{Query, Params, Types} | Acc]
             end,
             [],
             Queries
         ),
-        %% construct the same kind of cast the epgsqla:prepared_statement does, but redirect
+        %% construct the same kind of cast the epgsqla commands do, but redirect
         %% the output to the elli process directly
         gen_server:cast(
             Conn,
-            {{cast, From, Ref}, epgsql_cmd_batch, Batch}
+            {{cast, From, Ref}, epgsql_cmd_eequery, {batch, Batch}}
         )
     end,
     case dispcount:transaction(Pool, Fun) of
@@ -104,7 +102,7 @@ execute_batch(Pool, Queries) ->
             throw(?RESPONSE_503)
     end.
 
-load_from_eql(Conn, Filename, Loads) ->
+load_from_eql(Filename, Loads) ->
     PrivDir = code:priv_dir(blockchain_http),
     {ok, Queries} = eql:compile(filename:join(PrivDir, Filename)),
     ResolveParams = fun
@@ -124,22 +122,24 @@ load_from_eql(Conn, Filename, Loads) ->
             {K, V}
     end,
     Load = fun
-        L({Key, {Name, Params}}) when is_list(Name) ->
-            L({Key, {list_to_atom(Name), Params}});
-        L({Key, {_Name, _Params}} = Entry) ->
+        L({Key, {Name, Params, Types}}) ->
             %% Leverage the equivalent pattern in ResolveParams to
             %% expand out nested eql fragments and their parameters.
-            {Key, Query} = ResolveParams(Entry),
-            {ok, Statement} = epgsql:parse(Conn, Key, Query, []),
-            {Key, Statement};
-        L({Key, Params}) ->
-            L({Key, {Key, Params}});
+            {Key, Query} = ResolveParams({Key, {maybe_fix_name(Name), Params}}),
+            {Key, {Query, Types}};
+        L({Key, {Name, Params}}) ->
+            L({Key, {Name, Params, []}});
         L(Key) ->
-            L({Key, {Key, []}})
+            L({Key, {Key, [], []}})
     end,
 
     Statements = lists:map(Load, Loads),
     maps:from_list(Statements).
+
+maybe_fix_name(N) when is_list(N) ->
+    list_to_atom(N);
+maybe_fix_name(N) ->
+    N.
 
 init(Args) ->
     GetOpt = fun(K) ->
@@ -151,11 +151,12 @@ init(Args) ->
     Codecs = [{epgsql_codec_json, {jiffy, [], [return_maps]}}],
     DBOpts = (GetOpt(db_opts))#{codecs => Codecs},
     Handlers = GetOpt(db_handlers),
-    {ok, connect(#state{
-        db_opts = DBOpts,
-        given = false,
-        handlers = Handlers
-    })}.
+    {ok,
+        connect(#state{
+            db_opts = DBOpts,
+            given = false,
+            handlers = Handlers
+        })}.
 
 checkout(_From, State = #state{given = true}) ->
     lager:warning("unexpected checkout when already checked out"),
@@ -173,7 +174,7 @@ transaction(From, Fun, State = #state{db_conn = Conn, prepared_statements = Stmt
     {ok, State}.
 
 checkin(Conn, State = #state{db_conn = Conn, given = true}) ->
-    {ok, State#state{given=false}};
+    {ok, State#state{given = false}};
 checkin(Conn, State) ->
     lager:warning("unexpected checkin of ~p when we have ~p", [Conn, State#state.db_conn]),
     {ignore, State}.
@@ -195,7 +196,7 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-connect(State=#state{db_opts=DBOpts, handlers=Handlers}) ->
+connect(State = #state{db_opts = DBOpts, handlers = Handlers}) ->
     {ok, Conn} = epgsql:connect(DBOpts),
     PreparedStatements = lists:foldl(
         fun(Mod, Acc) ->
@@ -205,21 +206,21 @@ connect(State=#state{db_opts=DBOpts, handlers=Handlers}) ->
         Handlers
     ),
     %% set the statement timeout to 1 second less than POOL_QUERY_TIMEOUT
-    {ok, [], []} = epgsql:squery(Conn, io_lib:format("SET statement_timeout = '~bs';", [(?POOL_QUERY_TIMEOUT div 1000) - 1])),
-    State#state{db_conn=Conn, prepared_statements=PreparedStatements}.
-
+    {ok, [], []} = epgsql:squery(
+        Conn,
+        io_lib:format("SET statement_timeout = '~bs';", [(?POOL_QUERY_TIMEOUT div 1000) - 1])
+    ),
+    State#state{db_conn = Conn, prepared_statements = PreparedStatements}.
 
 -ifdef(TEST).
 
 eql_test() ->
-    meck:new(epgsql),
-    meck:expect(epgsql, parse, fun(fakeconnection, _Key, Query, _Opts) -> {ok, Query} end),
     %% we need to load the application here so that code:priv/2 will work correctly
     ok = application:load(blockchain_http),
     Files = [
         {"vars.sql", [
-            {"var_list", {var_list, []}},
-            {"var_get", []}
+            "var_list",
+            {"var_get", {"var_get", [], [text]}}
         ]}
     ],
     lists:all(
@@ -227,8 +228,8 @@ eql_test() ->
             (#{}) -> true;
             (_) -> false
         end,
-        [load_from_eql(fakeconnection, F, L) || {F, L} <- Files]
+        [load_from_eql(F, L) || {F, L} <- Files]
     ),
-    meck:unload(epgsql).
+    ok.
 
 -endif.

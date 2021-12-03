@@ -20,92 +20,111 @@
 -define(S_VALIDATOR, "validator").
 -define(S_VALIDATORS_NAMED, "validator_named").
 -define(S_VALIDATOR_NAME_SEARCH, "validators_name_search").
--define(S_VALIDATOR_STATS, "validators_stats").
--define(S_ACTIVE_VALIDATORS, "active_validators").
+-define(S_VALIDATOR_STATS, "validator_stats").
+-define(S_ACTIVE_VALIDATORS, "validator_active").
 
 -define(VALIDATOR_LIST_LIMIT, 100).
 -define(VALIDATOR_LIST_NAME_SEARCH_LIMIT, 100).
 
 prepare_conn(Conn) ->
+    epgsql:update_type_cache(Conn, [{bh_validator_status, [staked, cooldown, unstaked]}]),
     ValidatorListLimit = "limit " ++ integer_to_list(?VALIDATOR_LIST_LIMIT),
     ValidatorListNameSearchLimit = "limit " ++ integer_to_list(?VALIDATOR_LIST_NAME_SEARCH_LIMIT),
 
     Loads = [
         {?S_VALIDATOR_LIST_BEFORE,
-            {validator_list_base, [
-                {source, ""},
-                {scope, validator_list_before_scope},
-                {order, validator_list_order},
-                {limit, ValidatorListLimit}
-            ]}},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, validator_list_before_scope},
+                    {order, validator_list_order},
+                    {limit, ValidatorListLimit}
+                ],
+                [text, int8]}},
         {?S_VALIDATOR_LIST,
-            {validator_list_base, [
-                {source, ""},
-                {scope, ""},
-                {order, validator_list_order},
-                {limit, ValidatorListLimit}
-            ]}},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, ""},
+                    {order, validator_list_order},
+                    {limit, ValidatorListLimit}
+                ],
+                []}},
         {?S_OWNER_VALIDATOR_LIST_BEFORE,
-            {validator_list_base, [
-                {source, ""},
-                {scope, owner_validator_list_before_scope},
-                {order, validator_list_order},
-                {limit, ValidatorListLimit}
-            ]}},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, owner_validator_list_before_scope},
+                    {order, validator_list_order},
+                    {limit, ValidatorListLimit}
+                ],
+                [text, text, int8]}},
         {?S_OWNER_VALIDATOR_LIST,
-            {validator_list_base, [
-                {source, ""},
-                {scope, owner_validator_list_scope},
-                {order, validator_list_order},
-                {limit, ValidatorListLimit}
-            ]}},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, owner_validator_list_scope},
+                    {order, validator_list_order},
+                    {limit, ValidatorListLimit}
+                ],
+                [text]}},
         {?S_VALIDATOR_ELECTED_LIST,
-            {validator_elected_list, [
-                {filter, "and block <= $1"},
-                {validator_select,
-                    {validator_list_base, [
-                        {source, ""},
-                        {scope, validator_elected_list_scope},
-                        {order, ""},
-                        {limit, ""}
-                    ]}}
-            ]}},
+            {validator_elected_list,
+                [
+                    {filter, "and block <= $1"},
+                    {validator_select,
+                        {validator_list_base, [
+                            {source, ""},
+                            {scope, validator_elected_list_scope},
+                            {order, ""},
+                            {limit, ""}
+                        ]}}
+                ],
+                [int8]}},
         {?S_VALIDATOR_ELECTION_LIST,
-            {validator_elected_list, [
-                {filter, "and hash = $1"},
-                {validator_select,
-                    {validator_list_base, [
-                        {source, ""},
-                        {scope, validator_elected_list_scope},
-                        {order, ""},
-                        {limit, ""}
-                    ]}}
-            ]}},
+            {validator_elected_list,
+                [
+                    {filter, "and hash = $1"},
+                    {validator_select,
+                        {validator_list_base, [
+                            {source, ""},
+                            {scope, validator_elected_list_scope},
+                            {order, ""},
+                            {limit, ""}
+                        ]}}
+                ],
+                [text]}},
         {?S_VALIDATOR,
-            {validator_list_base, [
-                {source, validator_source},
-                {scope, "where l.address = $1"},
-                {order, ""},
-                {limit, ""}
-            ]}},
+            {validator_list_base,
+                [
+                    {source, validator_source},
+                    {scope, "where l.address = $1"},
+                    {order, ""},
+                    {limit, ""}
+                ],
+                [text]}},
         {?S_VALIDATORS_NAMED,
-            {validator_list_base, [
-                {source, ""},
-                {scope, "where l.name = $1"},
-                {order, ""},
-                {limit, ""}
-            ]}},
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, "where l.name = $1"},
+                    {order, ""},
+                    {limit, ""}
+                ],
+                [text]}},
         {?S_VALIDATOR_NAME_SEARCH,
-            {validator_list_base, [
-                {source, ""},
-                {scope, validator_name_search_scope},
-                {order, ""},
-                {limit, ValidatorListNameSearchLimit}
-            ]}},
-        {?S_VALIDATOR_STATS, {validator_stats, []}},
-        {?S_ACTIVE_VALIDATORS, {validator_active, []}}
+            {validator_list_base,
+                [
+                    {source, ""},
+                    {scope, validator_name_search_scope},
+                    {order, ""},
+                    {limit, ValidatorListNameSearchLimit}
+                ],
+                [text]}},
+        ?S_VALIDATOR_STATS,
+        ?S_ACTIVE_VALIDATORS
     ],
-    bh_db_worker:load_from_eql(Conn, "validators.sql", Loads).
+    bh_db_worker:load_from_eql("validators.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
@@ -139,6 +158,14 @@ handle('GET', [Address, <<"activity">>], Req) ->
 handle('GET', [Address, <<"activity">>, <<"count">>], Req) ->
     Args = ?GET_ARGS([filter_types], Req),
     ?MK_RESPONSE(bh_route_txns:get_activity_count({validator, Address}, Args), block_time);
+handle('GET', [Address, <<"roles">>], Req) ->
+    Args = ?GET_ARGS([cursor, max_time, min_time, limit, filter_types], Req),
+    Result = bh_route_txns:get_role_list({validator, Address}, Args),
+    CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
+    ?MK_RESPONSE(Result, CacheTime);
+handle('GET', [Address, <<"roles">>, <<"count">>], Req) ->
+    Args = ?GET_ARGS([filter_types], Req),
+    ?MK_RESPONSE(bh_route_txns:get_role_count({validator, Address}, Args), block_time);
 handle('GET', [Address, <<"rewards">>], Req) ->
     Args = ?GET_ARGS([cursor, max_time, min_time], Req),
     ?MK_RESPONSE(bh_route_rewards:get_reward_list({validator, Address}, Args), block_time);
@@ -214,6 +241,7 @@ get_validators_named(Name) ->
         _ ->
             {error, not_found}
     end.
+
 get_validator_stats() ->
     bh_cache:get({?MODULE, block_stats}, fun() ->
         {ok, _Columns, Data} = ?PREPARED_QUERY(?S_VALIDATOR_STATS, []),
@@ -232,8 +260,8 @@ get_stats() ->
     %% Inject active validators in the result
     Active =
         case ActiveStats of
-            {ok, []} -> null;
-            {ok, [{_, C}]} -> C
+            {ok, _, []} -> null;
+            {ok, _, [{_, C}]} -> C
         end,
     {ok, Stats#{active => Active}}.
 
@@ -311,7 +339,7 @@ validator_to_json(
         }
     }.
 
-mk_stats_from_validator_results({ok, Results}) ->
+mk_stats_from_validator_results({ok, _, Results}) ->
     %% We do all this to ensure that various status entries are always
     %% present in the resulting map even if they are not in the sql results
     lists:foldl(

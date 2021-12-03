@@ -35,6 +35,7 @@
 -define(SELECT_BLOCK_BASE,
     "select b.height, b.time, b.block_hash, b.prev_hash, b.transaction_count, b.snapshot_hash from blocks b "
 ).
+
 -define(SELECT_BLOCK_HEIGHT_TXN_LIST_BASE, [
     ?SELECT_TXN_BASE,
     "from (select * from transactions where block = $1 order by hash) t "
@@ -45,105 +46,84 @@
     "from (select * from transactions where block = (select height from blocks where block_hash = $1) order by hash) t "
 ]).
 
-prepare_conn(Conn) ->
-    {ok, S1} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HEIGHT,
-        "select max(height) from blocks",
-        []
-    ),
+prepare_conn(_Conn) ->
+    S1 = {"select max(height) from blocks", []},
 
-    {ok, S3} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_LIST_BEFORE,
+    S3 = {
         [
             ?SELECT_BLOCK_BASE,
             "where b.height < $1 order by height DESC limit $2"
         ],
-        []
-    ),
+        [int8, int4]
+    },
 
-    {ok, S4} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_BY_HEIGHT,
+    S4 = {
         [
             ?SELECT_BLOCK_BASE,
             "where b.height = $1"
         ],
-        []
-    ),
+        [int8]
+    },
 
-    {ok, S5} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_BY_HASH,
+    S5 = {
         [
             ?SELECT_BLOCK_BASE,
             "where b.block_hash = $1"
         ],
-        []
-    ),
+        [text]
+    },
 
-    {ok, S6} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HEIGHT_TXN_LIST,
+    S6 = {
         [
             ?SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
             "limit ",
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
-        []
-    ),
+        [int8]
+    },
 
-    {ok, S7} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HEIGHT_TXN_LIST_BEFORE,
+    S7 = {
         [
             ?SELECT_BLOCK_HEIGHT_TXN_LIST_BASE,
             "where t.hash > $2",
             "limit ",
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
-        []
-    ),
+        [int8, text]
+    },
 
-    {ok, S8} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HASH_TXN_LIST,
+    S8 = {
         [
             ?SELECT_BLOCK_HASH_TXN_LIST_BASE,
             "limit ",
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
-        []
-    ),
+        [text]
+    },
 
-    {ok, S9} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HASH_TXN_LIST_BEFORE,
+    S9 = {
         [
             ?SELECT_BLOCK_HASH_TXN_LIST_BASE,
             "where t.hash > $2",
             "limit ",
             integer_to_list(?BLOCK_TXN_LIST_LIMIT)
         ],
-        []
-    ),
+        [text, text]
+    },
 
-    {ok, S10} = epgsql:parse(
-        Conn,
-        ?S_BLOCK_HEIGHT_BY_TIME,
+    S10 = {
         [
             "select height from blocks ",
             "where time < extract(epoch from $1::timestamptz) ",
             "order by height desc ",
             "limit 1"
         ],
-        []
-    ),
+        [timestamptz]
+    },
 
-    M = bh_db_worker:load_from_eql(Conn, "blocks.sql", [
-        ?S_BLOCK_TIMES,
-        ?S_BLOCK_SPAN
+    M = bh_db_worker:load_from_eql("blocks.sql", [
+        {?S_BLOCK_TIMES, {?S_BLOCK_TIMES, [], []}},
+        {?S_BLOCK_SPAN, {?S_BLOCK_SPAN, [], [timestamptz, timestamptz]}}
     ]),
 
     maps:merge(

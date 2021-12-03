@@ -11,6 +11,7 @@ all() ->
         block_for_invalid_height_test,
         block_for_height_txns_test,
         block_for_invalid_height_txns_test,
+        block_for_height_txns_cursor_test,
         block_for_hash_test,
         block_for_hash_txns_test,
         block_for_invalid_hash_txns_test,
@@ -54,6 +55,14 @@ block_for_invalid_height_test(_Config) ->
 
 block_for_height_txns_test(_Config) ->
     {ok, {_, _, Json}} = ?json_request("/v1/blocks/1/transactions"),
+    #{<<"data">> := Txns, <<"cursor">> := _} = Json,
+    ?assertEqual(50, length(Txns)).
+
+block_for_height_txns_cursor_test(_Config) ->
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/blocks/1109085/transactions",
+        "?cursor=eyJoYXNoIjoianhRX3BPakdQSGFoTWk5dzBPNW1oZDJ3WGlGTUp3Q3NsNnhyeDNvYTFHUSJ9"
+    ]),
     #{<<"data">> := Txns, <<"cursor">> := _} = Json,
     ?assertEqual(50, length(Txns)).
 

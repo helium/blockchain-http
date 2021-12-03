@@ -1,6 +1,7 @@
 -module(bh_sup).
 
 -behaviour(supervisor).
+
 -include("bh_db_worker.hrl").
 
 %% API
@@ -78,24 +79,22 @@ init([]) ->
     ElliConfig = [
         {mods, [
             {bh_middleware_throttle, ThrottleConfig},
-            {bh_middleware_cursor, []},
-            {bh_middleware_timespan, []},
+            % {bh_middleware_cursor, []},
             {bh_middleware_cors, []},
             {bh_routes, []}
         ]}
     ],
-    ChildSpecs =
-        [
-            ?WORKER(bh_cache, []),
-            ?WORKER(bh_pool_watcher, [PoolNames]),
-            ?WORKER(elli, [
-                [
-                    {callback, elli_middleware},
-                    {callback_args, ElliConfig},
-                    {port, ListenPort}
-                ]
-            ])
-        ],
+    ChildSpecs = [
+        ?WORKER(bh_cache, []),
+        ?WORKER(bh_pool_watcher, [PoolNames]),
+        ?WORKER(elli, [
+            [
+                {callback, elli_middleware},
+                {callback_args, ElliConfig},
+                {port, ListenPort}
+            ]
+        ])
+    ],
 
     {ok, {SupFlags, ChildSpecs}}.
 

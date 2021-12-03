@@ -18,31 +18,38 @@
 -define(BURN_LIST_BLOCK_ALIGN, 100).
 
 -define(FILTER_TYPES, [
-    <<"add_gateway">>,
-    <<"assert_location">>,
-    <<"state_channel">>,
-    <<"routing">>,
-    <<"fee">>
+    add_gateway,
+    assert_location,
+    state_channel,
+    routing,
+    fee
 ]).
 
 prepare_conn(Conn) ->
+    epgsql:update_type_cache(Conn, [
+        {bh_burn_type, [fee, state_channel, assert_location, add_gateway, oui, routing]}
+    ]),
     BurnListLimit = "limit " ++ integer_to_list(?BURN_LIST_LIMIT),
     Loads = [
         {?S_BURN_LIST_BEFORE,
-            {burn_list_base, [
-                {scope, burn_list_before_scope},
-                {limit, BurnListLimit}
-            ]}},
+            {burn_list_base,
+                [
+                    {scope, burn_list_before_scope},
+                    {limit, BurnListLimit}
+                ],
+                [{array, burn_type}, text, int8]}},
         {?S_BURN_LIST,
-            {burn_list_base, [
-                {scope, burn_list_scope},
-                {limit, BurnListLimit}
-            ]}},
-        ?S_BURN_SUM,
-        ?S_BURN_BUCKETED_SUM,
-        ?S_BURN_STATS
+            {burn_list_base,
+                [
+                    {scope, burn_list_scope},
+                    {limit, BurnListLimit}
+                ],
+                [{array, burn_type}]}},
+        {?S_BURN_SUM, {?S_BURN_SUM, [], [timestamptz, timestamptz]}},
+        {?S_BURN_BUCKETED_SUM, {?S_BURN_BUCKETED_SUM, [], [timestamptz, timestamptz, interval]}},
+        {?S_BURN_STATS, {?S_BURN_STATS, [], [int8, text]}}
     ],
-    bh_db_worker:load_from_eql(Conn, "dc_burns.sql", Loads).
+    bh_db_worker:load_from_eql("dc_burns.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor, filter_types], Req),
@@ -50,25 +57,37 @@ handle('GET', [], Req) ->
     CacheTime = get_burn_list_cache_time(Args),
     ?MK_RESPONSE(Result, CacheTime);
 handle('GET', [<<"stats">>], _Req) ->
-    ?MK_RESPONSE(get_stats(), {block_time, 5});
+    ?MK_RESPONSE(get_stats(), {block_time, 60});
 handle('GET', [<<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time, bucket], Req),
     ?MK_RESPONSE(get_burn_sum(Args), block_time);
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
-get_burn_list([{cursor, undefined}, {filter_types, FilterTypes}]) ->
-    Result = ?PREPARED_QUERY(?S_BURN_LIST, [?FILTER_TYPES_TO_SQL(?FILTER_TYPES, FilterTypes)]),
+get_burn_list([{cursor, undefined}, {filter_types, FilterTypes0}]) ->
+    FilterTypes =
+        case FilterTypes0 of
+            undefined -> ?FILTER_TYPES;
+            _ -> FilterTypes0
+        end,
+    Result = ?PREPARED_QUERY(?S_BURN_LIST, [FilterTypes]),
     mk_burn_list_from_result(FilterTypes, Result);
 get_burn_list([{cursor, Cursor}, {filter_types, _}]) ->
     case ?CURSOR_DECODE(Cursor) of
         {ok, #{
             <<"before_address">> := BeforeAddress,
             <<"before_block">> := BeforeBlock,
-            <<"filter_types">> := FilterTypes
+            <<"filter_types">> := FilterTypes0
         }} ->
+            FilterTypes =
+                case FilterTypes0 of
+                    undefined ->
+                        ?FILTER_TYPES;
+                    _ ->
+                        FilterTypes0
+                end,
             Result = ?PREPARED_QUERY(?S_BURN_LIST_BEFORE, [
-                ?FILTER_TYPES_TO_SQL(?FILTER_TYPES, FilterTypes),
+                FilterTypes,
                 BeforeAddress,
                 BeforeBlock
             ]),
@@ -112,8 +131,22 @@ get_burn_stats() ->
     bh_cache:get(
         {?MODULE, burn_stats},
         fun() ->
-            {ok, _, Data} = ?PREPARED_QUERY(?S_BURN_STATS, []),
-            Data
+            {ok, {_, {_, MonthMinBlock}}} = bh_route_blocks:get_block_span(
+                undefined, <<"-30 day">>
+            ),
+            {ok, {_, {_, WeekMinBlock}}} = bh_route_blocks:get_block_span(
+                undefined, <<"-1 week">>
+            ),
+            {ok, {_, {_, DayMinBlock}}} = bh_route_blocks:get_block_span(
+                undefined, <<"-1 day">>
+            ),
+            [{ok, _, MonthStats}, {ok, _, WeekStats}, {ok, _, DayStats}] =
+                ?EXECUTE_BATCH([
+                    {?S_BURN_STATS, [MonthMinBlock, <<"last_month">>]},
+                    {?S_BURN_STATS, [WeekMinBlock, <<"last_week">>]},
+                    {?S_BURN_STATS, [DayMinBlock, <<"last_day">>]}
+                ]),
+            lists:flatten([MonthStats, WeekStats, DayStats])
         end
     ).
 

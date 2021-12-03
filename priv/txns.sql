@@ -65,8 +65,35 @@ from (
     limit $5
     ) as t
 
+-- :txn_actor_role_list_source
+from (
+    select a.block, tr.time, a.transaction_hash as hash, tr.type, a.actor, a.actor_role as role
+    from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash
+    where a.block >= $3 and a.block < $4
+    :actor_scope
+    and tr.type = ANY($2)
+    order by a.block desc, a.transaction_hash
+    limit $5
+    ) as t
+
+-- :txn_actor_role_list_rem_source
+from (
+    select a.block, tr.time, a.transaction_hash as hash, tr.type, a.actor, a.actor_role as role 
+    from transaction_actors a inner join transactions tr on a.transaction_hash = tr.hash
+    where a.block = $3
+    :actor_scope
+    and tr.type = ANY($2)
+    and tr.hash > $4
+    order by a.transaction_hash
+    limit $5
+    ) as t
+
+
 -- :txn_activity_list_fields
 txn_filter_actor_activity(t.actor, t.type, t.fields) as fields
+
+-- :txn_role_list_fields
+t.role as fields
 
 -- :txn_actor_scope
 and a.actor = $1

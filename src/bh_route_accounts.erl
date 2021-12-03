@@ -18,62 +18,73 @@
 -define(ACCOUNT_LIST_LIMIT, 100).
 -define(ACCOUNT_RICH_LIST_LIMIT, 100).
 
-prepare_conn(Conn) ->
+prepare_conn(_Conn) ->
     AccountListLimit = "limit " ++ integer_to_list(?ACCOUNT_LIST_LIMIT),
     Loads = [
         {?S_ACCOUNT_LIST_BEFORE,
-            {account_list_base, [
-                {with, ""},
-                {height, account_list_height},
-                {extend, account_list_extend},
-                {source, account_inventory_source},
-                {scope, account_list_before_scope},
-                {order, account_list_order},
-                {limit, AccountListLimit}
-            ]}},
+            {account_list_base,
+                [
+                    {with, ""},
+                    {height, account_list_height},
+                    {extend, account_list_extend},
+                    {source, account_inventory_source},
+                    {scope, account_list_before_scope},
+                    {order, account_list_order},
+                    {limit, AccountListLimit}
+                ],
+                [text, int8, int8]}},
         {?S_ACCOUNT_LIST,
-            {account_list_base, [
-                {with, ""},
-                {height, account_list_height},
-                {extend, account_list_extend},
-                {source, account_inventory_source},
-                {scope, ""},
-                {order, account_list_order},
-                {limit, AccountListLimit}
-            ]}},
+            {account_list_base,
+                [
+                    {with, ""},
+                    {height, account_list_height},
+                    {extend, account_list_extend},
+                    {source, account_inventory_source},
+                    {scope, ""},
+                    {order, account_list_order},
+                    {limit, AccountListLimit}
+                ],
+                []}},
         {?S_ACCOUNT,
-            {account_list_base, [
-                {with, ""},
-                {height, account_list_height},
-                {extend, account_speculative_extend},
-                {source, account_inventory_source},
-                {scope, account_scope},
-                {order, ""},
-                {limit, ""}
-            ]}},
+            {account_list_base,
+                [
+                    {with, ""},
+                    {height, account_list_height},
+                    {extend, account_speculative_extend},
+                    {source, account_inventory_source},
+                    {scope, account_scope},
+                    {order, ""},
+                    {limit, ""}
+                ],
+                [text]}},
         {?S_ACCOUNT_AT_BLOCK,
-            {account_list_base, [
-                {with, account_at_block_with},
-                {height, "l.block as height"},
-                {extend, account_at_block_extend},
-                {source, account_at_block_source},
-                {scope, ""},
-                {order, "order by block desc"},
-                {limit, "limit 1"}
-            ]}},
-        ?S_ACCOUNT_BALANCE_SERIES,
+            {account_list_base,
+                [
+                    {with, account_at_block_with},
+                    {height, "l.block as height"},
+                    {extend, account_at_block_extend},
+                    {source, account_at_block_source},
+                    {scope, ""},
+                    {order, "order by block desc"},
+                    {limit, "limit 1"}
+                ],
+                [text, int8]}},
+        {?S_ACCOUNT_BALANCE_SERIES,
+            {?S_ACCOUNT_BALANCE_SERIES, [], [text, timestamptz, interval, text, interval]}},
         {?S_ACCOUNT_RICH_LIST,
-            {account_list_base, [
-                {with, ""},
-                {height, account_list_height},
-                {extend, account_list_extend},
-                {source, account_inventory_source},
-                {scope, ""},
-                {order, "order by (l.balance + coalesce(l.staked_balance, 0)) desc"},
-                {limit, "limit $1"}
-            ]}}
+            {account_list_base,
+                [
+                    {with, ""},
+                    {height, account_list_height},
+                    {extend, account_list_extend},
+                    {source, account_inventory_source},
+                    {scope, ""},
+                    {order, "order by (l.balance + coalesce(l.staked_balance, 0)) desc"},
+                    {limit, "limit $1"}
+                ],
+                [int4]}}
     ],
-    bh_db_worker:load_from_eql(Conn, "accounts.sql", Loads).
+    bh_db_worker:load_from_eql("accounts.sql", Loads).
 
 handle('GET', [], Req) ->
     Args = ?GET_ARGS([cursor], Req),
@@ -110,6 +121,14 @@ handle('GET', [Account, <<"activity">>], Req) ->
 handle('GET', [Account, <<"activity">>, <<"count">>], Req) ->
     Args = ?GET_ARGS([filter_types], Req),
     ?MK_RESPONSE(bh_route_txns:get_activity_count({account, Account}, Args), block_time);
+handle('GET', [Account, <<"roles">>], Req) ->
+    Args = ?GET_ARGS([cursor, max_time, min_time, limit, filter_types], Req),
+    Result = bh_route_txns:get_role_list({account, Account}, Args),
+    CacheTime = bh_route_txns:get_txn_list_cache_time(Result),
+    ?MK_RESPONSE(Result, CacheTime);
+handle('GET', [Account, <<"roles">>, <<"count">>], Req) ->
+    Args = ?GET_ARGS([filter_types], Req),
+    ?MK_RESPONSE(bh_route_txns:get_role_count({account, Account}, Args), block_time);
 handle('GET', [Account, <<"elections">>], Req) ->
     Args = ?GET_ARGS([cursor, max_time, min_time, limit], Req),
     ?MK_RESPONSE(
@@ -249,7 +268,7 @@ get_stats(Account) ->
         last_month => mk_balance_stats(BalanceMonthlyResults)
     }}.
 
-mk_balance_stats({ok, Results}) ->
+mk_balance_stats({ok, _Columns, Results}) ->
     lists:map(
         fun({Timestamp, Value}) ->
             #{

@@ -15,6 +15,8 @@
     get_actor_txn_list/2,
     get_activity_count/2,
     get_activity_list/2,
+    get_role_list/2,
+    get_role_count/2,
     txn_to_json/1,
     txn_list_to_json/1
 ]).
@@ -29,12 +31,18 @@
 -define(S_ACCOUNT_ACTIVITY_COUNT, "account_activity_count").
 -define(S_ACCOUNT_ACTIVITY_LIST, "account_activity_list").
 -define(S_ACCOUNT_ACTIVITY_LIST_REM, "account_activity_list_rem").
+-define(S_ACCOUNT_ROLE_LIST, "account_role_list").
+-define(S_ACCOUNT_ROLE_LIST_REM, "account_role_list_rem").
 -define(S_HOTSPOT_ACTIVITY_COUNT, "hotspot_activity_count").
 -define(S_HOTSPOT_ACTIVITY_LIST, "hotspot_activity_list").
 -define(S_HOTSPOT_ACTIVITY_LIST_REM, "hotspot_activity_list_rem").
+-define(S_HOTSPOT_ROLE_LIST, "hotspot_role_list").
+-define(S_HOTSPOT_ROLE_LIST_REM, "hotspot_role_list_rem").
 -define(S_VALIDATOR_ACTIVITY_COUNT, "validator_activity_count").
 -define(S_VALIDATOR_ACTIVITY_LIST, "validator_activity_list").
 -define(S_VALIDATOR_ACTIVITY_LIST_REM, "validator_activity_list_rem").
+-define(S_VALIDATOR_ROLE_LIST, "validator_role_list").
+-define(S_VALIDATOR_ROLE_LIST_REM, "validator_role_list_rem").
 -define(S_HOTSPOT_MIN_BLOCK, "hotspot_activity_min_block").
 -define(S_ACCOUNT_MIN_BLOCK, "account_activity_min_block").
 -define(S_ORACLE_MIN_BLOCK, "oracle_activity_min_block").
@@ -42,7 +50,7 @@
 -define(S_GENESIS_MIN_BLOCK, "txn_genesis_min_block").
 -define(S_LOC, "txn_location").
 
--define(FILTER_TYPES, [
+-define(TXN_TYPES, [
     <<"coinbase_v1">>,
     <<"security_coinbase_v1">>,
     <<"oui_v1">>,
@@ -78,146 +86,271 @@
 ]).
 
 prepare_conn(Conn) ->
+    epgsql:update_type_cache(Conn, [
+        {bh_transaction_type, [binary_to_atom(N, latin1) || N <- ?TXN_TYPES]}
+    ]),
+
     Loads = [
         {?S_TXN,
-            {txn_list_base, [
-                {source, txn_list_source},
-                {fields, txn_list_fields},
-                {scope, txn_get_scope},
-                {order, ""},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source, txn_list_source},
+                    {fields, txn_list_fields},
+                    {scope, txn_get_scope},
+                    {order, ""},
+                    {limit, ""}
+                ],
+                [text]}},
         {?S_TXN_LIST,
-            {txn_list_base, [
-                {source, txn_list_source},
-                {fields, txn_list_fields},
-                {scope, txn_list_scope},
-                {order, txn_list_order},
-                {limit, {txn_list_limit, []}}
-            ]}},
+            {txn_list_base,
+                [
+                    {source, txn_list_source},
+                    {fields, txn_list_fields},
+                    {scope, txn_list_scope},
+                    {order, txn_list_order},
+                    {limit, {txn_list_limit, []}}
+                ],
+                [{array, transaction_type}, int8, int8, int4]}},
         {?S_TXN_LIST_REM,
-            {txn_list_base, [
-                {source, txn_list_rem_source},
-                {fields, txn_list_fields},
-                {scope, txn_list_rem_scope},
-                {order, txn_list_order},
-                {limit, {txn_list_limit, []}}
-            ]}},
+            {txn_list_base,
+                [
+                    {source, txn_list_rem_source},
+                    {fields, txn_list_fields},
+                    {scope, txn_list_rem_scope},
+                    {order, txn_list_order},
+                    {limit, {txn_list_limit, []}}
+                ],
+                [{array, transaction_type}, int8, text, int4]}},
         {?S_ACTOR_TXN_LIST,
-            {txn_list_base, [
-                {source, {txn_actor_list_source, [{actor_scope, txn_actor_scope}]}},
-                {fields, txn_list_fields},
-                {scope, ""},
-                {order, txn_list_order},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source, {txn_actor_list_source, [{actor_scope, txn_actor_scope}]}},
+                    {fields, txn_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
         {?S_ACTOR_TXN_LIST_REM,
-            {txn_list_base, [
-                {source, {txn_actor_list_rem_source, [{actor_scope, txn_actor_scope}]}},
-                {fields, txn_list_fields},
-                {scope, ""},
-                {order, txn_list_order},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source, {txn_actor_list_rem_source, [{actor_scope, txn_actor_scope}]}},
+                    {fields, txn_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
 
         {?S_ACCOUNT_HOTSPOTS_TXN_LIST,
-            {txn_list_base, [
-                {source, {txn_actor_list_source, [{actor_scope, txn_owned_hotspot_actor_scope}]}},
-                {fields, txn_list_fields},
-                {scope, ""},
-                {order, txn_list_order},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_list_source, [{actor_scope, txn_owned_hotspot_actor_scope}]}},
+                    {fields, txn_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
         {?S_ACCOUNT_HOTSPOTS_TXN_LIST_REM,
-            {txn_list_base, [
-                {source,
-                    {txn_actor_list_rem_source, [{actor_scope, txn_owned_hotspot_actor_scope}]}},
-                {fields, txn_list_fields},
-                {scope, ""},
-                {order, txn_list_order},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_list_rem_source, [{actor_scope, txn_owned_hotspot_actor_scope}]}},
+                    {fields, txn_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
 
         {?S_ACCOUNT_ACTIVITY_LIST,
-            {txn_list_base, [
-                {source,
-                    {txn_actor_list_source, [{actor_scope, txn_account_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
-                {scope, ""},
-                {order, txn_list_order},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_list_source, [{actor_scope, txn_account_activity_actor_scope}]}},
+                    {fields, txn_activity_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
         {?S_ACCOUNT_ACTIVITY_LIST_REM,
-            {txn_list_base, [
-                {source,
-                    {txn_actor_list_rem_source, [{actor_scope, txn_account_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
-                {scope, ""},
-                {order, txn_list_order},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_list_rem_source, [
+                            {actor_scope, txn_account_activity_actor_scope}
+                        ]}},
+                    {fields, txn_activity_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
 
         {?S_HOTSPOT_ACTIVITY_LIST,
-            {txn_list_base, [
-                {source,
-                    {txn_actor_list_source, [{actor_scope, txn_hotspot_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
-                {scope, ""},
-                {order, txn_list_order},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_list_source, [{actor_scope, txn_hotspot_activity_actor_scope}]}},
+                    {fields, txn_activity_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
         {?S_HOTSPOT_ACTIVITY_LIST_REM,
-            {txn_list_base, [
-                {source,
-                    {txn_actor_list_rem_source, [{actor_scope, txn_hotspot_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
-                {scope, ""},
-                {order, txn_list_order},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_list_rem_source, [
+                            {actor_scope, txn_hotspot_activity_actor_scope}
+                        ]}},
+                    {fields, txn_activity_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
 
         {?S_VALIDATOR_ACTIVITY_LIST,
-            {txn_list_base, [
-                {source,
-                    {txn_actor_list_source, [{actor_scope, txn_validator_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
-                {scope, ""},
-                {order, txn_list_order},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_list_source, [{actor_scope, txn_validator_activity_actor_scope}]}},
+                    {fields, txn_activity_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
         {?S_VALIDATOR_ACTIVITY_LIST_REM,
-            {txn_list_base, [
-                {source,
-                    {txn_actor_list_rem_source, [{actor_scope, txn_validator_activity_actor_scope}]}},
-                {fields, txn_activity_list_fields},
-                {scope, ""},
-                {order, txn_list_order},
-                {limit, ""}
-            ]}},
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_list_rem_source, [
+                            {actor_scope, txn_validator_activity_actor_scope}
+                        ]}},
+                    {fields, txn_activity_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
 
-        {?S_LOC, {txn_location, []}},
+        {?S_ACCOUNT_ROLE_LIST,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_source, [
+                            {actor_scope, txn_account_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
+        {?S_ACCOUNT_ROLE_LIST_REM,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_rem_source, [
+                            {actor_scope, txn_account_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
+
+        {?S_HOTSPOT_ROLE_LIST,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_source, [
+                            {actor_scope, txn_hotspot_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
+        {?S_HOTSPOT_ROLE_LIST_REM,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_rem_source, [
+                            {actor_scope, txn_hotspot_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
+
+        {?S_VALIDATOR_ROLE_LIST,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_source, [
+                            {actor_scope, txn_validator_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, int8, int8]}},
+        {?S_VALIDATOR_ROLE_LIST_REM,
+            {txn_list_base,
+                [
+                    {source,
+                        {txn_actor_role_list_rem_source, [
+                            {actor_scope, txn_validator_activity_actor_scope}
+                        ]}},
+                    {fields, txn_role_list_fields},
+                    {scope, ""},
+                    {order, txn_list_order},
+                    {limit, ""}
+                ],
+                [text, {array, transaction_type}, int8, text, int8]}},
+
+        {?S_LOC, {?S_LOC, [], [text]}},
 
         {?S_ACCOUNT_ACTIVITY_COUNT,
-            {txn_actor_count_base, [
-                {actor_scope, txn_account_activity_actor_scope}
-            ]}},
+            {txn_actor_count_base,
+                [
+                    {actor_scope, txn_account_activity_actor_scope}
+                ],
+                [text, {array, transaction_type}]}},
         {?S_HOTSPOT_ACTIVITY_COUNT,
-            {txn_actor_count_base, [
-                {actor_scope, txn_hotspot_activity_actor_scope}
-            ]}},
+            {txn_actor_count_base,
+                [
+                    {actor_scope, txn_hotspot_activity_actor_scope}
+                ],
+                [text, {array, transaction_type}]}},
         {?S_VALIDATOR_ACTIVITY_COUNT,
-            {txn_actor_count_base, [
-                {actor_scope, txn_validator_activity_actor_scope}
-            ]}},
+            {txn_actor_count_base,
+                [
+                    {actor_scope, txn_validator_activity_actor_scope}
+                ],
+                [text, {array, transaction_type}]}},
 
-        {?S_HOTSPOT_MIN_BLOCK, {txn_hotspot_activity_min_block, []}},
-        {?S_ACCOUNT_MIN_BLOCK, {txn_account_activity_min_block, []}},
-        {?S_ORACLE_MIN_BLOCK, {txn_oracle_activity_min_block, []}},
-        {?S_VALIDATOR_MIN_BLOCK, {txn_validator_activity_min_block, []}},
-        {?S_GENESIS_MIN_BLOCK, {txn_genesis_min_block, []}}
+        {?S_HOTSPOT_MIN_BLOCK, {txn_hotspot_activity_min_block, [], [text]}},
+        {?S_ACCOUNT_MIN_BLOCK, {txn_account_activity_min_block, [], [text]}},
+        {?S_ORACLE_MIN_BLOCK, {txn_oracle_activity_min_block, [], [text]}},
+        {?S_VALIDATOR_MIN_BLOCK, {txn_validator_activity_min_block, [], [text]}},
+
+        ?S_GENESIS_MIN_BLOCK
     ],
 
-    bh_db_worker:load_from_eql(Conn, "txns.sql", Loads).
+    bh_db_worker:load_from_eql("txns.sql", Loads).
 
 handle('GET', [TxnHash], _Req) ->
     ?MK_RESPONSE(get_txn(TxnHash), infinity);
@@ -276,6 +409,28 @@ get_activity_count({hotspot, Address}, Args) ->
 get_activity_count({validator, Address}, Args) ->
     get_txn_count([Address], ?S_VALIDATOR_ACTIVITY_COUNT, Args).
 
+get_role_count(Type, Args) ->
+    get_activity_count(Type, Args).
+
+get_role_list({account, Account}, Args) ->
+    get_txn_list(
+        [Account],
+        {?S_ACCOUNT_MIN_BLOCK, ?S_ACCOUNT_ROLE_LIST, ?S_ACCOUNT_ROLE_LIST_REM},
+        Args
+    );
+get_role_list({hotspot, Address}, Args) ->
+    get_txn_list(
+        [Address],
+        {?S_HOTSPOT_MIN_BLOCK, ?S_HOTSPOT_ROLE_LIST, ?S_HOTSPOT_ROLE_LIST_REM},
+        Args
+    );
+get_role_list({validator, Address}, Args) ->
+    get_txn_list(
+        [Address],
+        {?S_VALIDATOR_MIN_BLOCK, ?S_VALIDATOR_ROLE_LIST, ?S_VALIDATOR_ROLE_LIST_REM},
+        Args
+    ).
+
 -define(TXN_LIST_BLOCK_ALIGN, 100).
 -define(TXN_LIST_MAX_STEP, 10000).
 
@@ -289,7 +444,7 @@ get_activity_count({validator, Address}, Args) ->
     remaining = undefined :: undefined | pos_integer(),
     step = 100 :: pos_integer(),
     args :: list(term()),
-    types :: iolist(),
+    types :: [binary()],
     results = [] :: list(term())
 }).
 
@@ -349,8 +504,9 @@ calc_query_limit(State = #state{limit = Limit, results = Results}) ->
     end.
 
 execute_query(Query, State) ->
+    FilterTypes = State#state.types,
     AddedArgs = [
-        ?FILTER_TYPES_TO_SQL(?FILTER_TYPES, State#state.types),
+        FilterTypes,
         State#state.low_block,
         State#state.high_block,
         calc_query_limit(State)
@@ -361,8 +517,9 @@ execute_query(Query, State) ->
 execute_rem_query(_Query, _HighBlock, undefined, State) ->
     State;
 execute_rem_query(Query, HighBlock, TxnHash, State) ->
+    FilterTypes = State#state.types,
     AddedArgs = [
-        ?FILTER_TYPES_TO_SQL(?FILTER_TYPES, State#state.types),
+        FilterTypes,
         HighBlock,
         TxnHash,
         calc_query_limit(State)
@@ -384,6 +541,8 @@ get_txn_list(Args, Queries, RequestArgs) ->
 calc_block_span(MaxTime0, MinTime0, MinQuery, MinQueryArgs) ->
     %% Parse timespan
     case bh_route_blocks:get_block_span(MaxTime0, MinTime0) of
+        {ok, {{_MaxTime, _MinTime}, {MaxBlock, MinBlock}}} when MinBlock == MaxBlock ->
+            {error, badarg};
         {ok, {{MaxTime, MinTime}, {MaxBlock, MinBlock}}} ->
             %% Now compare against minimum calculated by the given query. Some
             %% actors have a known minimum block so asking for a lower block makes
@@ -408,7 +567,7 @@ get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [
     {max_time, MaxTime0},
     {min_time, MinTime0},
     {limit, Remaining0},
-    {filter_types, Types}
+    {filter_types, Types0}
 ]) ->
     Remaining =
         case Remaining0 of
@@ -419,6 +578,7 @@ get_txn_list(Args, Limit, {MinQuery, Query, _RemQuery}, [
         {ok, {{_MaxTime, _MinTime}, {MaxBlock, MinBlock}}} ->
             %% High block is exclusive so start past the tip
             HighBlock = MaxBlock + 1,
+            Types = ?FILTER_TYPES_TO_LIST(?TXN_TYPES, Types0),
             State = #state{
                 high_block = HighBlock,
                 %% Aim for block alignment
@@ -448,10 +608,12 @@ get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
                 <<"min_block">> := MinBlock,
                 <<"max_block">> := MaxBlock
             }} ->
+            Types =
+                ?FILTER_TYPES_TO_LIST(?TXN_TYPES, maps:get(<<"types">>, C, undefined)),
             State0 = #state{
                 high_block = HighBlock,
                 anchor_block = maps:get(<<"anchor_block">>, C, undefined),
-                types = maps:get(<<"types">>, C, undefined),
+                types = Types,
                 min_block = MinBlock,
                 max_block = MaxBlock,
                 low_block = calc_low_block(HighBlock, MinBlock),
@@ -473,9 +635,10 @@ get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
             {error, badarg}
     end.
 
-get_txn_count(Args, Query, [{filter_types, Types}]) ->
-    {ok, _, Results} = ?PREPARED_QUERY(Query, Args ++ [?FILTER_TYPES_TO_SQL(?FILTER_TYPES, Types)]),
-    InitCounts = [{K, 0} || K <- ?FILTER_TYPES_TO_LIST(?FILTER_TYPES, Types)],
+get_txn_count(Args, Query, [{filter_types, Types0}]) ->
+    Types = ?FILTER_TYPES_TO_LIST(?TXN_TYPES, Types0),
+    {ok, _, Results} = ?PREPARED_QUERY(Query, Args ++ [Types]),
+    InitCounts = [{K, 0} || K <- ?FILTER_TYPES_TO_LIST(?TXN_TYPES, Types)],
     {ok,
         lists:foldl(
             fun({Key, Count}, Acc) ->
@@ -557,19 +720,21 @@ get_txn_list_cache_time(_) ->
 txn_list_to_json(Results) ->
     lists:map(fun txn_to_json/1, Results).
 
-txn_to_json({Height, Time, Hash, Type, Fields}) ->
-    Json = txn_to_json({Type, Fields}),
-    Json#{
+txn_to_json({Height, Time, Hash, Type}) ->
+    #{
         <<"type">> => Type,
         <<"hash">> => Hash,
         <<"height">> => Height,
         <<"time">> => Time
     };
-txn_to_json({<<"poc_request_v1">>, #{<<"location">> := Location} = Fields}) ->
+txn_to_json({Height, Time, Hash, Type, Role}) when is_binary(Role) ->
+    maps:merge(txn_to_json({Height, Time, Hash, Type}), #{<<"role">> => Role});
+txn_to_json({Height, Time, Hash, Type, Fields}) when is_map(Fields) ->
+    maps:merge(txn_to_json({Height, Time, Hash, Type}), txn_to_json({Type, Fields}));
+txn_to_json({poc_request_v1, #{<<"location">> := Location} = Fields}) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json(
-    {<<"poc_receipts_v1">>,
-        #{<<"challenger_location">> := ChallengerLoc, <<"path">> := Path} = Fields}
+    {poc_receipts_v1, #{<<"challenger_location">> := ChallengerLoc, <<"path">> := Path} = Fields}
 ) ->
     %% update witnesses to include location_hex at res8
     WitnessLocationHex = fun(PathElem) ->
@@ -621,30 +786,30 @@ txn_to_json(
     ?INSERT_LAT_LON(ChallengerLoc, {<<"challenger_lat">>, <<"challenger_lon">>}, Fields#{
         <<"path">> => NewPath
     });
-txn_to_json({<<"gen_gateway_v1">>, Fields}) ->
+txn_to_json({gen_gateway_v1, Fields}) ->
     txn_to_json({<<"add_gateway_v1">>, Fields});
-txn_to_json({<<"add_gateway_v1">>, Fields}) ->
+txn_to_json({add_gateway_v1, Fields}) ->
     Fields#{
         <<"payer">> => maps:get(<<"payer">>, Fields, undefined),
         <<"fee">> => maps:get(<<"fee">>, Fields, 0),
         <<"staking_fee">> => maps:get(<<"staking_fee">>, Fields, 1)
     };
 txn_to_json(
-    {<<"assert_location_v1">>,
+    {assert_location_v1,
         #{
             <<"location">> := Location
         } = Fields}
 ) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json(
-    {<<"assert_location_v2">>,
+    {assert_location_v2,
         #{
             <<"location">> := Location
         } = Fields}
 ) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json(
-    {<<"token_burn_v1">>,
+    {token_burn_v1,
         #{
             <<"memo">> := Memo
         } = Fields}
