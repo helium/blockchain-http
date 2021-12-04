@@ -45,6 +45,7 @@
 ]).
 
 prepare_conn(Conn) ->
+    bh_route_txns:update_type_cache(Conn),
     epgsql:update_type_cache(Conn, [
         {bh_pending_transaction_nonce_type, [balance, security, none, gateway]}
     ]),
@@ -84,7 +85,7 @@ prepare_conn(Conn) ->
             int8,
             pending_transaction_nonce_type,
             pending_transaction_status,
-            text
+            bytea
         ]
     },
 
@@ -387,21 +388,21 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
     }
 ).
 
-?TXN_TYPE(blockchain_txn_oui_v1_pb, <<"oui_v1">>);
-?TXN_TYPE(blockchain_txn_routing_v1_pb, <<"routing_v1">>);
-?TXN_TYPE(blockchain_txn_vars_v1_pb, <<"vars_v1">>);
-?TXN_TYPE(blockchain_txn_add_gateway_v1_pb, <<"add_gateway_v1">>);
-?TXN_TYPE(blockchain_txn_assert_location_v1_pb, <<"assert_location_v1">>);
-?TXN_TYPE(blockchain_txn_assert_location_v2_pb, <<"assert_location_v2">>);
-?TXN_TYPE(blockchain_txn_payment_v1_pb, <<"payment_v1">>);
-?TXN_TYPE(blockchain_txn_payment_v2_pb, <<"payment_v2">>);
-?TXN_TYPE(blockchain_txn_create_htlc_v1_pb, <<"create_htlc_v1">>);
-?TXN_TYPE(blockchain_txn_redeem_htlc_v1_pb, <<"redeem_htlc_v1">>);
-?TXN_TYPE(blockchain_txn_price_oracle_v1_pb, <<"price_oracle_v1">>);
-?TXN_TYPE(blockchain_txn_token_burn_v1_pb, <<"token_burn_v1">>);
-?TXN_TYPE(blockchain_txn_transfer_hotspot_v1_pb, <<"transfer_hotspot_v1">>);
-?TXN_TYPE(blockchain_txn_transfer_hotspot_v2_pb, <<"transfer_hotspot_v2">>);
-?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, <<"security_exchange_v1">>);
-?TXN_TYPE(blockchain_txn_stake_validator_v1_pb, <<"stake_validator_v1">>);
-?TXN_TYPE(blockchain_txn_unstake_validator_v1_pb, <<"unstake_validator_v1">>);
-?TXN_TYPE(blockchain_txn_transfer_validator_stake_v1_pb, <<"transfer_validator_stake_v1">>).
+?TXN_TYPE(blockchain_txn_oui_v1_pb, oui_v1);
+?TXN_TYPE(blockchain_txn_routing_v1_pb, routing_v1);
+?TXN_TYPE(blockchain_txn_vars_v1_pb, vars_v1);
+?TXN_TYPE(blockchain_txn_add_gateway_v1_pb, add_gateway_v1);
+?TXN_TYPE(blockchain_txn_assert_location_v1_pb, assert_location_v1);
+?TXN_TYPE(blockchain_txn_assert_location_v2_pb, assert_location_v2);
+?TXN_TYPE(blockchain_txn_payment_v1_pb, payment_v1);
+?TXN_TYPE(blockchain_txn_payment_v2_pb, payment_v2);
+?TXN_TYPE(blockchain_txn_create_htlc_v1_pb, create_htlc_v1);
+?TXN_TYPE(blockchain_txn_redeem_htlc_v1_pb, redeem_htlc_v1);
+?TXN_TYPE(blockchain_txn_price_oracle_v1_pb, price_oracle_v1);
+?TXN_TYPE(blockchain_txn_token_burn_v1_pb, token_burn_v1);
+?TXN_TYPE(blockchain_txn_transfer_hotspot_v1_pb, transfer_hotspot_v1);
+?TXN_TYPE(blockchain_txn_transfer_hotspot_v2_pb, transfer_hotspot_v2);
+?TXN_TYPE(blockchain_txn_security_exchange_v1_pb, security_exchange_v1);
+?TXN_TYPE(blockchain_txn_stake_validator_v1_pb, stake_validator_v1);
+?TXN_TYPE(blockchain_txn_unstake_validator_v1_pb, unstake_validator_v1);
+?TXN_TYPE(blockchain_txn_transfer_validator_stake_v1_pb, transfer_validator_stake_v1).

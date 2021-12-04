@@ -5,7 +5,7 @@
 
 -include("bh_route_handler.hrl").
 
--export([prepare_conn/1, handle/3]).
+-export([prepare_conn/1, handle/3, update_type_cache/1]).
 %% Utilities
 -export([
     get_txn/1,
@@ -85,11 +85,13 @@
     <<"consensus_group_failure_v1">>
 ]).
 
-prepare_conn(Conn) ->
+update_type_cache(Conn) ->
     epgsql:update_type_cache(Conn, [
         {bh_transaction_type, [binary_to_atom(N, latin1) || N <- ?TXN_TYPES]}
-    ]),
+    ]).
 
+prepare_conn(Conn) ->
+    update_type_cache(Conn),
     Loads = [
         {?S_TXN,
             {txn_list_base,
