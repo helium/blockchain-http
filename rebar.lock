@@ -24,7 +24,7 @@
  {<<"h3">>,{pkg,<<"h3">>,<<"3.6.4">>},0},
  {<<"helium_proto">>,
   {git,"https://github.com/helium/proto.git",
-       {ref,"19759a4a0eff0db8f846651c987f16268203ba4e"}},
+       {ref,"46a3ba932a661156ecab383cb0c49133b262ff86"}},
   0},
  {<<"iso8601">>,{pkg,<<"iso8601">>,<<"1.3.3">>},0},
  {<<"jiffy">>,{pkg,<<"jiffy">>,<<"1.0.8">>},0},

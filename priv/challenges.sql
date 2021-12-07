@@ -12,7 +12,7 @@ block_last_day_range as (
 last_day_challenges as (
     select hash from transactions
     where block between (select min from block_last_day_range) and (select max from block_last_day_range)
-          and type = 'poc_receipts_v1'
+          and type in ('poc_receipts_v1', 'poc_receipts_v2')
 )
 select * from
     (select 0) as active,

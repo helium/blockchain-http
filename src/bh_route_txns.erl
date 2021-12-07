@@ -69,6 +69,7 @@
     <<"redeem_htlc_v1">>,
     <<"poc_request_v1">>,
     <<"poc_receipts_v1">>,
+    <<"poc_receipts_v2">>,
     <<"vars_v1">>,
     <<"rewards_v1">>,
     <<"rewards_v2">>,
@@ -79,6 +80,7 @@
     <<"price_oracle_v1">>,
     <<"transfer_hotspot_v1">>,
     <<"transfer_hotspot_v2">>,
+    <<"gen_validator_v1">>,
     <<"stake_validator_v1">>,
     <<"unstake_validator_v1">>,
     <<"transfer_validator_stake_v1">>,
@@ -759,8 +761,8 @@ txn_to_json({Height, Time, Hash, Type, Fields}) when is_map(Fields) ->
 txn_to_json({poc_request_v1, #{<<"location">> := Location} = Fields}) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json(
-    {poc_receipts_v1, #{<<"challenger_location">> := ChallengerLoc, <<"path">> := Path} = Fields}
-) ->
+    {Type, #{<<"challenger_location">> := ChallengerLoc, <<"path">> := Path} = Fields}
+) when Type == poc_receipts_v1 orelse Type == poc_receipts_v2 ->
     %% update witnesses to include location_hex at res8
     WitnessLocationHex = fun(PathElem) ->
         maps:update_with(
