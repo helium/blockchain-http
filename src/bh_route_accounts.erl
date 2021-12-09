@@ -32,7 +32,7 @@ prepare_conn(_Conn) ->
                     {order, account_list_order},
                     {limit, AccountListLimit}
                 ],
-                [text, int8, int8]}},
+                [text, int8]}},
         {?S_ACCOUNT_LIST,
             {account_list_base,
                 [
