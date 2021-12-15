@@ -37,7 +37,7 @@ postprocess(_Req, Res, _Args) ->
 handle_event(request_complete, [Req, Code, _Hs, _B, {Timings, _Sizes}], Args) ->
     RequestStart = proplists:get_value(request_start, Timings),
     RequestEnd = proplists:get_value(request_end, Timings),
-    GraceTime = maps:get(grace_time, Args, 0),
+    GraceTime = persistent_term:get(throttle_grace_time),
     Duration = max(1, ((RequestEnd - RequestStart) div 1000000) - GraceTime),
     Actor = get_actor(Req),
     throttle:update(request_time, Actor, Duration),
@@ -54,18 +54,30 @@ handle_event(request_complete, [Req, Code, _Hs, _B, {Timings, _Sizes}], Args) ->
             ok
     end,
     ok;
-handle_event(elli_startup, _Args, #{request_time := MS, request_interval := Interval, request_count := Count}) ->
+handle_event(elli_startup, _Args, Config = #{
+    request_time := MS,
+    request_interval := Interval,
+    request_count := Count
+}) ->
     throttle:setup(request_time, MS, Interval),
-    throttle:setup(request_count, Count, Interval);
+    throttle:setup(request_count, Count, Interval),
+    %% Stash grace time
+    GraceTime = maps:get(grace_time, Config, 0),
+    persistent_term:put(throttle_grace_time, GraceTime),
+    %% Stash actor rqeuest header to use
+    ActorHeader = maps:get(actor_header, Config, <<"X-Forwarded-For">>),
+    persistent_term:put(throttle_actor_header, ActorHeader),
+    lager:info("throttle starting with ~p", [Config]);
 handle_event(_Event, _Data, _Args) ->
     ok.
 
 %% internal functions
 
 get_actor(Req) ->
-    case lists:keyfind(<<"X-Forwarded-For">>, 1, elli_request:headers(Req)) of
+    ActorHeader = persistent_term:get(throttle_actor_header),
+    case lists:keyfind(ActorHeader, 1, elli_request:headers(Req)) of
         false ->
             elli_request:peer(Req);
-        {<<"X-Forwarded-For">>, Value} ->
+        {ActorHeader, Value} ->
             hd(binary:split(Value, <<",">>))
     end.
