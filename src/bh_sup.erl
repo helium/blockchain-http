@@ -73,6 +73,12 @@ init([]) ->
                 "THROTTLE_GRACE_TIME",
                 integer_to_list(maps:get(grace_time, ThrottleConfig0, 0))
             )
+        ),
+        actor_header => list_to_binary(
+            os:getenv(
+                "THROTTLE_ACTOR_HEADER",
+                binary_to_list(maps:get(actor_header, ThrottleConfig0, <<"X-Forwarded-For">>))
+            )
         )
     }),
 
