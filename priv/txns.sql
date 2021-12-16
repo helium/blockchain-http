@@ -20,6 +20,9 @@ and block >= $2 and block < $3
 -- :txn_list_fields
 t.fields
 
+-- :txn_actor_list_fields
+txn_filter_actor_activity($2, t.type, t.fields) as fields
+
 -- :txn_list_order
 order by t.block desc, t.hash
 
