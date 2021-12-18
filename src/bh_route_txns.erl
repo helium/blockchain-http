@@ -640,7 +640,7 @@ get_txn_list(Args, Limit, {_MinQuery, Query, RemQuery}, [
 get_txn_count(Args, Query, [{filter_types, Types0}]) ->
     Types = ?FILTER_TYPES_TO_LIST(?TXN_TYPES, Types0),
     {ok, _, Results} = ?PREPARED_QUERY(Query, Args ++ [Types]),
-    InitCounts = [{K, 0} || K <- ?FILTER_TYPES_TO_LIST(?TXN_TYPES, Types)],
+    InitCounts = [{binary_to_existing_atom(K, utf8), 0} || K <- Types],
     {ok,
         lists:foldl(
             fun({Key, Count}, Acc) ->
