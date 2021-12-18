@@ -8,7 +8,7 @@
 -export([prepare_conn/1, handle/3, update_type_cache/1]).
 %% Utilities
 -export([
-    get_txn/1,
+    get_txn/2,
     get_txn_list/1,
     get_txn_list/2,
     get_txn_list_cache_time/1,
@@ -22,6 +22,7 @@
 ]).
 
 -define(S_TXN, "txn").
+-define(S_TXN_ACTOR, "txn_actor").
 -define(S_TXN_LIST, "txn_list").
 -define(S_TXN_LIST_REM, "txn_list_rem").
 -define(S_ACTOR_TXN_LIST, "actor_txn_list").
@@ -103,6 +104,16 @@ prepare_conn(Conn) ->
                     {limit, ""}
                 ],
                 [text]}},
+        {?S_TXN_ACTOR,
+            {txn_list_base,
+                [
+                    {source, txn_list_source},
+                    {fields, txn_actor_list_fields},
+                    {scope, txn_get_scope},
+                    {order, ""},
+                    {limit, ""}
+                ],
+                [text, text]}},
         {?S_TXN_LIST,
             {txn_list_base,
                 [
@@ -354,14 +365,23 @@ prepare_conn(Conn) ->
 
     bh_db_worker:load_from_eql("txns.sql", Loads).
 
-handle('GET', [TxnHash], _Req) ->
-    ?MK_RESPONSE(get_txn(TxnHash), infinity);
+handle('GET', [TxnHash], Req) ->
+    Args = ?GET_ARGS([actor], Req),
+    ?MK_RESPONSE(get_txn(TxnHash, Args), infinity);
 handle(_, _, _Req) ->
     ?RESPONSE_404.
 
--spec get_txn(Key :: binary()) -> {ok, jiffy:json_object()} | {error, term()}.
-get_txn(Key) ->
+-spec get_txn(Key :: binary(), Args :: [{actor, binary()}]) ->
+    {ok, jiffy:json_object()} | {error, term()}.
+get_txn(Key, [{actor, undefined}]) ->
     case ?PREPARED_QUERY(?S_TXN, [Key]) of
+        {ok, _, [Result]} ->
+            {ok, txn_to_json(Result)};
+        _ ->
+            {error, not_found}
+    end;
+get_txn(Key, [{actor, Actor}]) ->
+    case ?PREPARED_QUERY(?S_TXN_ACTOR, [Key, Actor]) of
         {ok, _, [Result]} ->
             {ok, txn_to_json(Result)};
         _ ->
