@@ -699,9 +699,12 @@ mk_txn_list_cursor(BeforeBlock, BeforeAddr, State = #state{}) ->
         ]
     ).
 
+get_txn_list_cache_time({ok, [], undefined}) ->
+    %% undefined cursor with no data means no data was found
+    never;
 get_txn_list_cache_time({ok, _, undefined}) ->
     %% Undefined cursor means we're at block 1. We assume a cursor got us here
-    %% so cache forever (is this assumption too much?)
+    %% so cache forever
     infinity;
 get_txn_list_cache_time({ok, _, Cursor = #{block := BeforeBlock}}) ->
     %% If we have an anchor block we have aligned at some point -> cache forever.
