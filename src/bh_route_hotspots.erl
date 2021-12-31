@@ -337,7 +337,7 @@ handle('GET', [Address, <<"witnesses">>, <<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time, bucket], Req),
     ?MK_RESPONSE(get_witnesses_sum({hotspot, Address}, Args), block_time);
 handle('GET', [Address, <<"witnessed">>], _Req) ->
-    ?MK_RESPONSE(get_hotspot_list([{witnessed_for, Address}]), block_time);
+    ?MK_RESPONSE(get_hotspot_list([{witnessed_for, Address}]), {block_time, 60});
 handle('GET', [Address], _Req) ->
     ?MK_RESPONSE(get_hotspot(Address), block_time);
 handle(_, _, _Req) ->
@@ -391,7 +391,7 @@ get_hotspot_list([{witnesses_for, Address}]) ->
     Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESS_LIST, [Address, MinBlock]),
     mk_hotspot_witness_list_from_result(Result);
 get_hotspot_list([{witnessed_for, Address}]) ->
-    {ok, {_, {_MaxBlock, MinBlock}}} = bh_route_blocks:get_block_span(undefined, <<"-5 day">>),
+    {ok, {_, {_MaxBlock, MinBlock}}} = bh_route_blocks:get_block_span(undefined, <<"-3 day">>),
     Result = ?PREPARED_QUERY(?S_HOTSPOT_WITNESSED_LIST, [Address, MinBlock]),
     mk_hotspot_witness_list_from_result(Result);
 get_hotspot_list([
