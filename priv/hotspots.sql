@@ -147,12 +147,10 @@ with recent_transactions as (
         and block >= $2
 ),
 hotspot_witnessed as (
-    select actor as witnessed
+    select distinct(actor) as witnessed
     from transaction_actors 
     where transaction_hash in (select transaction_hash from recent_transactions)
         and actor_role = 'challengee'
-        and block >= $2
-    group by actor
  )
 :hotspot_select
 
