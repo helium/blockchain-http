@@ -50,6 +50,8 @@ handle(Method, [<<"v1">>, <<"assert_locations">> | Tail], Req) ->
     bh_route_assert_locations:handle(Method, Tail, Req);
 handle(Method, [<<"v1">>, <<"validators">> | Tail], Req) ->
     bh_route_validators:handle(Method, Tail, Req);
+handle(Method, [<<"v1">>, <<"versions">> | Tail], Req) ->
+    bh_route_versions:handle(Method, Tail, Req);
 handle('GET', [], _Req) ->
     {200, [], <<>>};
 handle(_, _, _Req) ->
