@@ -1,10 +1,10 @@
 -- :reward_fields
-r.block, r.transaction_hash, to_timestamp(r.time) as timestamp, r.account, r.gateway, r.amount
+r.block, r.transaction_hash, to_timestamp(r.time) as timestamp, r.account, r.gateway, r.amount, r.type
 
 -- Make sure that marker fields and fields are equivalent except for the marker
 -- placeholder!
 -- :reward_marker_fields
-r.block, r.transaction_hash, to_timestamp(r.time) as timestamp, r.account, r.gateway, r.amount, :marker
+r.block, r.transaction_hash, to_timestamp(r.time) as timestamp, r.account, r.gateway, r.amount, r.type, :marker
 
 -- :reward_list_base
 select :fields
@@ -19,6 +19,14 @@ from rewards r
 :scope
 and r.block = $2 and :marker> $3
 order by :marker
+
+-- :reward_block_list_base
+select :fields
+from rewards r 
+:scope 
+and r.block = $2
+order by r.gateway, r.type
+offset $3 fetch next $4 rows only
 
 -- :reward_sum_hotspot_source
 (select

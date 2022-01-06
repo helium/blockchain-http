@@ -147,6 +147,18 @@ handle('GET', [Account, <<"rewards">>], Req) ->
 handle('GET', [Account, <<"rewards">>, <<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time, bucket], Req),
     ?MK_RESPONSE(bh_route_rewards:get_reward_sum({account, Account}, Args), block_time);
+handle('GET', [Account, <<"rewards">>, Block], Req) ->
+    Args = ?GET_ARGS([cursor], Req),
+    bh_route_handler:try_or_else(
+        fun() -> binary_to_integer(Block) end,
+        fun(Height) ->
+            ?MK_RESPONSE(
+                bh_route_rewards:get_reward_list({account, Account}, Args ++ [{block, Height}]),
+                infinity
+            )
+        end,
+        ?RESPONSE_400
+    );
 handle('GET', [Account, <<"pending_transactions">>], Req) ->
     Args = ?GET_ARGS([cursor], Req),
     ?MK_RESPONSE(bh_route_pending_txns:get_pending_txn_list({actor, Account}, Args), never);

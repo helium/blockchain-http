@@ -28,6 +28,7 @@ all() ->
         rewards_all_sum_test,
         rewards_sum_test,
         rewards_buckets_test,
+        rewards_block_test,
         witnesses_test,
         witnessed_test,
         witnesses_buckets_test,
@@ -298,6 +299,18 @@ rewards_test(_Config) ->
             #{<<"data">> := CursorData} = CursorJson,
             ?assert(length(CursorData) >= 0)
     end,
+    ok.
+
+rewards_block_test(_Config) ->
+    Hotspot = "112WaLcxSnEQTSTiyB46ey4WVr9SUiYcCjrFRXYcv1mp9bdobDxR",
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/hotspots/",
+            Hotspot,
+            "/rewards/1167207"
+        ]),
+    #{<<"data">> := Data} = Json,
+    ?assert(length(Data) >= 0),
     ok.
 
 rewards_all_sum_test(_Config) ->

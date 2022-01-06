@@ -25,6 +25,7 @@ all() ->
         rewards_dupe_test,
         rewards_sum_test,
         rewards_buckets_test,
+        rewards_block_test,
         rich_list_test
     ].
 
@@ -258,6 +259,29 @@ rewards_test(_Config) ->
             #{<<"data">> := CursorData} = CursorJson,
             ?assert(length(CursorData) >= 0)
     end,
+
+    ok.
+
+rewards_block_test(_Config) ->
+    Account = "13ESLoXiie3eXoyitxryNQNamGAnJjKt2WkiB4gNq95knxAiGEp",
+    {ok, {_, _, Json}} =
+        ?json_request([
+            "/v1/accounts/",
+            Account,
+            "/rewards/1167207"
+        ]),
+    #{<<"data">> := Data, <<"cursor">> := Cursor} = Json,
+    ?assert(length(Data) >= 0),
+
+    {ok, {_, _, CursorJson}} =
+        ?json_request([
+            "/v1/accounts/",
+            Account,
+            "/rewards/1167207?cursor=",
+            Cursor
+        ]),
+    #{<<"data">> := CursorData} = CursorJson,
+    ?assert(length(CursorData) >= 0),
 
     ok.
 

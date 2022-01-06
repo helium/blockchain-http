@@ -17,8 +17,10 @@
 -define(REWARD_LIST_LIMIT, 100).
 -define(S_REWARD_LIST_HOTSPOT, "reward_list_hotspot").
 -define(S_REWARD_LIST_HOTSPOT_REM, "reward_list_hotspot_rem").
+-define(S_REWARD_LIST_HOTSPOT_BLOCK, "reward_list_hotspot_block").
 -define(S_REWARD_LIST_ACCOUNT, "reward_list_account").
 -define(S_REWARD_LIST_ACCOUNT_REM, "reward_list_account_rem").
+-define(S_REWARD_LIST_ACCOUNT_BLOCK, "reward_list_account_block").
 -define(S_REWARD_SUM_HOTSPOT, "reward_sum_hotstpot").
 -define(S_REWARD_SUM_HOTSPOTS, "reward_sum_hotspots").
 -define(S_REWARD_SUM_VALIDATOR, "reward_sum_validator").
@@ -52,6 +54,13 @@ prepare_conn(_Conn) ->
                     {marker, "r.transaction_hash"}
                 ],
                 [text, int8, text]}},
+        {?S_REWARD_LIST_HOTSPOT_BLOCK,
+            {reward_block_list_base,
+                [
+                    {fields, reward_fields},
+                    {scope, "where r.gateway = $1"}
+                ],
+                [text, int8, int8, int8]}},
         {?S_REWARD_LIST_ACCOUNT,
             {reward_list_base,
                 [
@@ -71,6 +80,13 @@ prepare_conn(_Conn) ->
                     {marker, "r.gateway"}
                 ],
                 [text, int8, text]}},
+        {?S_REWARD_LIST_ACCOUNT_BLOCK,
+            {reward_block_list_base,
+                [
+                    {fields, reward_fields},
+                    {scope, "where r.account = $1"}
+                ],
+                [text, int8, int8, int8]}},
 
         {?S_REWARD_SUM_HOTSPOT,
             {reward_sum_base,
@@ -199,10 +215,14 @@ get_full_reward_list(Args, Query, [{max_time, MaxTime}, {min_time, MinTime}]) ->
 
 get_reward_list({hotspot, Address}, Args = [{cursor, _}, {max_time, _}, {min_time, _}]) ->
     get_reward_list([Address], {?S_REWARD_LIST_HOTSPOT, ?S_REWARD_LIST_HOTSPOT_REM}, Args);
+get_reward_list({hotspot, Address}, Args = [{cursor, _}, {block, _}]) ->
+    get_reward_list([Address], ?S_REWARD_LIST_HOTSPOT_BLOCK, Args);
 get_reward_list({validator, Address}, Args = [{cursor, _}, {max_time, _}, {min_time, _}]) ->
     get_reward_list([Address], {?S_REWARD_LIST_HOTSPOT, ?S_REWARD_LIST_HOTSPOT_REM}, Args);
 get_reward_list({account, Address}, Args = [{cursor, _}, {max_time, _}, {min_time, _}]) ->
-    get_reward_list([Address], {?S_REWARD_LIST_ACCOUNT, ?S_REWARD_LIST_ACCOUNT_REM}, Args).
+    get_reward_list([Address], {?S_REWARD_LIST_ACCOUNT, ?S_REWARD_LIST_ACCOUNT_REM}, Args);
+get_reward_list({account, Address}, Args = [{cursor, _}, {block, _}]) ->
+    get_reward_list([Address], ?S_REWARD_LIST_ACCOUNT_BLOCK, Args).
 
 %% network
 get_reward_sum(
@@ -320,6 +340,23 @@ calc_low_block(HighBlock, EndBlock) ->
 
 get_reward_list(
     Args,
+    Query,
+    [{cursor, Cursor}, {block, Height}]
+) ->
+    Offset =
+        case Cursor of
+            undefined ->
+                0;
+            C ->
+                case ?CURSOR_DECODE(C) of
+                    {ok, #{<<"offset">> := V}} -> V;
+                    _ -> throw(?RESPONSE_400)
+                end
+        end,
+    Result = ?PREPARED_QUERY(Query, Args ++ [Height, Offset, ?REWARD_LIST_LIMIT + 1]),
+    mk_reward_block_list_result(Offset, Result);
+get_reward_list(
+    Args,
     {Query, _RemQuery},
     [{cursor, undefined}, {max_time, MaxTime}, {min_time, MinTime}]
 ) ->
@@ -401,11 +438,20 @@ get_reward_sum_cache_time([{max_time, _MaxTime}, {min_time, _MinTime}, {bucket, 
     % But if min/max are specified, cache as long as possible
     infinity.
 
+mk_reward_block_list_result(Offset, {ok, _, Results}) when length(Results) > ?REWARD_LIST_LIMIT ->
+    {Trimmed, _Remainder} = lists:split(?REWARD_LIST_LIMIT, Results),
+    {ok, reward_list_to_json(Trimmed), mk_reward_block_list_cursor(Offset + length(Trimmed))};
+mk_reward_block_list_result(_Offset, {ok, _, Results}) ->
+    {ok, reward_list_to_json(Results)}.
+
+mk_reward_block_list_cursor(Offset) ->
+    #{offset => Offset}.
+
 mk_reward_list_result(State = #state{results = Results}) when
     length(Results) > ?REWARD_LIST_LIMIT
 ->
     {Trimmed, _Remainder} = lists:split(?REWARD_LIST_LIMIT, Results),
-    {Block, _Hash, _Timestamp, _Account, _Gateway, _Amount, Marker} = lists:last(Trimmed),
+    {Block, _Hash, _Timestamp, _Account, _Gateway, _Amount, _Type, Marker} = lists:last(Trimmed),
     {ok, reward_list_to_json(Trimmed), mk_reward_list_cursor(Block, Marker, State)};
 mk_reward_list_result(State = #state{results = Results}) ->
     {ok, reward_list_to_json(Results),
@@ -460,15 +506,18 @@ mk_reward_list_cursor(BeforeBlock, Marker, State = #state{}) ->
 reward_list_to_json(Results) ->
     lists:map(fun reward_to_json/1, Results).
 
-reward_to_json({Block, Hash, Timestamp, Account, Gateway, Amount, _Marker}) ->
+reward_to_json({Block, Hash, Timestamp, Account, Gateway, Amount, Type}) ->
     #{
         <<"block">> => Block,
         <<"hash">> => Hash,
         <<"timestamp">> => iso8601:format(Timestamp),
         <<"account">> => Account,
         <<"gateway">> => Gateway,
-        <<"amount">> => Amount
-    }.
+        <<"amount">> => Amount,
+        <<"type">> => Type
+    };
+reward_to_json({Block, Hash, Timestamp, Account, Gateway, Amount, Type, _Marker}) ->
+    reward_to_json({Block, Hash, Timestamp, Account, Gateway, Amount, Type}).
 
 reward_buckets_to_json(Results) ->
     lists:map(fun reward_stat_to_json/1, Results).
