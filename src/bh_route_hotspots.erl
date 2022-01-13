@@ -324,6 +324,18 @@ handle('GET', [Address, <<"rewards">>], Req) ->
 handle('GET', [Address, <<"rewards">>, <<"sum">>], Req) ->
     Args = ?GET_ARGS([max_time, min_time, bucket], Req),
     ?MK_RESPONSE(bh_route_rewards:get_reward_sum({hotspot, Address}, Args), block_time);
+handle('GET', [Address, <<"rewards">>, Block], Req) ->
+    Args = ?GET_ARGS([cursor], Req),
+    bh_route_handler:try_or_else(
+        fun() -> binary_to_integer(Block) end,
+        fun(Height) ->
+            ?MK_RESPONSE(
+                bh_route_rewards:get_reward_list({hotspot, Address}, Args ++ [{block, Height}]),
+                infinity
+            )
+        end,
+        ?RESPONSE_400
+    );
 handle('GET', [<<"rewards">>, <<"sum">>], Req) ->
     %% We do not allow bucketing across all hotspots as that takes way too long
     Args = ?GET_ARGS([max_time, min_time], Req),
