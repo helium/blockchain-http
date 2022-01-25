@@ -49,6 +49,8 @@ where (l.address > $1 and l.first_block = $2) or (l.first_block < $2)
 
 -- :account_speculative_extend
 , l.first_block
+, (select count(*) from gateway_inventory where owner = l.address) as hotspot_count
+, (select count(*) from validator_inventory where owner = l.address) as validator_count
 , (select greatest(l.nonce, coalesce(max(p.nonce), l.nonce))
     from pending_transactions p
     where p.address = l.address and nonce_type='balance' and status != 'failed'
