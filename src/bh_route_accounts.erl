@@ -315,7 +315,7 @@ account_to_json(
     };
 account_to_json(
     {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, StakedBalance, Nonce,
-        FirstBlock, SpecNonce, SpecSecNonce}
+        FirstBlock, HotspotCount, ValidatorCount, SpecNonce, SpecSecNonce}
 ) ->
     Base = account_to_json(
         {Height, Address, DCBalance, DCNonce, SecBalance, SecNonce, Balance, StakedBalance, Nonce,
@@ -323,5 +323,7 @@ account_to_json(
     ),
     Base#{
         <<"speculative_nonce">> => SpecNonce,
-        <<"speculative_sec_nonce">> => SpecSecNonce
+        <<"speculative_sec_nonce">> => SpecSecNonce,
+        <<"hotspot_count">> => HotspotCount,
+        <<"validator_count">> => ValidatorCount
     }.
