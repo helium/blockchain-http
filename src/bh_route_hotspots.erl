@@ -37,8 +37,8 @@
 -define(HOTSPOT_LIST_LIMIT, 1000).
 -define(HOTSPOT_LIST_NAME_SEARCH_LIMIT, 100).
 -define(HOTSPOT_LIST_LOCATION_SEARCH_LIMIT, 500).
-% 24 hours of blocks considered for online status
--define(HOTSPOT_OFFLINE_BLOCKS, 86400).
+% 36 hours of blocks considered for online status
+-define(HOTSPOT_OFFLINE_BLOCKS, 2160).
 
 -define(HOTSPOT_MODES, [
     <<"full">>,
