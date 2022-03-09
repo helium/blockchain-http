@@ -37,6 +37,8 @@
 -define(HOTSPOT_LIST_LIMIT, 1000).
 -define(HOTSPOT_LIST_NAME_SEARCH_LIMIT, 100).
 -define(HOTSPOT_LIST_LOCATION_SEARCH_LIMIT, 500).
+% 36 hours of blocks considered for online status
+-define(HOTSPOT_OFFLINE_BLOCKS, 2160).
 
 -define(HOTSPOT_MODES, [
     <<"full">>,
@@ -678,9 +680,9 @@ mk_cursor(Limit, CursorBase, Results) when is_list(Results) ->
             case lists:last(Results) of
                 {Height, _LastChangeBlock, FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
                     _Mode, _Owner, _Payer, _Location, _LocationHex, _Nonce, _Name, _RewardScale,
-                    _Elevation, _Gain, _OnlineStatus, _BlockStatus, _StatusTimestamp, _ListenAddrs,
-                    _ShortStreet, _LongStreet, _ShortCity, _LongCity, _ShortState, _LongState,
-                    _ShortCountry, _LongCountry, _CityId} ->
+                    _Elevation, _Gain, _BlockStatus, _StatusTimestamp, _ListenAddrs, _ShortStreet,
+                    _LongStreet, _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry,
+                    _LongCountry, _CityId} ->
                     CursorBase#{
                         before_address => Address,
                         before_block => FirstBlock,
@@ -691,9 +693,9 @@ mk_cursor(Limit, CursorBase, Results) when is_list(Results) ->
                     };
                 {Height, _LastChangeBlock, _FirstBlock, _FirstTimestamp, _LastPocChallenge, Address,
                     _Mode, _Owner, _Payer, _Location, _LocationHex, _Nonce, _Name, _RewardScale,
-                    _Elevation, _Gain, _OnlineStatus, _BlockStatus, _StatusTimestamp, _ListenAddrs,
-                    _ShortStreet, _LongStreet, _ShortCity, _LongCity, _ShortState, _LongState,
-                    _ShortCountry, _LongCountry, _CityId, Distance} ->
+                    _Elevation, _Gain, _BlockStatus, _StatusTimestamp, _ListenAddrs, _ShortStreet,
+                    _LongStreet, _ShortCity, _LongCity, _ShortState, _LongState, _ShortCountry,
+                    _LongCountry, _CityId, Distance} ->
                     CursorBase#{
                         before_address => Address,
                         before_distance => Distance,
@@ -756,24 +758,24 @@ to_geo_json(
 
 hotspot_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode, Owner,
-        Payer, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus,
-        BlockStatus, StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity,
-        ShortState, LongState, ShortCountry, LongCountry, CityId, SpecNonce}
+        Payer, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, BlockStatus,
+        StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
+        LongState, ShortCountry, LongCountry, CityId, SpecNonce}
 ) ->
     Base = hotspot_to_json(
         {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode,
             Owner, Payer, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain,
-            OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs, ShortStreet, LongStreet,
-            ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}
+            BlockStatus, StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity,
+            ShortState, LongState, ShortCountry, LongCountry, CityId}
     ),
     Base#{
         <<"speculative_nonce">> => SpecNonce
     };
 hotspot_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode, Owner,
-        Payer, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus,
-        BlockStatus, StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity,
-        ShortState, LongState, ShortCountry, LongCountry, CityId}
+        Payer, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, BlockStatus,
+        StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
+        LongState, ShortCountry, LongCountry, CityId}
 ) ->
     MaybeZero = fun
         (null) -> 0;
@@ -783,6 +785,11 @@ hotspot_to_json(
         (null) -> null;
         (V) -> iso8601:format(V)
     end,
+    OnlineStatus =
+        case (Height - MaybeZero(LastChangeBlock)) < ?HOTSPOT_OFFLINE_BLOCKS of
+            true -> <<"online">>;
+            _ -> <<"offline">>
+        end,
     ?INSERT_LAT_LON(
         Location,
         #{
@@ -817,15 +824,15 @@ hotspot_to_json(
 
 hotspot_distance_to_json(
     {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode, Owner,
-        Payer, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, OnlineStatus,
-        BlockStatus, StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity,
-        ShortState, LongState, ShortCountry, LongCountry, CityId, Distance}
+        Payer, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain, BlockStatus,
+        StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity, ShortState,
+        LongState, ShortCountry, LongCountry, CityId, Distance}
 ) ->
     Base = hotspot_to_json(
         {Height, LastChangeBlock, FirstBlock, FirstTimestamp, LastPoCChallenge, Address, Mode,
             Owner, Payer, Location, LocationHex, Nonce, Name, RewardScale, Elevation, Gain,
-            OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs, ShortStreet, LongStreet,
-            ShortCity, LongCity, ShortState, LongState, ShortCountry, LongCountry, CityId}
+            BlockStatus, StatusTimestamp, ListenAddrs, ShortStreet, LongStreet, ShortCity, LongCity,
+            ShortState, LongState, ShortCountry, LongCountry, CityId}
     ),
     Base#{
         <<"distance">> => Distance
