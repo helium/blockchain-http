@@ -849,7 +849,7 @@ txn_to_json(
         } = Fields}
 ) ->
     %% Fix up potential integer only memos
-    lager:info("FIELDS ~p", Fields),
+    lager:info("FIELDS ~p", [Fields]),
     NewPayments = lists:map(
         fun(Payment) ->
             maps:update_with(
