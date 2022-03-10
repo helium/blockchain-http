@@ -853,9 +853,11 @@ txn_to_json(
         fun(Payment) ->
             maps:update_with(
                 <<"memo">>,
-                fun(Memo) ->
-                    encode_memo(Memo)
+                fun
+                    (undefined) -> undefined;
+                    (Memo) -> encode_memo(Memo)
                 end,
+                undefined,
                 Payment
             )
         end,
