@@ -6,7 +6,8 @@
 all() ->
     [
         get_test,
-        get_actor_test
+        get_actor_test,
+        get_memo_test
     ].
 
 init_per_suite(Config) ->
@@ -51,4 +52,18 @@ get_actor_test(_Config) ->
         ],
         Rewards
     ),
+    ok.
+
+get_memo_test(_Config) ->
+    IntMemoHash = "BMSRU4VoAKM5h7f3Epgdday-bSMg4YUgm7Dg73FSI9Q",
+    {ok, {_, _, Json}} = ?json_request([
+        "/v1/transactions/",
+        IntMemoHash
+    ]),
+    #{
+        <<"data">> := #{
+            <<"payments">> := Payments
+        }
+    } = Json,
+    ?assert(lists:all(fun(#{<<"memo">> := Memo}) -> is_list(Memo) end, Payments)),
     ok.

@@ -839,14 +839,24 @@ txn_to_json(
             <<"memo">> := Memo
         } = Fields}
 ) ->
-    %% Adjust for some memos being base64 and others still integers
-    MemoStr =
-        case is_integer(Memo) of
-            true -> base64:encode(<<Memo:64/unsigned-little-integer>>);
-            _ -> Memo
-        end,
     Fields#{
-        <<"memo">> => MemoStr
+        <<"memo">> => encode_memo(Memo)
+    };
+txn_to_json(
+    {payment_v2,
+        #{
+            <<"payments">> := Payments
+        } = Fields}
+) ->
+    %% Fix up potential integer only memos
+    NewPayments = lists:map(
+        fun(Payment = #{<<"memo">> := Memo}) ->
+            Payment#{<<"memo">> => encode_memo(Memo)}
+        end,
+        Payments
+    ),
+    Fields#{
+        <<"payments">> => NewPayments
     };
 txn_to_json({_, Fields}) ->
     Fields.
@@ -854,3 +864,9 @@ txn_to_json({_, Fields}) ->
 %% txn_to_json({Type, _Fields}) ->
 %%     lager:error("Unhandled transaction type ~p", [Type]),
 %%     error({unhandled_txn_type, Type}).
+
+%% Adjust for some memos being base64 and others still integers
+encode_memo(Memo) when is_integer(Memo) ->
+    base64:encode(<<Memo:64/unsigned-little-integer>>);
+encode_memo(Memo) ->
+    Memo.
