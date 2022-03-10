@@ -850,8 +850,14 @@ txn_to_json(
 ) ->
     %% Fix up potential integer only memos
     NewPayments = lists:map(
-        fun(Payment = #{<<"memo">> := Memo}) ->
-            Payment#{<<"memo">> => encode_memo(Memo)}
+        fun(Payment) ->
+            maps:update_with(
+                <<"memo">>,
+                fun(Memo) ->
+                    encode_memo(Memo)
+                end,
+                Payment
+            )
         end,
         Payments
     ),
