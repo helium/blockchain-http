@@ -761,7 +761,7 @@ txn_to_json({Height, Time, Hash, Type, Fields}) when is_map(Fields) ->
 txn_to_json({poc_request_v1, #{<<"location">> := Location} = Fields}) ->
     ?INSERT_LAT_LON(Location, Fields);
 txn_to_json(
-    {Type, #{<<"challenger_location">> := ChallengerLoc, <<"path">> := Path} = Fields}
+    {Type, #{<<"path">> := Path} = Fields}
 ) when Type == poc_receipts_v1 orelse Type == poc_receipts_v2 ->
     %% update witnesses to include location_hex at res8
     WitnessLocationHex = fun(PathElem) ->
@@ -810,6 +810,7 @@ txn_to_json(
         end,
         lists:zip(lists:seq(1, length(Path)), Path)
     ),
+    ChallengerLoc = maps:get(<<"challenger_location">>, Fields, undefined),
     ?INSERT_LAT_LON(ChallengerLoc, {<<"challenger_lat">>, <<"challenger_lon">>}, Fields#{
         <<"path">> => NewPath
     });
