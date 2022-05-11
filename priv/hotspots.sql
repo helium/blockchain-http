@@ -16,6 +16,7 @@ select
     g.reward_scale,
     g.elevation,
     g.gain,
+    s.online as online_status,
     s.block as block_status,
     s.peer_timestamp as status_timestamp,
     s.listen_addrs as listen_addrs,
