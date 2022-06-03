@@ -276,7 +276,7 @@ mk_cursor(Results) when is_list(Results) ->
             case lists:last(Results) of
                 {Height, Address, _Name, _Owner, _Stake, _Status, _LastHeartbeat, _VersionHeartBeat,
                     _Penalty, _Penalties, _Nonce, FirstBlock, _OnlineStatus, _BlockStatus,
-                    _StatusTimestamp, _ListenAddrs} ->
+                    _StatusTimestamp, _ListenAddrs, _GrpcAddr} ->
                     #{
                         before_address => Address,
                         before_block => FirstBlock,
@@ -284,7 +284,7 @@ mk_cursor(Results) when is_list(Results) ->
                     };
                 {Height, Address, _Name, _Owner, _Stake, _Status, _LastHeartbeat, _VersionHeartBeat,
                     _Penalty, _Penalties, _Nonce, FirstBlock, _OnlineStatus, _BlockStatus,
-                    _StatusTimestamp, _ListenAddrs, _CGCount} ->
+                    _StatusTimestamp, _ListenAddrs, _GrpcAddr, _CGCount} ->
                     #{
                         before_address => Address,
                         before_block => FirstBlock,
@@ -303,16 +303,18 @@ validator_list_to_json(Results) ->
 validator_to_json(
     {Height, Address, Name, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Penalty,
         Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs,
-        CGCount}
+        GrpcAddr, CGCount}
 ) ->
     Json = validator_to_json(
         {Height, Address, Name, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Penalty,
-            Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs}
+            Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs,
+            GrpcAddr}
     ),
     Json#{consensus_groups => CGCount};
 validator_to_json(
     {Height, Address, Name, Owner, Stake, Status, LastHeartbeat, VersionHeartbeat, Penalty,
-        Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs}
+        Penalties, _Nonce, FirstBlock, OnlineStatus, BlockStatus, StatusTimestamp, ListenAddrs,
+        GrpcAddr}
 ) ->
     MaybeTimestamp = fun
         (null) -> null;
@@ -335,7 +337,8 @@ validator_to_json(
             online => OnlineStatus,
             height => BlockStatus,
             timestamp => MaybeTimestamp(StatusTimestamp),
-            listen_addrs => ListenAddrs
+            listen_addrs => ListenAddrs,
+            grpc_addr => GrpcAddr
         }
     }.
 
