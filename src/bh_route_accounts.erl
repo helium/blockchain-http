@@ -284,13 +284,21 @@ get_stats(Account) ->
 
 mk_balance_stats({ok, _Columns, Results}) ->
     lists:map(
-        fun({Timestamp, [Balance, MobileBalance, IotBalance]}) ->
-            #{
-                timestamp => iso8601:format(Timestamp),
-                balance => Balance,
-                mobile_balance => MobileBalance,
-                iot_balance => IotBalance
-            }
+        fun
+            ({Timestamp, null}) ->
+                #{
+                    timestamp => iso8601:format(Timestamp),
+                    balance => 0,
+                    mobile_balance => 0,
+                    iot_balance => 0
+                };
+            ({Timestamp, [Balance, MobileBalance, IotBalance]}) ->
+                #{
+                    timestamp => iso8601:format(Timestamp),
+                    balance => Balance,
+                    mobile_balance => MobileBalance,
+                    iot_balance => IotBalance
+                }
         end,
         Results
     ).
