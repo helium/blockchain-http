@@ -10,6 +10,8 @@ select
     l.security_nonce,
     l.balance,
     coalesce(l.staked_balance, 0),
+    l.mobile_balance,
+    l.iot_balance,
     l.nonce
     :extend
 from :source
@@ -78,7 +80,7 @@ accounts_ts as (
 )
 select
     ts.timestamp,
-    (select accounts_ts.balance
+    (select ARRAY[balance, mobile_balance, iot_balance]
         from accounts_ts
         where timestamp <= ts.timestamp
         order by timestamp desc limit 1)
