@@ -80,7 +80,7 @@ accounts_ts as (
 )
 select
     ts.timestamp,
-    (select balance, mobile_balance, iot_balance
+    (select ARRAY[balance, mobile_balance, iot_balance]
         from accounts_ts
         where timestamp <= ts.timestamp
         order by timestamp desc limit 1)
