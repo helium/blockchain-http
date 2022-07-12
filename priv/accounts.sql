@@ -10,8 +10,8 @@ select
     l.security_nonce,
     l.balance,
     coalesce(l.staked_balance, 0),
-    l.mobile_balance,
-    l.iot_balance,
+    coalesce(l.mobile_balance, 0),
+    coalesce(l.iot_balance, 0),
     l.nonce
     :extend
 from :source
