@@ -22,7 +22,7 @@ RUN mkdir -p /opt/rel && \
     ./rebar3 as prod tar && \
     tar -zxvf $REBAR_BASE_DIR/prod/rel/*/*.tar.gz -C /opt/rel
 
-FROM alpine:3.14 as runner
+FROM alpine:3.16 as runner
 
 RUN apk add --update openssl libsodium ncurses libstdc++
 
