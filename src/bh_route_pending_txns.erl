@@ -120,6 +120,8 @@ handle(_, _, _Req) ->
 -type supported_txn() ::
     #blockchain_txn_oui_v1_pb{}
     | #blockchain_txn_routing_v1_pb{}
+    | #blockchain_txn_state_channel_open_v1_pb{}
+    | #blockchain_txn_state_channel_close_v1_pb{}
     | #blockchain_txn_vars_v1_pb{}
     | #blockchain_txn_add_gateway_v1_pb{}
     | #blockchain_txn_assert_location_v1_pb{}
@@ -149,6 +151,12 @@ insert_pending_txn(#blockchain_txn_routing_v1_pb{nonce = Nonce} = Txn, Bin) ->
     %% track it right now. We can't lean on the owner address since an owner can
     %% have multipe ouis
     insert_pending_txn(Txn, undefined, Nonce, <<"none">>, Bin);
+insert_pending_txn(
+    #blockchain_txn_state_channel_open_v1_pb{nonce = Nonce, owner = Owner} = Txn, Bin
+) ->
+    insert_pending_txn(Txn, Owner, Nonce, <<"balance">>, Bin);
+insert_pending_txn(#blockchain_txn_state_channel_close_v1_pb{} = Txn, Bin) ->
+    insert_pending_txn(Txn, undefined, 0, <<"none">>, Bin);
 insert_pending_txn(#blockchain_txn_vars_v1_pb{nonce = Nonce} = Txn, Bin) ->
     %% A vars transaction doesn't have a clear actor at all so we don't track it
     insert_pending_txn(Txn, undefined, Nonce, <<"none">>, Bin);
@@ -347,6 +355,14 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
     blockchain_txn_routing_v1_pb,
     {signature = <<>>}
 );
+?TXN_HASH(
+    blockchain_txn_state_channel_open_v1_pb,
+    {signature = <<>>}
+);
+?TXN_HASH(
+    blockchain_txn_state_channel_close_v1_pb,
+    {signature = <<>>}
+);
 ?TXN_HASH(blockchain_txn_vars_v1_pb, {});
 ?TXN_HASH(
     blockchain_txn_add_gateway_v1_pb,
@@ -390,6 +406,8 @@ txn_unwrap(#blockchain_txn_pb{txn = {_, Txn}}) ->
 
 ?TXN_TYPE(blockchain_txn_oui_v1_pb, oui_v1);
 ?TXN_TYPE(blockchain_txn_routing_v1_pb, routing_v1);
+?TXN_TYPE(blockchain_txn_state_channel_open_v1_pb, state_channel_open_v1);
+?TXN_TYPE(blockchain_txn_state_channel_close_v1_pb, state_channel_close_v1);
 ?TXN_TYPE(blockchain_txn_vars_v1_pb, vars_v1);
 ?TXN_TYPE(blockchain_txn_add_gateway_v1_pb, add_gateway_v1);
 ?TXN_TYPE(blockchain_txn_assert_location_v1_pb, assert_location_v1);
