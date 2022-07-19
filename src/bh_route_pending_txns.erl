@@ -155,8 +155,8 @@ insert_pending_txn(
     #blockchain_txn_state_channel_open_v1_pb{nonce = Nonce, owner = Owner} = Txn, Bin
 ) ->
     insert_pending_txn(Txn, Owner, Nonce, <<"balance">>, Bin);
-insert_pending_txn(#blockchain_txn_state_channel_close_v1_pb{} = Txn, Bin) ->
-    insert_pending_txn(Txn, undefined, 0, <<"none">>, Bin);
+insert_pending_txn(#blockchain_txn_state_channel_close_v1_pb{closer = Closer} = Txn, Bin) ->
+    insert_pending_txn(Txn, Closer, 0, <<"none">>, Bin);
 insert_pending_txn(#blockchain_txn_vars_v1_pb{nonce = Nonce} = Txn, Bin) ->
     %% A vars transaction doesn't have a clear actor at all so we don't track it
     insert_pending_txn(Txn, undefined, Nonce, <<"none">>, Bin);
