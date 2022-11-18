@@ -87,7 +87,8 @@
     <<"validator_heartbeat_v1">>,
     <<"consensus_group_failure_v1">>,
     <<"add_subnetwork_v1">>,
-    <<"subnetwork_rewards_v1">>
+    <<"subnetwork_rewards_v1">>,
+    <<"subnetwork_fund_v1">>
 ]).
 
 update_type_cache(Conn) ->
