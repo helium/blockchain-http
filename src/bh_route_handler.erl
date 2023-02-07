@@ -251,6 +251,8 @@ lat_lon(Location, {LatName, LonName}, Fields) when is_binary(Location) ->
 insert_location_hex(Location, Fields) ->
     insert_location_hex(Location, <<"location_hex">>, Fields).
 
+insert_location_hex(undefined, _Name, Fields) ->
+    Fields;
 insert_location_hex(Location, Name, Fields) ->
     Fields#{Name => to_location_hex(Location)}.
 
