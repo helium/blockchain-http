@@ -253,6 +253,8 @@ insert_location_hex(Location, Fields) ->
 
 insert_location_hex(undefined, _Name, Fields) ->
     Fields;
+insert_location_hex(null, _Name, Fields) ->
+    Fields;
 insert_location_hex(Location, Name, Fields) ->
     Fields#{Name => to_location_hex(Location)}.
 
