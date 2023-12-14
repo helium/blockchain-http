@@ -41,10 +41,24 @@ sudo apt install build-essential
 
 ## WARNING
 
-This application does NOT serve up over TLS, and does NOT rate
-control, or access control clients. Please run this service behind a
-load balancer that terminates SSL and does some rate and access
-control.
+This application does NOT serve up over TLS or access control clients. 
+Please run this service behind a load balancer that terminates SSL 
+and does some access control.
+
+### Rating
+
+This application performs rating on the request with the parameters
+configured in `sys.config`. 
+
+Each client is checked against the limits configured by following parameters: 
+
+* How much request time is allowed: `request_time`
+* How many requests are allowed: `request_count`
+* Period in milliseconds to apply above limits: `request_interval`
+* Duration threshold to ignore the requests in rating, if the execution takes less: `grace_time`
+
+All limits are applied against individual client IPs. Client IP is retrieved from `X-Forwarded-For` HTTP header, 
+and this header can be configured with `actor_header` parameter in the configuration file.
 
 ## Using Docker
 
